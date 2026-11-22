@@ -24,7 +24,6 @@ import {
   findPlayersMissingFromWorkbook,
   assessReplaceIdentityCoverage,
   getReplaceDataSafetyError,
-  resolvePlayerIdentity,
   computeHealthScore,
   getWorkbookSport,
   type ParsedWorkbook,
@@ -135,6 +134,7 @@ async function commitWorkbookNewPlayers(
       else if (inferred === "female") gender = "F";
     }
 
+    const hasMobileConsent = mobile.length >= 10;
     const [inserted] = await db
       .insert(playersTable)
       .values({
@@ -148,6 +148,9 @@ async function commitWorkbookNewPlayers(
         gender: gender ?? null,
         role: String(row["Role"] ?? "").trim() || null,
         city: String(row["City"] ?? "").trim() || null,
+        whatsappConsent: hasMobileConsent,
+        whatsappConsentAt: hasMobileConsent ? new Date() : null,
+        whatsappConsentMethod: hasMobileConsent ? "organizer_declaration" : null,
       })
       .returning();
 
@@ -523,11 +526,25 @@ async function commitWorkbookEntities(
           color: String(row["Primary Color"] ?? "") || null,
           logoUrl: String(row["Logo URL"] ?? "") || null,
           purse: budget > 0 ? budget : 10000000,
+          whatsappConsent: true,
+          whatsappConsentAt: new Date(),
+          whatsappConsentMethod: "organizer_declaration",
         });
         created++;
-      } else if (budget > 0 && existing.purseUsed === 0 && existing.purse !== budget) {
-        await tx.update(teamsTable).set({ purse: budget }).where(eq(teamsTable.id, existing.id));
-        created++;
+      } else {
+        const teamUpdates: Partial<typeof teamsTable.$inferInsert> = {};
+        if (budget > 0 && existing.purseUsed === 0 && existing.purse !== budget) {
+          teamUpdates.purse = budget;
+        }
+        if (existing.whatsappConsent === null || existing.whatsappConsent === undefined) {
+          teamUpdates.whatsappConsent = true;
+          teamUpdates.whatsappConsentAt = new Date();
+          teamUpdates.whatsappConsentMethod = "organizer_declaration";
+        }
+        if (Object.keys(teamUpdates).length > 0) {
+          await tx.update(teamsTable).set(teamUpdates).where(eq(teamsTable.id, existing.id));
+          created++;
+        }
       }
     }
 

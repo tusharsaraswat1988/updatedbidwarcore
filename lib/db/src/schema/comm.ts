@@ -62,6 +62,7 @@ export const commLogsTable = pgTable(
     recipientId: integer("recipient_id"),
     recipientMobile: text("recipient_mobile").notNull(),
     channel: text("channel").notNull(), // "whatsapp"|"sms"|"both"
+    direction: text("direction").notNull().default("outbound"), // "inbound"|"outbound"
     templateName: text("template_name"), // Meta template name, null for free-form
     messageContent: text("message_content").notNull(),
     sentByAdminId: text("sent_by_admin_id"), // null = automated (scheduler)
@@ -75,6 +76,7 @@ export const commLogsTable = pgTable(
   (t) => [
     index("ix_comm_logs_tournament_id").on(t.tournamentId),
     index("ix_comm_logs_recipient_mobile").on(t.recipientMobile),
+    index("ix_comm_logs_direction").on(t.direction),
     index("ix_comm_logs_sent_at").on(t.sentAt),
     index("ix_comm_logs_blast_id").on(t.blastId),
     index("ix_comm_logs_meta_message_id").on(t.metaMessageId),

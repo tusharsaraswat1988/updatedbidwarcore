@@ -3,7 +3,7 @@ import type { SendResult } from "./comm-sender";
 import { getPublicOrigin } from "./runtime-env";
 import { logger, maskPhoneNumber } from "./logger";
 import { db, commLogsTable, tournamentsTable, teamsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { formatAuctionAmount, normalizeAuctionUnit, type AuctionUnit } from "@workspace/auction/auction-unit";
 
 export const META_AUCTION_PLAYER_SOLD_TEMPLATE = "auction_player_sold";

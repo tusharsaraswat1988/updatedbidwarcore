@@ -1129,7 +1129,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
             eq(playersTable.mobileNumber, mobile),
             eq(playersTable.mobileNumber, norm),
             eq(playersTable.mobileNumber, tenDigit),
-            sql`regexp_replace(${playersTable.mobileNumber}, '\\D', '', 'g') = ${norm}`,
+            sql`regexp_replace(${playersTable.mobileNumber}, '\\D', '', 'g') IN (${norm}, ${tenDigit})`,
           ),
         ];
         if (d.tournamentId) {
@@ -1153,7 +1153,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
               eq(teamsTable.ownerMobile, mobile),
               eq(teamsTable.ownerMobile, norm),
               eq(teamsTable.ownerMobile, tenDigit),
-              sql`regexp_replace(${teamsTable.ownerMobile}, '\\D', '', 'g') = ${norm}`,
+              sql`regexp_replace(${teamsTable.ownerMobile}, '\\D', '', 'g') IN (${norm}, ${tenDigit})`,
             ),
           ];
           if (d.tournamentId) {
@@ -1166,10 +1166,18 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           const tRows = typeof (tQ as any)?.limit === "function" ? await (tQ as any).limit(1) : await tQ;
           const tm = Array.isArray(tRows) ? tRows[0] : null;
 
-          if (tm && tm.whatsappConsent) {
-            consent = true;
+          if (tm) {
             recipientType = "team_owner";
             recipientId = tm.id;
+            const isUtilityTemplate = (
+              canonicalTemplate === META_TEAM_OWNER_WELCOME_TEMPLATE ||
+              d.templateName === "team_owner_welcome" ||
+              d.templateName === "team_owner_welcome_login" ||
+              d.templateName === META_TEAM_OWNER_WELCOME_TEMPLATE
+            );
+            if (tm.whatsappConsent || isUtilityTemplate) {
+              consent = true;
+            }
           } else if (!tm) {
             // Try organizers
             const oQ = db
@@ -1259,6 +1267,12 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         }
       }
     } else if (d.recipientGroup === "all_owners") {
+      const isUtilityTemplate = (
+        canonicalTemplate === META_TEAM_OWNER_WELCOME_TEMPLATE ||
+        d.templateName === "team_owner_welcome" ||
+        d.templateName === "team_owner_welcome_login" ||
+        d.templateName === META_TEAM_OWNER_WELCOME_TEMPLATE
+      );
       const teamConds = [eq(teamsTable.tournamentId, tid), sql`${teamsTable.ownerMobile} IS NOT NULL AND ${teamsTable.ownerMobile} != ''`];
       if (d.specificTeamId) teamConds.push(eq(teamsTable.id, d.specificTeamId));
       const teams = await db.select({ id: teamsTable.id, ownerMobile: teamsTable.ownerMobile, whatsappConsent: teamsTable.whatsappConsent }).from(teamsTable).where(and(...teamConds));
@@ -1268,7 +1282,8 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           if (!seenRecipients.has(normKey)) {
             seenRecipients.add(normKey);
             const isRevoked = await isMobileRevoked(t.ownerMobile);
-            recipients.push({ mobile: t.ownerMobile, recipientType: "team_owner", recipientId: t.id, whatsappConsent: Boolean(t.whatsappConsent && !isRevoked) });
+            const hasConsent = Boolean((t.whatsappConsent || isUtilityTemplate) && !isRevoked);
+            recipients.push({ mobile: t.ownerMobile, recipientType: "team_owner", recipientId: t.id, whatsappConsent: hasConsent });
           }
         }
       }
@@ -1298,8 +1313,20 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         d.templateName === "player_sold" ||
         d.templateName === META_AUCTION_PLAYER_SOLD_TEMPLATE;
 
+      const isOrgWelcome = canonicalTemplate === META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE;
+
+      const isOwnerWelcome =
+        canonicalTemplate === META_TEAM_OWNER_WELCOME_TEMPLATE ||
+        d.templateName === "team_owner_welcome" ||
+        d.templateName === "team_owner_welcome_login" ||
+        d.templateName === META_TEAM_OWNER_WELCOME_TEMPLATE;
+
       const effectiveWaTemplateName = isSoldTmpl
         ? META_AUCTION_PLAYER_SOLD_TEMPLATE
+        : isOrgWelcome
+        ? META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE
+        : isOwnerWelcome
+        ? META_TEAM_OWNER_WELCOME_TEMPLATE
         : (d.templateName ?? null);
 
       if (!r.whatsappConsent) {
@@ -1414,7 +1441,6 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           ];
         }
 
-        const isOrgWelcome = canonicalTemplate === META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE;
         if (isOrgWelcome && !templateComponents) {
           const suppliedVars = d.templateVariables ?? {};
           const var1 = suppliedVars["1"] ?? suppliedVars["Organiser Name"] ?? suppliedVars["Organizer Name"] ?? "Organiser";
@@ -1426,15 +1452,67 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           ];
         }
 
+        if (isOwnerWelcome && !templateComponents) {
+          const suppliedVars = d.templateVariables ?? {};
+          let ownerName = suppliedVars["1"] ?? suppliedVars["Team Owner Name"] ?? suppliedVars["Owner Name"] ?? "";
+          let tourneyName = suppliedVars["2"] ?? suppliedVars["Tournament Name"] ?? "";
+
+          if (!ownerName && r.recipientType === "team_owner" && r.recipientId) {
+            try {
+              const [tm] = await db
+                .select({ ownerName: teamsTable.ownerName })
+                .from(teamsTable)
+                .where(eq(teamsTable.id, r.recipientId))
+                .limit(1);
+              if (tm?.ownerName) ownerName = tm.ownerName;
+            } catch {}
+          }
+          if (!tourneyName && d.tournamentId) {
+            try {
+              const [tn] = await db
+                .select({ name: tournamentsTable.name })
+                .from(tournamentsTable)
+                .where(eq(tournamentsTable.id, d.tournamentId))
+                .limit(1);
+              if (tn?.name) tourneyName = tn.name;
+            } catch {}
+          }
+
+          ownerName = ownerName || "Team Owner";
+          tourneyName = tourneyName || "the tournament";
+
+          templateComponents = [
+            {
+              type: "body" as const,
+              parameters: [
+                { type: "text" as const, text: ownerName },
+                { type: "text" as const, text: tourneyName },
+              ],
+            },
+          ];
+
+          loggedContent =
+            `🏏 Welcome to BIDWAR, ${ownerName}!\n\n` +
+            `You have been successfully registered as a Team Owner for ${tourneyName}.\n\n` +
+            `Your login details will be shared with you before the auction starts.\n\n` +
+            `Stay tuned, and get ready for an exciting tournament!\n\n` +
+            `Best Wishes !`;
+        }
+
+        const isMetaTemplate = isSoldTmpl || isOrgWelcome || isOwnerWelcome;
         const waResult = await sendWhatsApp(
           r.mobile,
-          d.messageContent,
+          loggedContent,
           resolvedTemplateSid,
-          (isSoldTmpl || isOrgWelcome)
+          isMetaTemplate
             ? {
                 type: "template",
-                templateName: isSoldTmpl ? META_AUCTION_PLAYER_SOLD_TEMPLATE : META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE,
-                templateLanguage: isSoldTmpl ? META_AUCTION_PLAYER_SOLD_LANGUAGE : META_ORGANISER_ONBOARDING_WELCOME_LANGUAGE,
+                templateName: effectiveWaTemplateName!,
+                templateLanguage: isSoldTmpl
+                  ? META_AUCTION_PLAYER_SOLD_LANGUAGE
+                  : isOrgWelcome
+                  ? META_ORGANISER_ONBOARDING_WELCOME_LANGUAGE
+                  : META_TEAM_OWNER_WELCOME_LANGUAGE,
                 templateComponents,
               }
             : undefined,
@@ -1690,6 +1768,7 @@ router.get("/auth/admin/communicate/logs", async (req, res) => {
   const tournamentId = req.query.tournamentId ? parseInt(String(req.query.tournamentId)) : null;
   const channel = String(req.query.channel || "");
   const status = String(req.query.status || "");
+  const direction = String(req.query.direction || "");
   const from = req.query.from ? new Date(String(req.query.from)) : null;
   const to = req.query.to ? new Date(String(req.query.to)) : null;
   const limit = Math.min(parseInt(String(req.query.limit || "100")), 500);
@@ -1699,6 +1778,7 @@ router.get("/auth/admin/communicate/logs", async (req, res) => {
   if (tournamentId && !isNaN(tournamentId)) conds.push(eq(commLogsTable.tournamentId, tournamentId));
   if (channel) conds.push(eq(commLogsTable.channel, channel));
   if (status) conds.push(eq(commLogsTable.deliveryStatus, status));
+  if (direction) conds.push(eq(commLogsTable.direction, direction));
   if (from) conds.push(gte(commLogsTable.sentAt, from));
   if (to) conds.push(lte(commLogsTable.sentAt, to));
 

@@ -75,6 +75,7 @@ export interface CommLog {
   recipientId?: number | null;
   recipientMobile: string;
   channel: string;
+  direction?: "inbound" | "outbound" | string;
   templateName?: string | null;
   messageContent: string;
   sentByAdminId?: string | null;
@@ -84,6 +85,105 @@ export interface CommLog {
   metaMessageId?: string | null;
   errorMessage?: string | null;
   sentAt: string;
+}
+
+export interface FriendlyErrorInfo {
+  title: string;
+  explanation: string;
+  guidance: string;
+}
+
+export function translateWhatsAppError(raw?: string | null): FriendlyErrorInfo | null {
+  if (!raw || !raw.trim()) return null;
+  const lower = raw.toLowerCase();
+
+  // 1. Customer Care Window Expired / Re-engagement Message (Meta 131047)
+  if (lower.includes("re-engagement") || lower.includes("131047") || lower.includes("24 hour") || lower.includes("24-hour")) {
+    return {
+      title: "Customer Care Window Expired (24h Window)",
+      explanation: "WhatsApp limits custom free-form messages to 24 hours after the user last messaged the business.",
+      guidance: "Select an approved Meta template (e.g. 'Player Sold' or 'Team Owner Welcome') to re-engage this user.",
+    };
+  }
+
+  // 2. Meta Ecosystem Engagement Throttling (Meta 131026 / 131049)
+  if (lower.includes("healthy ecosystem engagement") || lower.includes("131026") || lower.includes("131049") || lower.includes("ecosystem")) {
+    return {
+      title: "Meta Ecosystem Engagement Protection",
+      explanation: "Meta temporarily throttled delivery to protect the recipient from excessive business messages.",
+      guidance: "Wait a few hours before retrying, or have the recipient initiate a conversation on WhatsApp.",
+    };
+  }
+
+  // 3. Missing or Unverified Consent / Revocation
+  if (lower.includes("missing_or_unverified_consent") || lower.includes("no whatsapp consent") || lower.includes("opted-out via stop") || lower.includes("stop_revoked")) {
+    return {
+      title: "WhatsApp Consent Required",
+      explanation: "The recipient has not provided verifiable WhatsApp consent or previously opted out via STOP.",
+      guidance: "Share the tournament wa.me link with the recipient or ask them to reply 'YES' on WhatsApp.",
+    };
+  }
+
+  // 4. Invalid template parameters (131009)
+  if (lower.includes("131009") || lower.includes("parameter value is not valid") || lower.includes("missing parameter")) {
+    return {
+      title: "Template Parameters Missing",
+      explanation: "One or more required placeholder variables in this Meta template were empty or invalid.",
+      guidance: "Verify that player name, team name, and tournament name are properly filled in before dispatching.",
+    };
+  }
+
+  // 5. Unsupported message type (131051)
+  if (lower.includes("131051") || lower.includes("unsupported message type")) {
+    return {
+      title: "Unsupported Message Format",
+      explanation: "The message format or attached media is not supported by the recipient's WhatsApp client.",
+      guidance: "Check that images are standard PNG/JPEG and text encoding is valid UTF-8.",
+    };
+  }
+
+  // 6. Media upload / download failure (131052 / 131053)
+  if (lower.includes("131052") || lower.includes("131053") || lower.includes("media upload") || lower.includes("media download")) {
+    return {
+      title: "Media Delivery Error",
+      explanation: "WhatsApp servers failed to fetch or deliver the attached image/poster.",
+      guidance: "Ensure the poster or logo image URL is publicly accessible via HTTPS and under 5 MB.",
+    };
+  }
+
+  // 7. Rate limit (131056)
+  if (lower.includes("rate limit") || lower.includes("131056") || lower.includes("too many requests")) {
+    return {
+      title: "Meta Messaging Rate Limit",
+      explanation: "Outgoing messaging throughput exceeded your WhatsApp Business Account rate limit.",
+      guidance: "Please wait 60 seconds before dispatching the next batch of messages.",
+    };
+  }
+
+  // 8. Tournament licensing / locking
+  if (lower.includes("unlicensed") || lower.includes("trial") || lower.includes("admin-locked") || lower.includes("emergency lock")) {
+    return {
+      title: "Tournament Licensing Required",
+      explanation: "WhatsApp notifications require an active licensed tournament in live mode.",
+      guidance: "Activate or request a tournament license from the Admin Portal before sending broadcasts.",
+    };
+  }
+
+  // 9. Duplicate idempotency suppression
+  if (lower.includes("suppressed by idempotency") || lower.includes("duplicate")) {
+    return {
+      title: "Duplicate Notification Suppressed",
+      explanation: "This notification was already sent to this recipient recently and was blocked to avoid spamming.",
+      guidance: "Wait 10 minutes before re-dispatching the exact same message to this recipient.",
+    };
+  }
+
+  // Default fallback
+  return {
+    title: "Dispatch Delivery Failure",
+    explanation: raw,
+    guidance: "Check recipient phone number formatting (+91) and ensure provider quota is available.",
+  };
 }
 
 export interface ConsentStats {
@@ -231,6 +331,7 @@ export function WhatsAppDispatchHub({
   // Side Section / History State
   const [historySearch, setHistorySearch] = useState("");
   const [historyStatusFilter, setHistoryStatusFilter] = useState<LogStatusFilter>("all");
+  const [historyDirectionFilter, setHistoryDirectionFilter] = useState<"outbound" | "inbound" | "all">("outbound");
   const [selectedLogDetail, setSelectedLogDetail] = useState<CommLog | null>(null);
   const [mobileView, setMobileView] = useState<"composer" | "history">("composer");
 
@@ -251,7 +352,7 @@ export function WhatsAppDispatchHub({
       }
 
       // 2. WhatsApp Delivery Logs
-      const params = new URLSearchParams({ channel: "whatsapp" });
+      const params = new URLSearchParams({ channel: "whatsapp", limit: "300" });
       if (selectedTournamentId && selectedTournamentId !== "__all__") {
         params.set("tournamentId", selectedTournamentId);
       }
@@ -337,7 +438,7 @@ export function WhatsAppDispatchHub({
   const refreshLogs = useCallback(async () => {
     try {
       setRefreshingLogs(true);
-      const params = new URLSearchParams({ channel: "whatsapp" });
+      const params = new URLSearchParams({ channel: "whatsapp", limit: "300" });
       if (selectedTournamentId && selectedTournamentId !== "__all__") {
         params.set("tournamentId", selectedTournamentId);
       }
@@ -491,6 +592,11 @@ export function WhatsAppDispatchHub({
   const filteredLogs = useMemo(() => {
     const list = [...waLogs].sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
     return list.filter((l) => {
+      // Direction filter (default: outbound)
+      if (historyDirectionFilter !== "all") {
+        const dir = l.direction || "outbound";
+        if (dir !== historyDirectionFilter) return false;
+      }
       // Status filter
       if (historyStatusFilter !== "all") {
         if (historyStatusFilter === "read" && l.deliveryStatus !== "read") return false;
@@ -508,7 +614,7 @@ export function WhatsAppDispatchHub({
       }
       return true;
     });
-  }, [waLogs, historyStatusFilter, historySearch]);
+  }, [waLogs, historyDirectionFilter, historyStatusFilter, historySearch]);
 
   // Text preview of WhatsApp message body
   const previewBody = useMemo(() => {
@@ -861,8 +967,19 @@ export function WhatsAppDispatchHub({
                     <p className="text-[11px] text-muted-foreground">
                       {dispatchResult.stub
                         ? "Simulated in Dev/Mock mode"
-                        : dispatchResult.error || `Delivered: ${dispatchResult.sent} • Failed: ${dispatchResult.failed}`}
+                        : dispatchResult.error
+                        ? (() => {
+                            const friendly = translateWhatsAppError(dispatchResult.error);
+                            return friendly ? `${friendly.title}: ${friendly.explanation}` : dispatchResult.error;
+                          })()
+                        : `Delivered: ${dispatchResult.sent} • Failed: ${dispatchResult.failed}`}
                     </p>
+                    {!dispatchResult.success && dispatchResult.error && (() => {
+                      const friendly = translateWhatsAppError(dispatchResult.error);
+                      return friendly?.guidance ? (
+                        <p className="text-[10px] text-amber-300 pt-0.5">💡 {friendly.guidance}</p>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => setDispatchResult(null)} className="h-7 text-[11px]">
@@ -1558,6 +1675,43 @@ export function WhatsAppDispatchHub({
                 )}
               </div>
 
+              {/* Direction Filter Tabs (Outbound vs Inbound vs All) */}
+              <div className="flex items-center gap-1 p-0.5 rounded-lg border border-border/80 bg-muted/40 text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => setHistoryDirectionFilter("outbound")}
+                  className={`flex-1 py-1 px-2 rounded-md font-medium transition-all flex items-center justify-center gap-1 ${
+                    historyDirectionFilter === "outbound"
+                      ? "bg-background text-foreground shadow-sm font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span>📤 Outbound (Sent)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHistoryDirectionFilter("inbound")}
+                  className={`flex-1 py-1 px-2 rounded-md font-medium transition-all flex items-center justify-center gap-1 ${
+                    historyDirectionFilter === "inbound"
+                      ? "bg-background text-foreground shadow-sm font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span>📥 Inbound (Received)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHistoryDirectionFilter("all")}
+                  className={`py-1 px-2.5 rounded-md font-medium transition-all ${
+                    historyDirectionFilter === "all"
+                      ? "bg-background text-foreground shadow-sm font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span>All</span>
+                </button>
+              </div>
+
               {/* Status Filter Pills */}
               <div className="flex flex-wrap items-center gap-1 text-[10px]">
                 <button
@@ -1621,10 +1775,14 @@ export function WhatsAppDispatchHub({
               <div className="max-h-[620px] overflow-y-auto divide-y divide-border/40 rounded-lg border border-border/70 bg-background/50">
                 {filteredLogs.length === 0 ? (
                   <div className="p-6 text-center text-xs text-muted-foreground space-y-1">
-                    <p className="font-semibold text-foreground">No Dispatches Found</p>
+                    <p className="font-semibold text-foreground">
+                      {historyDirectionFilter === "inbound" ? "No Inbound Messages" : "No Dispatches Found"}
+                    </p>
                     <p className="text-[11px]">
                       {historySearch || historyStatusFilter !== "all"
                         ? "No logs match the current search or status filter."
+                        : historyDirectionFilter === "inbound"
+                        ? "No inbound WhatsApp messages or replies recorded for this tournament."
                         : "No WhatsApp messages sent in this tournament yet."}
                     </p>
                   </div>
@@ -1659,6 +1817,15 @@ export function WhatsAppDispatchHub({
                           </div>
 
                           <div className="flex items-center gap-1.5 shrink-0">
+                            {log.direction === "inbound" ? (
+                              <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30 text-[9px] px-1.5 py-0 font-medium">
+                                📥 Inbound
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-zinc-500/20 text-zinc-300 border-zinc-500/30 text-[9px] px-1.5 py-0 font-medium">
+                                📤 Outbound
+                              </Badge>
+                            )}
                             {isRead && (
                               <Badge className="bg-sky-500/20 text-sky-400 border-sky-500/30 text-[9px] px-1.5 py-0 font-medium inline-flex items-center gap-1">
                                 <CheckCheck className="h-2.5 w-2.5 text-sky-400" />
@@ -1689,20 +1856,31 @@ export function WhatsAppDispatchHub({
                         {/* Template and Message Snippet */}
                         <div className="space-y-0.5">
                           <span className="font-semibold text-[11px] text-emerald-400">
-                            {log.templateName || "WhatsApp Broadcast"}
+                            {log.direction === "inbound"
+                              ? "📥 Inbound Message"
+                              : (log.templateName || "Custom Direct Message")}
                           </span>
                           <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
                             {log.messageContent}
                           </p>
                         </div>
 
-                        {/* Error info if failed */}
-                        {isFailed && log.errorMessage && (
-                          <div className="p-1.5 rounded bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-300 font-mono flex items-start gap-1">
-                            <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
-                            <span className="line-clamp-2">{log.errorMessage}</span>
-                          </div>
-                        )}
+                        {/* Error info if failed with user-friendly translation */}
+                        {isFailed && log.errorMessage && (() => {
+                          const friendly = translateWhatsAppError(log.errorMessage);
+                          return (
+                            <div className="p-2 rounded bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-300 space-y-0.5">
+                              <div className="flex items-center gap-1 font-semibold text-rose-200">
+                                <AlertTriangle className="h-3 w-3 shrink-0" />
+                                <span>{friendly?.title || "Dispatch Error"}</span>
+                              </div>
+                              <p className="line-clamp-2 leading-relaxed">{friendly?.explanation || log.errorMessage}</p>
+                              {friendly?.guidance && (
+                                <p className="text-[9px] text-rose-400/90 pt-0.5 font-sans italic">💡 {friendly.guidance}</p>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30">
                           <span>{formatDate(log.sentAt)}</span>
@@ -2050,16 +2228,47 @@ export function WhatsAppDispatchHub({
                     <span className="font-mono text-[10px] text-zinc-400">{selectedLogDetail.metaMessageId}</span>
                   </div>
                 )}
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Template / Type:</span>
+                  <span className="font-semibold text-emerald-400">
+                    {selectedLogDetail.direction === "inbound"
+                      ? "📥 Inbound Message"
+                      : (selectedLogDetail.templateName || "Custom Direct Message")}
+                  </span>
+                </div>
               </div>
 
-              {selectedLogDetail.errorMessage && (
-                <div className="p-2.5 rounded-lg border border-rose-500/30 bg-rose-500/10 text-xs text-rose-300 space-y-1">
-                  <p className="font-bold flex items-center gap-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5 text-rose-400 shrink-0" /> Error Details
-                  </p>
-                  <p className="font-mono text-[11px] leading-relaxed">{selectedLogDetail.errorMessage}</p>
+              {selectedLogDetail.direction && (
+                <div className="flex items-center justify-between text-xs px-3 py-1.5 rounded-lg border border-border bg-muted/20">
+                  <span className="text-muted-foreground">Message Direction:</span>
+                  <Badge variant="outline" className="text-[10px]">
+                    {selectedLogDetail.direction === "inbound" ? "📥 Inbound (Received)" : "📤 Outbound (Sent)"}
+                  </Badge>
                 </div>
               )}
+
+              {selectedLogDetail.errorMessage && (() => {
+                const friendly = translateWhatsAppError(selectedLogDetail.errorMessage);
+                return (
+                  <div className="p-3 rounded-lg border border-rose-500/30 bg-rose-500/10 text-xs text-rose-300 space-y-2">
+                    <div className="flex items-center gap-1.5 font-bold text-rose-200">
+                      <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0" />
+                      <span>{friendly?.title || "Error Details"}</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed font-sans">{friendly?.explanation || selectedLogDetail.errorMessage}</p>
+                    {friendly?.guidance && (
+                      <div className="p-2 rounded bg-rose-950/40 border border-rose-500/20 text-[11px] text-rose-200 space-y-0.5">
+                        <p className="font-semibold text-[10px] text-amber-300 uppercase tracking-wider">Recommended Action:</p>
+                        <p className="leading-relaxed">{friendly.guidance}</p>
+                      </div>
+                    )}
+                    <details className="pt-1 text-[10px] text-rose-400/80 cursor-pointer">
+                      <summary className="hover:underline">Technical Gateway Error</summary>
+                      <p className="font-mono text-[10px] pt-1 bg-black/40 p-1.5 rounded mt-1 break-all select-all">{selectedLogDetail.errorMessage}</p>
+                    </details>
+                  </div>
+                );
+              })()}
 
               <div className="space-y-1">
                 <span className="font-semibold text-muted-foreground text-[11px]">Message Content:</span>

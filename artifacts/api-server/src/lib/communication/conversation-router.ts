@@ -266,16 +266,23 @@ export class ConversationRouter {
     tournamentId?: number,
   ): Promise<void> {
     if (!messageId) return;
-    await db.insert(commLogsTable).values({
-      tournamentId: tournamentId ?? null,
-      recipientType: "manual",
-      recipientMobile: mobile,
-      channel,
-      messageContent: content,
-      deliveryStatus: "delivered",
-      metaMessageId: messageId,
-      blastId: `inbound_${messageId}`,
-    });
+    try {
+      if (typeof db?.insert === "function") {
+        await db.insert(commLogsTable).values({
+          tournamentId: tournamentId ?? null,
+          recipientType: "manual",
+          recipientMobile: mobile,
+          channel,
+          direction: "inbound",
+          messageContent: content,
+          deliveryStatus: "delivered",
+          metaMessageId: messageId,
+          blastId: `inbound_${messageId}`,
+        });
+      }
+    } catch (err) {
+      logger.warn({ err, messageId }, "recordProcessedInboundMessage: failed to write to commLogsTable (non-fatal)");
+    }
   }
 
   /**
@@ -1238,7 +1245,7 @@ export class ConversationRouter {
             input.channel,
           );
         }
-        await this.recordProcessedInboundMessage(input.messageId ?? `num_${Date.now()}`, mobile, input.channel, text);
+        await this.recordProcessedInboundMessage(input.messageId ?? `num_${Date.now()}`, mobile, input.channel, text, selected?.tournamentId ?? options[0]?.tournamentId ?? undefined);
         return { handled: true, replySent: true };
       }
     }
@@ -1270,10 +1277,14 @@ export class ConversationRouter {
           await this.sendReply(null,
             from,
             "Bohot baar galat OTP dali gayi. Yeh session expire ho gaya hai. Dobara 'hello' bhejein.", input.channel);
+          await this.recordProcessedInboundMessage(input.messageId ?? `otp_exceeded_${Date.now()}`, mobile, input.channel, text);
           return { handled: true, replySent: true };
         }
 
         const valid = session.otpHash ? await this.verifyOtp(upper, session.otpHash) : false;
+        type StoredTarget = { recipientType: string; recipientId: number; tournamentId: number | null; name: string };
+        let storedTarget: StoredTarget | null = null;
+
         if (valid) {
           await db.update(otpSessionsTable).set({ used: true }).where(eq(otpSessionsTable.id, session.id));
 
@@ -1294,8 +1305,6 @@ export class ConversationRouter {
             .delete(botSessionsTable)
             .where(and(eq(botSessionsTable.mobile, mobile), eq(botSessionsTable.pendingAction, "pending_otp")));
 
-          type StoredTarget = { recipientType: string; recipientId: number; tournamentId: number | null; name: string };
-          let storedTarget: StoredTarget | null = null;
           try {
             storedTarget = otpSess?.pendingData ? (JSON.parse(otpSess.pendingData) as StoredTarget) : null;
           } catch {}
@@ -1331,7 +1340,7 @@ export class ConversationRouter {
           await this.sendReply(null, from, `Galat OTP (${attempts}/3 attempts). Dobara koshish karein.`, input.channel);
         }
 
-        await this.recordProcessedInboundMessage(input.messageId ?? `otp_${Date.now()}`, mobile, input.channel, text);
+        await this.recordProcessedInboundMessage(input.messageId ?? `otp_${Date.now()}`, mobile, input.channel, text, storedTarget?.tournamentId ?? undefined);
         return { handled: true, replySent: true };
       }
     }
@@ -1365,6 +1374,7 @@ export class ConversationRouter {
           "Consent token mobile mismatch",
         );
         await this.sendReply(null, from, "Yeh consent link aapke number ke liye nahi hai. Apne registered number se koshish karein.", input.channel);
+        await this.recordProcessedInboundMessage(input.messageId ?? `optin_mismatch_${Date.now()}`, mobile, input.channel, text, ct.tournamentId);
         return { handled: true, replySent: true };
       }
 
@@ -1397,7 +1407,7 @@ export class ConversationRouter {
       await this.sendReply(ct.tournamentId,
         from,
         `Namaste ${identity.displayName}!\n\n${CONSENT_QUESTION_V1}`, input.channel);
-      await this.recordProcessedInboundMessage(input.messageId ?? `optin_staged_${Date.now()}`, mobile, input.channel, text);
+      await this.recordProcessedInboundMessage(input.messageId ?? `optin_staged_${Date.now()}`, mobile, input.channel, text, ct.tournamentId);
       return { handled: true, replySent: true };
     }
 
@@ -1432,6 +1442,7 @@ export class ConversationRouter {
 
       if (!yesTarget) {
         await this.sendReply(null, from, "Koi active consent request nahi mili. Pehle 'hello' bhejein.", input.channel);
+        await this.recordProcessedInboundMessage(input.messageId ?? `yes_no_target_${Date.now()}`, mobile, input.channel, text);
         return { handled: true, replySent: true };
       }
 
@@ -1451,6 +1462,7 @@ export class ConversationRouter {
         await this.sendReply(yesTarget.tournamentId,
           from,
           "Aapne bohot baar OTP request kiya hai. Kripya 15 minute baad dobara koshish karein.", input.channel);
+        await this.recordProcessedInboundMessage(input.messageId ?? `yes_rate_limit_${Date.now()}`, mobile, input.channel, text, yesTarget.tournamentId ?? undefined);
         return { handled: true, replySent: true };
       }
 
@@ -1516,7 +1528,7 @@ export class ConversationRouter {
         from,
         `Shukriya ${yesTarget.name}! Identity confirm karne ke liye SMS OTP bheja gaya hai. OTP aane ke baad yahan reply karein.`, input.channel);
 
-      await this.recordProcessedInboundMessage(input.messageId ?? `yes_${Date.now()}`, mobile, input.channel, text);
+      await this.recordProcessedInboundMessage(input.messageId ?? `yes_${Date.now()}`, mobile, input.channel, text, yesTarget.tournamentId ?? undefined);
       return { handled: true, replySent: true };
     }
 

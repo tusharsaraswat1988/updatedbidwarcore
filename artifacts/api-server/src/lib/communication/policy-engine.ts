@@ -263,6 +263,39 @@ export class CommunicationPolicyEngine {
 
       // D. Recipient Consent Guard (Strict Fail-Closed Opt-In)
       let hasConsent = recipientConsent;
+      const isTeamOwnerUtility = (
+        input.templateName === "team_owner_welcome_login" ||
+        input.templateName === "team_owner_welcome" ||
+        event === "team_owner_welcome"
+      );
+
+      // Meta-approved Utility templates (team_owner_welcome_login) sent to registered team owners
+      // are exempt from strict marketing opt-in check when not revoked.
+      if (isTeamOwnerUtility && !revoked && recipientMobile) {
+        try {
+          const norm = recipientMobile.replace(/\D/g, "").replace(/^0/, "91");
+          const tenDigit = norm.length === 12 && norm.startsWith("91") ? norm.slice(2) : norm;
+          const tConds = [
+            or(
+              eq(teamsTable.ownerMobile, recipientMobile),
+              eq(teamsTable.ownerMobile, norm),
+              eq(teamsTable.ownerMobile, tenDigit),
+              sql`regexp_replace(${teamsTable.ownerMobile}, '\\D', '', 'g') IN (${norm}, ${tenDigit})`,
+            ),
+          ];
+          if (tournamentId) {
+            tConds.push(eq(teamsTable.tournamentId, tournamentId));
+          }
+          const tQ = db.select({ id: teamsTable.id }).from(teamsTable).where(and(...tConds));
+          const tRows = typeof (tQ as any)?.limit === "function" ? await (tQ as any).limit(1) : await tQ;
+          if (Array.isArray(tRows) && tRows.length > 0) {
+            hasConsent = true;
+          }
+        } catch (err) {
+          logger.warn({ err, recipientMobile }, "team_owner_welcome utility exemption check error");
+        }
+      }
+
       if ((hasConsent === undefined || hasConsent === null) && recipientMobile) {
         try {
           const norm = recipientMobile.replace(/\D/g, "").replace(/^0/, "91");

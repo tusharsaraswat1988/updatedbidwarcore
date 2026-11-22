@@ -270,6 +270,7 @@ async function logConsentEvent(
     recipientId: target ? target.id : null,
     recipientMobile: mobile,
     channel: "whatsapp",
+    direction: "inbound",
     messageContent: content,
     deliveryStatus: "delivered",
   });

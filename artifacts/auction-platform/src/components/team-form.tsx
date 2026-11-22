@@ -74,7 +74,7 @@ export function TeamForm({
   onClose,
   purseLabel = "Purse",
   formatShortAmount = (amount) => String(amount ?? 0),
-  amountUnit = "INR",
+  amountUnit = "rupee",
   variant = "auction",
 }: {
   tournamentId: number;
@@ -111,6 +111,7 @@ export function TeamForm({
     logoPublicId: team?.logoPublicId ?? "",
     coachName: team?.coachName || "",
     coachMobile: team?.coachMobile ? sanitizeMobileInput(team.coachMobile) : "",
+    whatsappConsent: team?.whatsappConsent ?? true,
   });
   const [shortCodeManuallyEdited, setShortCodeManuallyEdited] = useState(!isNew);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
@@ -145,11 +146,12 @@ export function TeamForm({
       logoPublicId: team?.logoPublicId ?? "",
       coachName: team?.coachName || "",
       coachMobile: team?.coachMobile ? sanitizeMobileInput(team.coachMobile) : "",
+      whatsappConsent: team?.whatsappConsent ?? true,
     });
     setShortCodeManuallyEdited(!isNew);
     setError("");
     setOwnerEmailError("");
-  }, [team?.id, team?.ownerPhotoUrl, team?.logoUrl, team?.name, team?.ownerName, team?.ownerMobile, team?.ownerEmail, team?.shortCode, team?.color, team?.purse, team?.coachName, team?.coachMobile, basePurse, isNew, existingTeamColors]);
+  }, [team?.id, team?.ownerPhotoUrl, team?.logoUrl, team?.name, team?.ownerName, team?.ownerMobile, team?.ownerEmail, team?.shortCode, team?.color, team?.purse, team?.coachName, team?.coachMobile, team?.whatsappConsent, basePurse, isNew, existingTeamColors]);
 
   const shortCodeDuplicate = takenCodes.has(form.shortCode.toUpperCase());
 

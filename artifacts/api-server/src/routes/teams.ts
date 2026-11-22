@@ -201,7 +201,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
 
-  const hasConsent = d.whatsappConsent === true;
+  const hasConsent = d.whatsappConsent !== false;
 
   let team: typeof teamsTable.$inferSelect;
   try {
@@ -434,6 +434,7 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     regenerateCode: z.boolean().optional(),
     coachName: z.string().optional().nullable(),
     coachMobile: z.string().optional().nullable(),
+    whatsappConsent: z.boolean().optional(),
     reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -545,6 +546,36 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
       updates.whatsappConsent = false;
       updates.whatsappConsentAt = null;
       updates.whatsappConsentMethod = null;
+    }
+  }
+
+  if (d.whatsappConsent !== undefined) {
+    const targetMobile = normalizedOwnerMobile || beforeTeam.ownerMobile;
+    if (d.whatsappConsent && !beforeTeam.whatsappConsent && targetMobile) {
+      updates.whatsappConsent = true;
+      updates.whatsappConsentAt = new Date();
+      updates.whatsappConsentMethod = "organizer_declaration";
+      await recordConsentGranted({
+        recipientType: "team_owner",
+        recipientId: teamId,
+        mobile: targetMobile,
+        tournamentId: tid,
+        noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+        consentScope: "tournament_operational",
+        source: "organizer_portal",
+      });
+    } else if (!d.whatsappConsent && beforeTeam.whatsappConsent && targetMobile) {
+      updates.whatsappConsent = false;
+      updates.whatsappConsentAt = null;
+      updates.whatsappConsentMethod = null;
+      await recordConsentWithdrawal({
+        mobile: targetMobile,
+        recipientType: "team_owner",
+        recipientId: teamId,
+        tournamentId: tid,
+        reason: "organizer_portal_REVOKE",
+        source: "organizer_portal",
+      });
     }
   }
 

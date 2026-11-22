@@ -281,4 +281,189 @@ describe("Team Owner Welcome WhatsApp Template & Auto-Dispatch", () => {
     expect(mockProvider.getSentMessages().length).toBe(1);
     expect(mockProvider.getSentMessages()[0].to).toBe("+919876543211");
   });
+
+  it("exempts registered team owners from strict marketing opt-in for team_owner_welcome_login utility template", async () => {
+    const registeredTeam = {
+      id: 5,
+      tournamentId: 101,
+      name: "Super Kings",
+      ownerName: "Dhoni",
+      ownerMobile: "+919876543299",
+      whatsappConsent: false, // not opted into marketing
+    };
+
+    vi.spyOn(db, "select").mockImplementation((() => {
+      const builder: any = {
+        from: vi.fn().mockImplementation((table: any) => {
+          if (table === tournamentsTable || table?._?.name === "tournaments") {
+            return {
+              where: vi.fn().mockReturnValue(Promise.resolve([licensedTournament])),
+            };
+          }
+          if (table === teamsTable || table?._?.name === "teams") {
+            return {
+              where: vi.fn().mockReturnValue(Promise.resolve([registeredTeam])),
+            };
+          }
+          if (table === waConsentEventsTable || table?._?.name === "wa_consent_events") {
+            return {
+              where: vi.fn().mockReturnValue(Promise.resolve([])), // not revoked
+            };
+          }
+          return {
+            where: vi.fn().mockReturnValue(Promise.resolve([])),
+          };
+        }),
+      };
+      return builder;
+    }) as any);
+
+    const res = await notifyTeamOwnerWelcome({
+      mobile: "+919876543299",
+      tournamentId: 101,
+      teamId: 5,
+      ownerName: "Dhoni",
+      tournamentName: "Bidwar Premier League",
+      whatsappConsent: false,
+    });
+
+    expect(res.success).toBe(true);
+    expect(mockProvider.getSentMessages().length).toBe(1);
+    expect(mockProvider.getSentMessages()[0].to).toBe("+919876543299");
+    expect(mockProvider.getSentMessages()[0].templateName).toBe("team_owner_welcome_login");
+  });
+
+  it("still blocks team_owner_welcome_login if recipient has revoked consent via STOP / declined", async () => {
+    const registeredTeam = {
+      id: 6,
+      tournamentId: 101,
+      name: "Knight Riders",
+      ownerName: "Shahrukh",
+      ownerMobile: "+919876543288",
+      whatsappConsent: true,
+    };
+
+    vi.spyOn(db, "select").mockImplementation((() => {
+      const builder: any = {
+        from: vi.fn().mockImplementation((table: any) => {
+          if (table === tournamentsTable || table?._?.name === "tournaments") {
+            return {
+              where: vi.fn().mockReturnValue(Promise.resolve([licensedTournament])),
+            };
+          }
+          if (table === teamsTable || table?._?.name === "teams") {
+            return {
+              where: vi.fn().mockReturnValue(Promise.resolve([registeredTeam])),
+            };
+          }
+          if (table === waConsentEventsTable || table?._?.name === "wa_consent_events") {
+            return {
+              where: vi.fn().mockReturnValue({
+                orderBy: vi.fn().mockReturnValue({
+                  limit: vi.fn().mockReturnValue(Promise.resolve([{ eventType: "STOP_REVOKED" }])),
+                }),
+              }),
+            };
+          }
+          return {
+            where: vi.fn().mockReturnValue(Promise.resolve([])),
+          };
+        }),
+      };
+      return builder;
+    }) as any);
+
+    const res = await notifyTeamOwnerWelcome({
+      mobile: "+919876543288",
+      tournamentId: 101,
+      teamId: 6,
+      ownerName: "Shahrukh",
+      tournamentName: "Bidwar Premier League",
+      whatsappConsent: false,
+    });
+
+    expect(res.success).toBe(false);
+    expect(res.blocked).toBe(true);
+    expect(res.error).toContain("STOP");
+    expect(mockProvider.getSentMessages().length).toBe(0);
+  });
+
+  it("exempts registered team owner when ownerMobile in DB is formatted as 10 digits without country code", async () => {
+    const registeredTeam10 = {
+      id: 7,
+      tournamentId: 101,
+      name: "Delhi Capitals",
+      ownerName: "Pant",
+      ownerMobile: "9876543277", // 10 digits stored
+      whatsappConsent: false,
+    };
+
+    vi.spyOn(db, "select").mockImplementation((() => {
+      const builder: any = {
+        from: vi.fn().mockImplementation((table: any) => {
+          if (table === tournamentsTable || table?._?.name === "tournaments") {
+            return {
+              where: vi.fn().mockReturnValue(Promise.resolve([licensedTournament])),
+            };
+          }
+          if (table === teamsTable || table?._?.name === "teams") {
+            return {
+              where: vi.fn().mockReturnValue(Promise.resolve([registeredTeam10])),
+            };
+          }
+          if (table === waConsentEventsTable || table?._?.name === "wa_consent_events") {
+            return {
+              where: vi.fn().mockReturnValue(Promise.resolve([])), // not revoked
+            };
+          }
+          return {
+            where: vi.fn().mockReturnValue(Promise.resolve([])),
+          };
+        }),
+      };
+      return builder;
+    }) as any);
+
+    // Call with E.164 +919876543277
+    const res = await notifyTeamOwnerWelcome({
+      mobile: "+919876543277",
+      tournamentId: 101,
+      teamId: 7,
+      ownerName: "Pant",
+      tournamentName: "Bidwar Premier League",
+      whatsappConsent: false,
+    });
+
+    expect(res.success).toBe(true);
+    expect(mockProvider.getSentMessages().length).toBe(1);
+    expect(mockProvider.getSentMessages()[0].to).toBe("+919876543277");
+  });
+
+  it("records inbound message in comm_logs with direction 'inbound' and associated tournamentId", async () => {
+    let insertedRow: any = null;
+    vi.spyOn(db, "insert").mockImplementation(((table: any) => {
+      return {
+        values: vi.fn().mockImplementation((values: any) => {
+          insertedRow = values;
+          return Promise.resolve();
+        }),
+      } as any;
+    }));
+
+    const { conversationRouter } = await import("../src/lib/communication/conversation-router");
+    await conversationRouter.recordProcessedInboundMessage(
+      "wamid.test_inbound_123",
+      "919876543210",
+      "whatsapp",
+      "hello",
+      101,
+    );
+
+    expect(insertedRow).toBeDefined();
+    expect(insertedRow.direction).toBe("inbound");
+    expect(insertedRow.tournamentId).toBe(101);
+    expect(insertedRow.blastId).toBe("inbound_wamid.test_inbound_123");
+    expect(insertedRow.metaMessageId).toBe("wamid.test_inbound_123");
+    expect(insertedRow.deliveryStatus).toBe("delivered");
+  });
 });

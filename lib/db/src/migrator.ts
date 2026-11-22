@@ -473,6 +473,11 @@ WHERE NOT EXISTS (SELECT 1 FROM sports LIMIT 1);
     ALTER TABLE badminton_categories ADD COLUMN IF NOT EXISTS rules_snapshot_json jsonb;
     CREATE INDEX IF NOT EXISTS ix_bcat_rules_profile_id ON badminton_categories (rules_profile_id);
   `,
+  "0042_comm_logs_direction.sql": `
+    ALTER TABLE "comm_logs" ADD COLUMN IF NOT EXISTS "direction" text NOT NULL DEFAULT 'outbound';
+    CREATE INDEX IF NOT EXISTS "ix_comm_logs_direction" ON "comm_logs" ("direction");
+    UPDATE "comm_logs" SET "direction" = 'inbound' WHERE "blast_id" LIKE 'inbound_%';
+  `,
 };
 
 function resolveMigrationsDirectory(explicit?: string): string | null {
