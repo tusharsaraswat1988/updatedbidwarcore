@@ -738,7 +738,12 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
       CANONICAL_WA_TEMPLATES[META_AUCTION_PLAYER_SOLD_TEMPLATE];
     if (canonicalDef && canonicalDef.variables.length > 0) {
       const isAutoDbPlayerSold = isPlayerSoldTemplate && d.tournamentId && (d.recipientGroup === "sold_players" || d.recipientGroup === "all_players");
-      if (!isAutoDbPlayerSold) {
+      const isAutoDbTeamOwnerWelcome = (
+        canonicalTemplate === META_TEAM_OWNER_WELCOME_TEMPLATE ||
+        d.templateName === "team_owner_welcome" ||
+        d.templateName === "team_owner_welcome_login"
+      ) && d.tournamentId && (d.recipientGroup === "all_owners");
+      if (!isAutoDbPlayerSold && !isAutoDbTeamOwnerWelcome) {
         const suppliedVars = d.templateVariables ?? {};
         const missingVars: string[] = [];
         for (const v of canonicalDef.variables) {
@@ -1123,31 +1128,15 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         const norm = mobile.replace(/\D/g, "").replace(/^0/, "91");
         const tenDigit = norm.length === 12 && norm.startsWith("91") ? norm.slice(2) : norm;
 
-        // Try players
-        const playerConds = [
-          or(
-            eq(playersTable.mobileNumber, mobile),
-            eq(playersTable.mobileNumber, norm),
-            eq(playersTable.mobileNumber, tenDigit),
-            sql`regexp_replace(${playersTable.mobileNumber}, '\\D', '', 'g') IN (${norm}, ${tenDigit})`,
-          ),
-        ];
-        if (d.tournamentId) {
-          playerConds.push(eq(playersTable.tournamentId, d.tournamentId));
-        }
-        const pQ = db
-          .select({ id: playersTable.id, whatsappConsent: playersTable.whatsappConsent })
-          .from(playersTable)
-          .where(and(...playerConds));
-        const pRows = typeof (pQ as any)?.limit === "function" ? await (pQ as any).limit(1) : await pQ;
-        const p = Array.isArray(pRows) ? pRows[0] : null;
+        const isUtilityTemplate = (
+          canonicalTemplate === META_TEAM_OWNER_WELCOME_TEMPLATE ||
+          d.templateName === "team_owner_welcome" ||
+          d.templateName === "team_owner_welcome_login" ||
+          d.templateName === META_TEAM_OWNER_WELCOME_TEMPLATE
+        );
 
-        if (p && p.whatsappConsent) {
-          consent = true;
-          recipientType = "player";
-          recipientId = p.id;
-        } else if (!p) {
-          // Try team owners
+        // If dispatching team owner welcome, prioritize teamsTable lookup
+        if (isUtilityTemplate) {
           const teamConds = [
             or(
               eq(teamsTable.ownerMobile, mobile),
@@ -1159,6 +1148,9 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           if (d.tournamentId) {
             teamConds.push(eq(teamsTable.tournamentId, d.tournamentId));
           }
+          if (d.specificTeamId || d.teamId) {
+            teamConds.push(eq(teamsTable.id, (d.specificTeamId || d.teamId)!));
+          }
           const tQ = db
             .select({ id: teamsTable.id, whatsappConsent: teamsTable.whatsappConsent })
             .from(teamsTable)
@@ -1169,34 +1161,91 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           if (tm) {
             recipientType = "team_owner";
             recipientId = tm.id;
-            const isUtilityTemplate = (
-              canonicalTemplate === META_TEAM_OWNER_WELCOME_TEMPLATE ||
-              d.templateName === "team_owner_welcome" ||
-              d.templateName === "team_owner_welcome_login" ||
-              d.templateName === META_TEAM_OWNER_WELCOME_TEMPLATE
-            );
-            if (tm.whatsappConsent || isUtilityTemplate) {
-              consent = true;
-            }
-          } else if (!tm) {
-            // Try organizers
-            const oQ = db
-              .select({ id: organizersTable.id, whatsappConsent: organizersTable.whatsappConsent })
-              .from(organizersTable)
-              .where(
-                or(
-                  eq(organizersTable.mobile, mobile),
-                  eq(organizersTable.mobile, norm),
-                  eq(organizersTable.mobile, tenDigit),
-                ),
-              );
-            const oRows = typeof (oQ as any)?.limit === "function" ? await (oQ as any).limit(1) : await oQ;
-            const org = Array.isArray(oRows) ? oRows[0] : null;
+            consent = true;
+          }
+        }
 
-            if (org && org.whatsappConsent) {
+        // If not already resolved with consent, check players then team owners then organizers
+        if (!consent) {
+          // Try players
+          const playerConds = [
+            or(
+              eq(playersTable.mobileNumber, mobile),
+              eq(playersTable.mobileNumber, norm),
+              eq(playersTable.mobileNumber, tenDigit),
+              sql`regexp_replace(${playersTable.mobileNumber}, '\\D', '', 'g') IN (${norm}, ${tenDigit})`,
+            ),
+          ];
+          if (d.tournamentId) {
+            playerConds.push(eq(playersTable.tournamentId, d.tournamentId));
+          }
+          const pQ = db
+            .select({ id: playersTable.id, whatsappConsent: playersTable.whatsappConsent })
+            .from(playersTable)
+            .where(and(...playerConds));
+          const pRows = typeof (pQ as any)?.limit === "function" ? await (pQ as any).limit(1) : await pQ;
+          const p = Array.isArray(pRows) ? pRows[0] : null;
+
+          if (p && p.whatsappConsent) {
+            consent = true;
+            recipientType = "player";
+            recipientId = p.id;
+          } else {
+            // Try team owners
+            const teamConds = [
+              or(
+                eq(teamsTable.ownerMobile, mobile),
+                eq(teamsTable.ownerMobile, norm),
+                eq(teamsTable.ownerMobile, tenDigit),
+                sql`regexp_replace(${teamsTable.ownerMobile}, '\\D', '', 'g') IN (${norm}, ${tenDigit})`,
+              ),
+            ];
+            if (d.tournamentId) {
+              teamConds.push(eq(teamsTable.tournamentId, d.tournamentId));
+            }
+            if (d.specificTeamId || d.teamId) {
+              teamConds.push(eq(teamsTable.id, (d.specificTeamId || d.teamId)!));
+            }
+            const tQ = db
+              .select({ id: teamsTable.id, whatsappConsent: teamsTable.whatsappConsent })
+              .from(teamsTable)
+              .where(and(...teamConds));
+            const tRows = typeof (tQ as any)?.limit === "function" ? await (tQ as any).limit(1) : await tQ;
+            const tm = Array.isArray(tRows) ? tRows[0] : null;
+
+            if (tm && (tm.whatsappConsent || isUtilityTemplate)) {
+              recipientType = "team_owner";
+              recipientId = tm.id;
               consent = true;
-              recipientType = "organizer";
-              recipientId = org.id;
+            } else {
+              // Try organizers
+              const oQ = db
+                .select({ id: organizersTable.id, whatsappConsent: organizersTable.whatsappConsent })
+                .from(organizersTable)
+                .where(
+                  or(
+                    eq(organizersTable.mobile, mobile),
+                    eq(organizersTable.mobile, norm),
+                    eq(organizersTable.mobile, tenDigit),
+                  ),
+                );
+              const oRows = typeof (oQ as any)?.limit === "function" ? await (oQ as any).limit(1) : await oQ;
+              const org = Array.isArray(oRows) ? oRows[0] : null;
+
+              if (org && org.whatsappConsent) {
+                consent = true;
+                recipientType = "organizer";
+                recipientId = org.id;
+              } else if (tm) {
+                recipientType = "team_owner";
+                recipientId = tm.id;
+              } else if (p) {
+                recipientType = "player";
+                recipientId = p.id;
+              } else if (org) {
+                recipientType = "organizer";
+                recipientId = org.id;
+              }
             }
           }
         }
@@ -1337,6 +1386,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           recipientId: r.recipientId,
           recipientMobile: r.mobile,
           channel: "whatsapp",
+          direction: "outbound",
           templateName: effectiveWaTemplateName,
           messageContent: d.messageContent,
           sentByAdminId: "master_admin",
@@ -1454,7 +1504,8 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
 
         if (isOwnerWelcome && !templateComponents) {
           const suppliedVars = d.templateVariables ?? {};
-          let ownerName = suppliedVars["1"] ?? suppliedVars["Team Owner Name"] ?? suppliedVars["Owner Name"] ?? "";
+          const isBroadcastAllOwners = d.recipientGroup === "all_owners";
+          let ownerName = isBroadcastAllOwners ? "" : (suppliedVars["1"] ?? suppliedVars["Team Owner Name"] ?? suppliedVars["Owner Name"] ?? "");
           let tourneyName = suppliedVars["2"] ?? suppliedVars["Tournament Name"] ?? "";
 
           if (!ownerName && r.recipientType === "team_owner" && r.recipientId) {
@@ -1463,6 +1514,25 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
                 .select({ ownerName: teamsTable.ownerName })
                 .from(teamsTable)
                 .where(eq(teamsTable.id, r.recipientId))
+                .limit(1);
+              if (tm?.ownerName) ownerName = tm.ownerName;
+            } catch {}
+          }
+          if (!ownerName && r.mobile) {
+            try {
+              const norm = r.mobile.replace(/\D/g, "").replace(/^0/, "91");
+              const tenDigit = norm.length === 12 && norm.startsWith("91") ? norm.slice(2) : norm;
+              const [tm] = await db
+                .select({ ownerName: teamsTable.ownerName })
+                .from(teamsTable)
+                .where(
+                  or(
+                    eq(teamsTable.ownerMobile, r.mobile),
+                    eq(teamsTable.ownerMobile, norm),
+                    eq(teamsTable.ownerMobile, tenDigit),
+                    sql`regexp_replace(${teamsTable.ownerMobile}, '\\D', '', 'g') IN (${norm}, ${tenDigit})`,
+                  ),
+                )
                 .limit(1);
               if (tm?.ownerName) ownerName = tm.ownerName;
             } catch {}
@@ -1478,7 +1548,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
             } catch {}
           }
 
-          ownerName = ownerName || "Team Owner";
+          ownerName = ownerName || suppliedVars["1"] || suppliedVars["Team Owner Name"] || "Team Owner";
           tourneyName = tourneyName || "the tournament";
 
           templateComponents = [
@@ -1524,6 +1594,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           recipientId: r.recipientId,
           recipientMobile: r.mobile,
           channel: "whatsapp",
+          direction: "outbound",
           templateName: effectiveWaTemplateName,
           messageContent: loggedContent,
           sentByAdminId: "master_admin",
@@ -1544,6 +1615,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         recipientId: r.recipientId,
         recipientMobile: r.mobile,
         channel: "sms",
+        direction: "outbound",
         templateName: d.templateName ?? null,
         messageContent: d.messageContent,
         sentByAdminId: "master_admin",

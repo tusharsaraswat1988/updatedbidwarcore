@@ -18,7 +18,7 @@ import { GlobalLoadingScreen } from "@/components/global-loading-screen";
 import AdminLogin from "@/pages/admin-login";
 
 const TournamentSettings = lazyWithRetry(() => import("@/pages/tournament-settings"));
-const AuctionOperator = lazyWithRetry(() => import("@/pages/auction-operator"));
+const AuctionOperator = lazyWithRetry(() => import("@/components/auction/auction-operator-router"));
 const NewTournament = lazyWithRetry(() => import("@/pages/tournament-new"));
 const TournamentHome = lazyWithRetry(() => import("@/pages/tournament-home"));
 const AuctionOverview = lazyWithRetry(() => import("@/pages/auction-overview"));

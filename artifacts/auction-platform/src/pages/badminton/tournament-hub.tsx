@@ -120,8 +120,8 @@ export default function BadmintonTournamentHub() {
             <>
               <div className={cn(hubPanelClass, "flex flex-col sm:flex-row sm:items-center gap-4")}>
                 <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div className="p-2.5 rounded-lg bg-green-500/15 shrink-0">
-                    <CheckCircle2 className="w-5 h-5 text-green-400" />
+                  <div className="p-2.5 rounded-lg bg-emerald-500/15 shrink-0">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div className="min-w-0">
                     <h2 className="text-base font-display font-bold text-foreground">
@@ -180,17 +180,17 @@ export default function BadmintonTournamentHub() {
           <div className="flex items-start gap-3 flex-1 min-w-0">
             <div className={cn(
               "p-2.5 rounded-lg shrink-0",
-              isScoringComplete ? "bg-emerald-500/15" : "bg-green-500/15",
+              isScoringComplete ? "bg-emerald-500/15" : "bg-emerald-500/15",
             )}>
               <CheckCircle2 className={cn(
                 "w-5 h-5",
-                isScoringComplete ? "text-emerald-300" : "text-green-400",
+                isScoringComplete ? "text-emerald-600 dark:text-emerald-400" : "text-emerald-600 dark:text-emerald-400",
               )} />
             </div>
             <div className="min-w-0">
               <p className={cn(
                 "text-xs font-bold uppercase tracking-widest",
-                isScoringComplete ? "text-emerald-300" : "text-green-400",
+                isScoringComplete ? "text-emerald-600 dark:text-emerald-400" : "text-emerald-600 dark:text-emerald-400",
               )}>
                 {isScoringComplete
                   ? "Tournament completed"

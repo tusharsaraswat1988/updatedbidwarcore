@@ -13,6 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 
 /** Shared form tokens — inherits BidWar design system */
@@ -300,117 +308,61 @@ export function FormActions({
 
 
 export function FormModal({
-
   title,
-
   subtitle,
-
   onClose,
-
   children,
-
   size = "md",
-
   footer,
-
 }: {
-
   title: string;
-
   subtitle?: string;
-
   onClose: () => void;
-
   children: React.ReactNode;
-
   size?: "sm" | "md" | "lg" | "xl";
-
   footer?: React.ReactNode;
-
 }) {
-
   const maxW = {
-
     sm: "max-w-md",
-
     md: "max-w-lg",
-
     lg: "max-w-xl",
-
     xl: "max-w-2xl",
-
   }[size];
 
-
-
   return (
-
-    <div className={`fixed inset-0 z-50 flex items-end justify-center overflow-y-auto p-4 sm:items-center bg-black/75 backdrop-blur-md ${getPortalThemeClass()}`}>
-
-      <div
-
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
         className={cn(
-
-          "my-auto flex w-full max-h-[min(90vh,100%)] flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-2xl",
-
+          "p-0 gap-0 overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-2xl",
           maxW,
-
         )}
-
       >
+        <DialogHeader className="border-b border-border bg-card px-6 py-4 text-left">
+          <DialogTitle className="text-foreground font-display font-bold text-lg tracking-tight">
+            {title}
+          </DialogTitle>
+          {subtitle ? (
+            <DialogDescription className="text-muted-foreground text-sm mt-0.5">
+              {subtitle}
+            </DialogDescription>
+          ) : (
+            <DialogDescription className="sr-only">{title}</DialogDescription>
+          )}
+        </DialogHeader>
 
-        <div className="z-10 flex shrink-0 items-start justify-between gap-4 border-b border-border bg-card px-6 py-4">
-
-          <div className="min-w-0">
-
-            <h2 className="text-foreground font-display font-bold text-lg tracking-tight">{title}</h2>
-
-            {subtitle && <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p>}
-
-          </div>
-
-          <button
-
-            type="button"
-
-            onClick={onClose}
-
-            aria-label="Close"
-
-            className="flex-none min-h-11 min-w-11 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent text-xl leading-none transition-colors"
-
-          >
-
-            ×
-
-          </button>
-
+        <div className="min-h-0 max-h-[calc(100dvh-12.5rem)] overflow-y-auto overscroll-contain p-6 space-y-5">
+          {children}
         </div>
 
-
-
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 space-y-5">{children}</div>
-
-
-
-        {footer && (
-
-          <div className="z-10 shrink-0 border-t border-border bg-card px-6 py-4">
+        {footer ? (
+          <DialogFooter className="border-t border-border bg-card px-6 py-4">
             {footer}
-
-          </div>
-
-        )}
-
-      </div>
-
-    </div>
-
+          </DialogFooter>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
-
 }
-
-
 
 /** Centered spinner + message while async data is loading. */
 export function AsyncLoadingPanel({

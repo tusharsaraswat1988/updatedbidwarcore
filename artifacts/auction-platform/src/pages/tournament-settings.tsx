@@ -39,7 +39,7 @@ import {
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
   Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop, IndianRupee, ClipboardList, Handshake,
-  Play, Coffee, Plus, Sparkles, HelpCircle, Lock,
+  Play, Coffee, Plus, Sparkles, HelpCircle, Lock, LayoutGrid,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -250,6 +250,7 @@ export default function TournamentSettings() {
       ledHistory: (t as any)?.featuresJson?.ledHistory ?? (t as any)?.features?.ledHistory ?? true,
       liveStreamEnabled: (t as any)?.featuresJson?.liveStreamEnabled ?? (t as any)?.features?.liveStreamEnabled ?? Boolean((t as any)?.featuresJson?.liveStreamUrl ?? (t as any)?.features?.liveStreamUrl),
       liveStreamUrl: (t as any)?.featuresJson?.liveStreamUrl ?? (t as any)?.features?.liveStreamUrl ?? "",
+      auctionOperatorVersion: (t as any)?.featuresJson?.auctionOperatorVersion ?? (t as any)?.features?.auctionOperatorVersion ?? "v1",
     };
     setEditForm(initialForm);
 
@@ -738,6 +739,7 @@ export default function TournamentSettings() {
         liveStreamUrl: typeof editForm.liveStreamUrl === "string" && editForm.liveStreamUrl.trim()
           ? editForm.liveStreamUrl.trim()
           : null,
+        auctionOperatorVersion: editForm.auctionOperatorVersion === "v2" ? "v2" : "v1",
       };
     }
 
@@ -2194,6 +2196,55 @@ export default function TournamentSettings() {
                               </p>
                             </div>
                           )}
+                        </div>
+
+                        {/* Auction Operator Workspace Version */}
+                        <div className="pt-3 border-t border-border/60 space-y-2">
+                          <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                            Auction Control Panel Version
+                            <FieldTooltip text="Choose the live auction workspace. V2 provides a streamlined 3-zone layout with slide-out Broadcast Studio drawer, in-place Draw Mode switching, and purse-aware bidding." />
+                          </Label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEditForm((f) => ({ ...f, auctionOperatorVersion: "v2" }))}
+                              className={`flex flex-col items-start p-3 rounded-lg border text-left transition-all cursor-pointer relative ${
+                                editForm.auctionOperatorVersion === "v2"
+                                  ? "border-amber-400 bg-amber-400/10 text-foreground ring-2 ring-amber-400/30 font-semibold"
+                                  : "border-border/60 bg-muted/20 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between w-full mb-1">
+                                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                  ⚡ V2 Tactical Console
+                                </span>
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-400 text-slate-950">
+                                  Recommended
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground leading-snug">
+                                Modern 3-zone workspace, slide-out Broadcast Studio drawer, in-place Draw Mode switching, and purse-aware bidding.
+                              </p>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditForm((f) => ({ ...f, auctionOperatorVersion: "v1" }))}
+                              className={`flex flex-col items-start p-3 rounded-lg border text-left transition-all cursor-pointer relative ${
+                                editForm.auctionOperatorVersion === "v1"
+                                  ? "border-amber-400 bg-amber-400/10 text-foreground ring-2 ring-amber-400/30 font-semibold"
+                                  : "border-border/60 bg-muted/20 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between w-full mb-1">
+                                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                  📻 V1 Classic Console
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground leading-snug">
+                                Original 2-bar interface with broadcast and media controls permanently visible on the center stage.
+                              </p>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </SettingsCard>

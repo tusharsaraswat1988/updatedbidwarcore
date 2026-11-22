@@ -67,6 +67,12 @@
       "skillPath": "skills/skill-creator/SKILL.md",
       "computedHash": "5ea13a6d9f0d4bb694405d79acd00cadec0d21bb138c4dd10fcf3c500cb835c2"
     },
+    "universal-design-system": {
+      "source": "tusharsaraswat1988/designskillguidetushar",
+      "sourceType": "github",
+      "skillPath": "skills/universal-design-system/SKILL.md",
+      "computedHash": "67a5ccf0d8a9bff442322415ea58bf2290cae84d63a4c9ea3144099153bf295f"
+    },
     "vercel-composition-patterns": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",

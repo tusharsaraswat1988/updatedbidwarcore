@@ -33,32 +33,36 @@ const ChyronSponsorSegment = memo(function ChyronSponsorSegment({
   const tier = chyronTier(sponsor);
 
   return (
-    <div
-      className="flex items-center gap-3 shrink-0 h-full py-1"
-      style={getSponsorChyronItemStyle(tier)}
-    >
-      {sponsor.logoUrl ? (
-        <img
-          src={sponsor.logoUrl}
-          alt={sponsor.name}
-          style={getSponsorChyronLogoStyle(tier)}
-        />
-      ) : null}
-      <div className="flex flex-col leading-none gap-0.5">
-        <span
-          className="led-value font-['Bebas_Neue'] uppercase font-bold tracking-[0.14em]"
-          style={getSponsorChyronNameStyle(tier)}
-        >
-          {sponsor.name}
-        </span>
-        <span
-          className="led-caption font-['Space_Grotesk'] uppercase font-bold tracking-[0.10em] text-white/80"
-          style={getSponsorChyronTypeStyle(tier)}
-        >
-          {sponsor.type}
-        </span>
+    <div className="flex items-center shrink-0 h-full py-1">
+      <div
+        className="flex items-center gap-3.5 shrink-0"
+        style={getSponsorChyronItemStyle(tier)}
+      >
+        {sponsor.logoUrl ? (
+          <img
+            src={sponsor.logoUrl}
+            alt={sponsor.name}
+            style={getSponsorChyronLogoStyle(tier)}
+          />
+        ) : null}
+        <div className="flex flex-col justify-center leading-tight gap-0.5">
+          <span
+            className="led-value uppercase"
+            style={getSponsorChyronNameStyle(tier)}
+          >
+            {sponsor.name}
+          </span>
+          <span
+            className="led-caption uppercase"
+            style={getSponsorChyronTypeStyle(tier)}
+          >
+            {sponsor.type}
+          </span>
+        </div>
       </div>
-      <span className="text-white/25 ml-2">•</span>
+      <div className="flex items-center justify-center px-5 text-white/30 shrink-0 select-none">
+        <span className="text-[10px] leading-none">◆</span>
+      </div>
     </div>
   );
 });
@@ -77,13 +81,16 @@ export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }
         className="relative h-full shrink-0 flex items-center px-4 md:px-5"
         style={{
           backgroundColor: "var(--accent)",
-          color: "var(--accent-on)",
           clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 100%, 0 100%)",
         }}
       >
-        <div className="flex flex-col leading-none gap-1" aria-label="Our Sponsors">
-          <span className={`${LED_META_LABEL_CLASS} opacity-85`}>Our</span>
-          <span className={`${LED_META_LABEL_CLASS} tracking-[0.08em]`}>Sponsors</span>
+        <div className="flex flex-col leading-none gap-0.5 text-black" aria-label="Our Sponsors">
+          <span className="led-label text-[clamp(0.8rem,1.05cqw,1.25rem)] font-black uppercase tracking-[0.06em] text-black font-['Space_Grotesk']">
+            Our
+          </span>
+          <span className="led-label text-[clamp(0.8rem,1.05cqw,1.25rem)] font-black uppercase tracking-[0.08em] text-black font-['Space_Grotesk']">
+            Sponsors
+          </span>
         </div>
       </div>
 
@@ -91,6 +98,7 @@ export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }
         {sponsors.length > 0 ? (
           <ChyronTickerScroller
             items={sponsors}
+            loopGapClass="gap-0"
             renderItem={(sponsor, index) => (
               <ChyronSponsorSegment
                 key={`${sponsor.name}-${sponsor.tier ?? "normal"}-${index}`}

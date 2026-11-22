@@ -487,7 +487,7 @@ export default function AuctionOperator() {
   const feed = useAuctionConnectionState(
     connectionStatus,
     tournamentId,
-    typeof state?.lastAuctionActivityAt === "string" ? state.lastAuctionActivityAt : null,
+    typeof (state as any)?.lastAuctionActivityAt === "string" ? (state as any).lastAuctionActivityAt : null,
     { audience: "operator" },
   );
 
@@ -2564,6 +2564,15 @@ export default function AuctionOperator() {
               💰 Booster
             </button>
           </div>
+
+          {/* Switch to V2 Tactical Console */}
+          <a
+            href={`/tournament/${tournamentId}/auction?v=2`}
+            className="hidden sm:inline-flex items-center gap-1 h-7 px-2.5 rounded text-xs font-bold text-amber-300 bg-amber-400/15 border border-amber-400/35 hover:bg-amber-400/25 transition-all flex-shrink-0"
+            title="Try modern V2 Tactical Console"
+          >
+            ⚡ Try V2
+          </a>
 
           {/* Right panel toggle */}
           <button

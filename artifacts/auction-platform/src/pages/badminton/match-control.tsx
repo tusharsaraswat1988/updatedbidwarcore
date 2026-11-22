@@ -238,7 +238,7 @@ export default function BadmintonMatchControlPage() {
             <div className="flex justify-center">
               <Link
                 href={`/tournament/${tournamentId}/badminton/control`}
-                className="text-[#4fc3f7] text-sm font-semibold hover:underline min-h-11 inline-flex items-center"
+                className="text-sky-600 dark:text-sky-400 text-sm font-semibold hover:underline min-h-11 inline-flex items-center"
               >
                 Back to Control Center
               </Link>

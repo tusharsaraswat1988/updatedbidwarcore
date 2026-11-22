@@ -39,7 +39,7 @@ export default function NewTournament() {
   return (
     <AppLayout>
       <div className="max-w-2xl mx-auto space-y-6">
-        <Button variant="ghost" onClick={() => setLocation("/")} className="gap-2">
+        <Button variant="ghost" onClick={() => setLocation("/organizer")} className="gap-2">
           <ArrowLeft className="w-4 h-4" />
           Back to Dashboard
         </Button>
@@ -50,7 +50,7 @@ export default function NewTournament() {
           </p>
           <TournamentCreationWizard
             mode="page"
-            onCancel={() => setLocation("/")}
+            onCancel={() => setLocation("/organizer")}
             submit={submit}
             onCreated={(tournament) => {
               toast({

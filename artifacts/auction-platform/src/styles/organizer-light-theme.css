@@ -87,6 +87,12 @@
   --destructive: 0 84.2% 60.2%;       /* #EF4444 */
   --destructive-foreground: 0 0% 100%;
 
+  /* Semantic feedback tokens (Audit Plan §6.3) */
+  --success: 158 84% 31%;              /* #059669 Emerald-600 */
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;               /* #D97706 Amber-600 */
+  --warning-foreground: 0 0% 100%;
+
   --border: 214.3 31.8% 80%;          /* #CBD5E1 */
   --input: 214.3 31.8% 80%;           /* #CBD5E1 */
   --ring: 45 93% 47%;                 /* #EAB308 focus ring */
@@ -99,6 +105,8 @@
   --sidebar-accent-foreground: 28 80% 32%; /* #92400E */
   --sidebar-border: 214.3 31.8% 80%;  /* #CBD5E1 */
   --sidebar-ring: 45 93% 47%;
+  --sidebar-active: 48 96% 89%;        /* #FEF3C7 Brand Amber-100 */
+  --sidebar-active-text: 28 80% 32%;   /* #92400E Amber-900 */
 
   /* ── Overwrite Tailwind v4 inline color tokens ── */
   --color-background: #F1F5F9;
@@ -117,6 +125,10 @@
   --color-accent-foreground: #0F172A;
   --color-destructive: #DC2626;
   --color-destructive-foreground: #FFFFFF;
+  --color-success: #059669;
+  --color-success-foreground: #FFFFFF;
+  --color-warning: #D97706;
+  --color-warning-foreground: #FFFFFF;
   --color-border: #CBD5E1;
   --color-input: #CBD5E1;
   --color-ring: #EAB308;
@@ -251,6 +263,14 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
 }
 
+:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not(.h-8):not(.h-7),
+:is(.bw-organizer-light, [data-surface="organizer"]) select:not(.h-8),
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="input"]:not(.h-8),
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="select-trigger"]:not(.h-8),
+:is(.bw-organizer-light, [data-surface="organizer"]) button[role="combobox"]:not(.h-8) {
+  min-height: 2.75rem; /* Standard 44px touch-accessible height */
+}
+
 :is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):hover,
 :is(.bw-organizer-light, [data-surface="organizer"]) textarea:hover,
 :is(.bw-organizer-light, [data-surface="organizer"]) select:hover,
@@ -274,7 +294,7 @@
 :is(.bw-organizer-light, [data-surface="organizer"]) button[role="combobox"]:focus-visible {
   border-color: #EAB308 !important;
   outline: none !important;
-  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.28) !important;
+  box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px #EAB308 !important; /* Crisp --org-focus-ring */
 }
 
 :is(.bw-organizer-light, [data-surface="organizer"]) [data-numeric],
@@ -422,6 +442,9 @@
 :is(.bw-organizer-light, [data-surface="organizer"]) table thead,
 :is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table thead,
 :is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="table-header"] {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
   background-color: #F8FAFC !important;
   border-bottom: 1px solid #CBD5E1 !important;
 }
@@ -429,6 +452,9 @@
 :is(.bw-organizer-light, [data-surface="organizer"]) table thead th,
 :is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table thead th,
 :is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="table-head"] {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
   background-color: #F8FAFC !important;
   color: #334155 !important;
   border-bottom: 1px solid #CBD5E1 !important;
@@ -444,6 +470,7 @@
 :is(.bw-organizer-light, [data-surface="organizer"]) table tbody > tr,
 :is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr,
 :is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="table-row"] {
+  min-height: 48px;
   background-color: #FFFFFF !important;
   border-bottom: 1px solid #E2E8F0 !important;
   transition: background-color 0.15s ease !important;

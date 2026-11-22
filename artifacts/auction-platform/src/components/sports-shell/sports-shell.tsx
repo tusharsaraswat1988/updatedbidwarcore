@@ -27,7 +27,8 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 
 const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
-const COLLAPSE_STORAGE_KEY = "sports-shell-collapsed";
+const COLLAPSE_STORAGE_KEY = "bw-organizer-sidebar-collapsed";
+const LEGACY_COLLAPSE_STORAGE_KEYS = ["sports-shell-collapsed", "sidebar-collapsed"];
 
 /** True when already wrapped by SportsShell — HubPageShell skips a second shell. */
 const SportsShellContext = createContext(false);
@@ -446,7 +447,10 @@ export function SportsShell({
   const [collapsed, setCollapsed] = useState(() => {
     try {
       if (typeof window !== "undefined" && window.innerWidth < 1024) return true;
-      return localStorage.getItem(COLLAPSE_STORAGE_KEY) === "true";
+      const stored =
+        localStorage.getItem(COLLAPSE_STORAGE_KEY) ??
+        LEGACY_COLLAPSE_STORAGE_KEYS.map((k) => localStorage.getItem(k)).find(Boolean);
+      return stored === "true";
     } catch {
       return false;
     }
@@ -480,7 +484,10 @@ export function SportsShell({
         setCollapsed(true);
       } else {
         try {
-          setCollapsed(localStorage.getItem(COLLAPSE_STORAGE_KEY) === "true");
+          const stored =
+            localStorage.getItem(COLLAPSE_STORAGE_KEY) ??
+            LEGACY_COLLAPSE_STORAGE_KEYS.map((k) => localStorage.getItem(k)).find(Boolean);
+          setCollapsed(stored === "true");
         } catch {
           setCollapsed(false);
         }
@@ -496,6 +503,9 @@ export function SportsShell({
       const next = !prev;
       try {
         localStorage.setItem(COLLAPSE_STORAGE_KEY, String(next));
+        LEGACY_COLLAPSE_STORAGE_KEYS.forEach((k) => {
+          try { localStorage.setItem(k, String(next)); } catch {}
+        });
       } catch {
         /* ignore */
       }
@@ -592,13 +602,13 @@ export function SportsShell({
       <div
         className={cn(
           themeVariant === "console" ? "theme-broadcast-console dark" : "bw-organizer-light",
-          "flex flex-col xl:flex-row h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground",
+          "flex flex-col md:flex-row h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground",
           className,
         )}
         data-surface={themeVariant === "console" ? undefined : "organizer"}
       >
-        {/* Mobile Top Navigation Bar (< lg) */}
-        <header className="xl:hidden min-h-12 py-2 border-b border-border bg-card/95 backdrop-blur-md px-3 flex items-center justify-between gap-2 shrink-0 z-20">
+        {/* Mobile Top Navigation Bar (< md) */}
+        <header className="md:hidden min-h-12 py-2 border-b border-border bg-card/95 backdrop-blur-md px-3 flex items-center justify-between gap-2 shrink-0 z-20">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
               type="button"
@@ -649,10 +659,10 @@ export function SportsShell({
           </SheetContent>
         </Sheet>
 
-        {/* Desktop Sidebar (lg+) */}
+        {/* Desktop Sidebar (md+) — 64px collapsed, 256px expanded */}
         <aside
-          className="hidden xl:flex flex-shrink-0 border-r border-border bg-card flex-col z-10 transition-[width] duration-200 ease-in-out overflow-hidden"
-          style={{ width: collapsed ? 56 : 272 }}
+          className="hidden md:flex flex-shrink-0 border-r border-border bg-card flex-col z-10 transition-[width] duration-200 ease-in-out overflow-hidden"
+          style={{ width: collapsed ? 64 : 256 }}
         >
           <div className="h-16 flex items-center border-b border-border flex-shrink-0 px-4 gap-2 min-w-0">
             {collapsed ? (
@@ -704,8 +714,8 @@ export function SportsShell({
         </aside>
 
         <main className="flex-1 flex flex-col min-w-0 bg-transparent relative overflow-hidden">
-          {/* Desktop Top Header Bar (lg+) */}
-          <header className="hidden xl:flex h-14 border-b border-border bg-card/90 backdrop-blur-md px-6 items-center justify-between gap-4 shrink-0 z-10">
+          {/* Desktop Top Header Bar (md+) */}
+          <header className="hidden md:flex h-14 border-b border-border bg-card/90 backdrop-blur-md px-6 items-center justify-between gap-4 shrink-0 z-10">
             <div className="flex items-center gap-3 min-w-0">
               {collapsed && (
                 <div className="flex items-center gap-2 pr-3 border-r border-border shrink-0">

@@ -5,6 +5,7 @@ import {
   Settings, Activity, BarChart3,
   Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, Gavel, Sparkles, X,
 } from "lucide-react";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
   auctionRoomPath,
   auctionResetPath,
@@ -402,15 +403,18 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
   });
   const localVenue = isBidWarLocalHost();
 
+  const SIDEBAR_COLLAPSE_STORAGE_KEY = "bw-organizer-sidebar-collapsed";
+
   // Three sidebar states:
-  // - mobile (< 768px): hidden by default, opens as overlay drawer
-  // - tablet (768px–1023px): always collapsed (icon-only)
-  // - desktop (≥ 1024px): full or collapsed based on localStorage
+  // - mobile (< 768px): hidden by default, opens as accessible Sheet drawer
+  // - tablet (768px–1023px): always collapsed (icon-only, 64px)
+  // - desktop (≥ 1024px): full (256px) or collapsed (64px) based on localStorage
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try {
       if (typeof window !== "undefined" && window.innerWidth < 1024) return true;
-      return localStorage.getItem("sidebar-collapsed") === "true";
+      const stored = localStorage.getItem(SIDEBAR_COLLAPSE_STORAGE_KEY) ?? localStorage.getItem("sidebar-collapsed");
+      return stored === "true";
     } catch { return false; }
   });
 
@@ -422,7 +426,8 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
         setCollapsed(true);
       } else {
         try {
-          setCollapsed(localStorage.getItem("sidebar-collapsed") === "true");
+          const stored = localStorage.getItem(SIDEBAR_COLLAPSE_STORAGE_KEY) ?? localStorage.getItem("sidebar-collapsed");
+          setCollapsed(stored === "true");
         } catch {
           setCollapsed(false);
         }
@@ -437,19 +442,13 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
     setMobileOpen(false);
   }, [location]);
 
-  useEffect(() => {
-    if (!mobileOpen) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setMobileOpen(false);
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [mobileOpen]);
-
   function toggleCollapsed() {
     setCollapsed(prev => {
       const next = !prev;
-      try { localStorage.setItem("sidebar-collapsed", String(next)); } catch {}
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSE_STORAGE_KEY, String(next));
+        localStorage.setItem("sidebar-collapsed", String(next));
+      } catch {}
       return next;
     });
   }
@@ -470,43 +469,24 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
   return (
     <OrganizerShellChromeContext.Provider value={shellChrome}>
     <div data-surface="organizer" className="bw-organizer-light auction-ops flex h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground">
-      {/* Mobile sidebar backdrop */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-20 bg-slate-900/40 backdrop-blur-xs md:hidden"
-          onClick={() => setMobileOpen(false)}
-          aria-hidden="true"
-        />
-      )}
+      {/* Mobile slide-out drawer (Radix Sheet) */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" className="w-[85vw] max-w-xs p-0 bg-card border-r border-border flex flex-col z-50">
+          <div className="h-14 flex items-center border-b border-border px-3 gap-2 min-w-0">
+            <BidwarOrganizerBrandMark surface="organizer-main-toolbar" className="min-w-0 flex-1" />
+            <SheetTitle className="sr-only">Tournament Organizer Navigation</SheetTitle>
+          </div>
+          <SidebarNav {...sidebarNavProps} expanded={true} />
+          {tournamentId && !localVenue && (
+            <SidebarAccountFooter tournamentId={tournamentId} collapsed={false} />
+          )}
+        </SheetContent>
+      </Sheet>
 
-      {/* Mobile sidebar overlay */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-30 w-64 bg-card border-r border-border flex flex-col transition-transform duration-200 ease-in-out md:hidden ${
-          mobileOpen ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none"
-        }`}
-        aria-hidden={!mobileOpen}
-      >
-        <div className="h-14 flex items-center border-b border-border flex-shrink-0 px-3 gap-2 min-w-0">
-          <BidwarOrganizerBrandMark surface="organizer-main-toolbar" className="min-w-0 flex-1" />
-          <button
-            onClick={() => setMobileOpen(false)}
-            title="Close menu"
-            aria-label="Close sidebar"
-            className="ml-auto flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors p-1 rounded"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <SidebarNav {...sidebarNavProps} expanded={true} />
-        {tournamentId && !localVenue && (
-          <SidebarAccountFooter tournamentId={tournamentId} collapsed={false} />
-        )}
-      </aside>
-
-      {/* Desktop sidebar — icon-only on tablet, full on desktop */}
+      {/* Desktop sidebar — 64px icon-only on tablet, full 256px on desktop */}
       <aside
         className="hidden md:flex flex-shrink-0 border-r border-border bg-card flex-col z-10 transition-[width] duration-200 ease-in-out overflow-hidden"
-        style={{ width: collapsed ? 56 : 256 }}
+        style={{ width: collapsed ? 64 : 256 }}
       >
         {/* Header */}
         <div className="h-14 flex items-center border-b border-border flex-shrink-0 px-3 gap-2 min-w-0">
@@ -553,7 +533,13 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
               menuExpanded={mobileOpen}
               tournamentName={tournamentName}
             />
-            <OrganizerDesktopBrandBar tournamentName={tournamentName} sidebarCollapsed={collapsed} />
+            <OrganizerDesktopBrandBar
+              tournamentName={tournamentName}
+              tournamentId={tournamentId}
+              tournament={tournament}
+              location={location}
+              sidebarCollapsed={collapsed}
+            />
             {children}
           </div>
         ) : (
@@ -563,7 +549,13 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
               menuExpanded={mobileOpen}
               tournamentName={tournamentName}
             />
-            <OrganizerDesktopBrandBar tournamentName={tournamentName} sidebarCollapsed={collapsed} />
+            <OrganizerDesktopBrandBar
+              tournamentName={tournamentName}
+              tournamentId={tournamentId}
+              tournament={tournament}
+              location={location}
+              sidebarCollapsed={collapsed}
+            />
             <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7 w-full max-w-[90rem] mx-auto flex-1 min-w-0">
               {children}
             </div>

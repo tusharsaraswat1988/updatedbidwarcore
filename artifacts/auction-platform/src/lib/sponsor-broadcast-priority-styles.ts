@@ -37,25 +37,25 @@ export function getSponsorTickerNameStyle(
         color: TITLE_GOLD,
         fontWeight: 900,
         fontSize: baseFontSize + 4,
-        letterSpacing: "0.08em",
+        letterSpacing: "0.05em",
         textTransform: "uppercase",
-        textShadow:
-          "0 0 14px rgba(247, 223, 138, 0.6), 0 0 28px rgba(201, 162, 39, 0.35), 0 2px 4px rgba(0,0,0,0.85)",
+        textShadow: "0 1px 3px rgba(0,0,0,0.85)",
       };
     case "co_sponsor":
       return {
         color: CO_SILVER,
         fontWeight: 800,
         fontSize: baseFontSize + 2,
-        letterSpacing: "0.07em",
+        letterSpacing: "0.05em",
         textTransform: "uppercase",
-        textShadow: "0 0 10px rgba(180, 200, 220, 0.4), 0 2px 4px rgba(0,0,0,0.7)",
+        textShadow: "0 1px 3px rgba(0,0,0,0.75)",
       };
     default:
       return {
-        color: "rgba(255,255,255,0.85)",
+        color: "rgba(255,255,255,0.95)",
         fontWeight: 700,
         fontSize: baseFontSize,
+        letterSpacing: "0.05em",
       };
   }
 }
@@ -72,9 +72,9 @@ export function getSponsorTickerTypeStyle(
         color: TITLE_GOLD_MUTED,
         fontWeight: 700,
         fontSize: baseFontSize + 1,
-        letterSpacing: "0.08em",
+        letterSpacing: "0.07em",
         textTransform: "uppercase",
-        textShadow: "0 0 8px rgba(247, 223, 138, 0.35)",
+        textShadow: "0 1px 2px rgba(0,0,0,0.8)",
       };
     case "co_sponsor":
       return {
@@ -83,14 +83,14 @@ export function getSponsorTickerTypeStyle(
         fontSize: baseFontSize,
         letterSpacing: "0.06em",
         textTransform: "uppercase",
-        textShadow: "0 0 6px rgba(180, 200, 220, 0.25)",
+        textShadow: "0 1px 2px rgba(0,0,0,0.8)",
       };
     default:
       return {
-        color: "rgba(255,255,255,0.55)",
+        color: "rgba(255,255,255,0.7)",
         fontWeight: 600,
         fontSize: baseFontSize,
-        letterSpacing: "0.04em",
+        letterSpacing: "0.05em",
         textTransform: "none",
       };
   }
@@ -139,27 +139,28 @@ export function getSponsorChyronItemStyle(tier: SponsorBroadcastTier): CSSProper
   switch (tier) {
     case "title":
       return {
-        background:
-          "linear-gradient(135deg, rgba(201, 162, 39, 0.24) 0%, rgba(247, 223, 138, 0.08) 100%)",
-        border: "1px solid rgba(247, 223, 138, 0.5)",
-        borderRadius: 6,
-        padding: "4px 12px",
-        boxShadow:
-          "0 0 20px rgba(247, 223, 138, 0.18), inset 0 1px 0 rgba(255,255,255,0.1)",
+        background: "rgba(245, 197, 24, 0.08)",
+        border: "1.5px solid rgba(245, 197, 24, 0.5)",
+        borderRadius: 8,
+        padding: "5px 14px",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.4)",
       };
     case "co_sponsor":
       return {
-        background:
-          "linear-gradient(135deg, rgba(160, 180, 210, 0.2) 0%, rgba(232, 238, 248, 0.07) 100%)",
-        border: "1px solid rgba(180, 200, 220, 0.4)",
-        borderRadius: 6,
-        padding: "4px 12px",
-        boxShadow: "0 0 14px rgba(180, 200, 220, 0.14)",
+        background: "rgba(255, 255, 255, 0.06)",
+        border: "1.5px solid rgba(255, 255, 255, 0.3)",
+        borderRadius: 8,
+        padding: "5px 14px",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.4)",
       };
     default:
-      // Same horizontal padding as title/co-sponsor pills (just no box) so the
-      // gap between any two sponsors in the ticker stays visually equal.
-      return { padding: "4px 10px" };
+      return {
+        background: "rgba(255, 255, 255, 0.03)",
+        border: "1px solid rgba(255, 255, 255, 0.12)",
+        borderRadius: 8,
+        padding: "5px 14px",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
+      };
   }
 }
 
@@ -169,88 +170,98 @@ export function getSponsorChyronNameStyle(tier: SponsorBroadcastTier): CSSProper
     overflow: "visible",
     textOverflow: "clip",
     maxWidth: "none",
+    fontFamily: "'Barlow Condensed', sans-serif",
+    wordSpacing: "0.22em",
   };
   switch (tier) {
     case "title":
       return {
         ...fullName,
-        color: TITLE_GOLD,
-        fontSize: "clamp(1.15rem, 1.55cqw, 1.65rem)",
-        letterSpacing: "0.18em",
-        textShadow:
-          "0 0 12px rgba(247, 223, 138, 0.6), 0 0 24px rgba(201, 162, 39, 0.35), 0 1px 3px rgba(0,0,0,0.85)",
+        color: "#FFE27A",
+        fontSize: "clamp(1.2rem, 1.6cqw, 1.7rem)",
+        fontWeight: 800,
+        letterSpacing: "0.04em",
+        textShadow: "0 1px 2px rgba(0,0,0,0.9)",
       };
     case "co_sponsor":
       return {
         ...fullName,
-        color: CO_SILVER,
-        fontSize: "clamp(1.05rem, 1.35cqw, 1.48rem)",
-        letterSpacing: "0.16em",
-        textShadow: "0 0 10px rgba(180, 200, 220, 0.45), 0 1px 3px rgba(0,0,0,0.75)",
+        color: "#FFFFFF",
+        fontSize: "clamp(1.1rem, 1.45cqw, 1.55rem)",
+        fontWeight: 800,
+        letterSpacing: "0.04em",
+        textShadow: "0 1px 2px rgba(0,0,0,0.9)",
       };
     default:
       return {
         ...fullName,
-        color: "rgba(255,255,255,0.92)",
-        fontSize: "clamp(0.95rem, 1.2cqw, 1.35rem)",
-        letterSpacing: "0.14em",
+        color: "#FFFFFF",
+        fontSize: "clamp(1.05rem, 1.35cqw, 1.45rem)",
+        fontWeight: 800,
+        letterSpacing: "0.04em",
+        textShadow: "0 1px 2px rgba(0,0,0,0.85)",
       };
   }
 }
 
 export function getSponsorChyronTypeStyle(tier: SponsorBroadcastTier): CSSProperties {
+  const baseType: CSSProperties = {
+    fontFamily: "'Space Grotesk', sans-serif",
+    wordSpacing: "0.15em",
+  };
   switch (tier) {
     case "title":
       return {
-        color: TITLE_GOLD_MUTED,
-        fontSize: "clamp(0.76rem, 0.96cqw, 1.05rem)",
-        letterSpacing: "0.16em",
+        ...baseType,
+        color: "#E5C158",
+        fontSize: "clamp(0.74rem, 0.94cqw, 1rem)",
+        letterSpacing: "0.08em",
         fontWeight: 700,
-        textShadow: "0 0 6px rgba(247, 223, 138, 0.4)",
+        textShadow: "0 1px 2px rgba(0,0,0,0.8)",
       };
     case "co_sponsor":
       return {
-        color: CO_SILVER_MUTED,
-        fontSize: "clamp(0.72rem, 0.9cqw, 1rem)",
-        letterSpacing: "0.14em",
+        ...baseType,
+        color: "rgba(255, 255, 255, 0.85)",
+        fontSize: "clamp(0.72rem, 0.88cqw, 0.94rem)",
+        letterSpacing: "0.07em",
         fontWeight: 700,
-        textShadow: "0 0 4px rgba(180, 200, 220, 0.3)",
+        textShadow: "0 1px 2px rgba(0,0,0,0.8)",
       };
     default:
       return {
-        color: "rgba(255,255,255,0.7)",
-        fontSize: "clamp(0.7rem, 0.88cqw, 0.95rem)",
-        letterSpacing: "0.10em",
+        ...baseType,
+        color: "rgba(255, 255, 255, 0.72)",
+        fontSize: "clamp(0.7rem, 0.84cqw, 0.9rem)",
+        letterSpacing: "0.07em",
         fontWeight: 600,
+        textShadow: "0 1px 2px rgba(0,0,0,0.8)",
       };
   }
 }
 
 export function getSponsorChyronLogoStyle(tier: SponsorBroadcastTier): CSSProperties {
   const base: CSSProperties = {
-    height: "80%",
-    maxHeight: tier === "title" ? 44 : 40,
+    height: "82%",
+    maxHeight: tier === "title" ? 42 : 38,
     width: "auto",
     objectFit: "contain",
-    borderRadius: 4,
-    padding: "2px 8px",
-    backgroundColor: "rgba(255,255,255,0.97)",
+    borderRadius: 6,
+    padding: "3px 8px",
+    backgroundColor: "#FFFFFF",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
   };
 
   switch (tier) {
     case "title":
       return {
         ...base,
-        border: "1px solid rgba(247, 223, 138, 0.65)",
-        filter: getSponsorLogoFilter("title"),
-        boxShadow: "0 0 16px rgba(247, 223, 138, 0.4)",
+        border: "1.5px solid rgba(245, 197, 24, 0.6)",
       };
     case "co_sponsor":
       return {
         ...base,
-        border: "1px solid rgba(180, 200, 220, 0.45)",
-        filter: getSponsorLogoFilter("co_sponsor"),
-        boxShadow: "0 0 10px rgba(180, 200, 220, 0.25)",
+        border: "1.5px solid rgba(220, 230, 245, 0.4)",
       };
     default:
       return base;

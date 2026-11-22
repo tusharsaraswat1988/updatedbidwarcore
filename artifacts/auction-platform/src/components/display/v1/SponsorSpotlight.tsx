@@ -51,7 +51,13 @@ export const SponsorSpotlight = memo(function SponsorSpotlight({
 
   return (
     <div className="flex h-full w-full flex-col items-center justify-center text-center px-[6%]">
-      <p className="font-['Bebas_Neue'] text-4xl md:text-6xl tracking-[0.12em] uppercase text-white/90">
+      <p
+        className="font-['Bebas_Neue',sans-serif] text-5xl md:text-7xl lg:text-8xl tracking-[0.04em] uppercase text-white font-black leading-none drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)]"
+        style={{
+          WebkitTextStroke: "1.2px rgba(255, 255, 255, 0.6)",
+          textShadow: "0 2px 14px rgba(0, 0, 0, 0.95), 0 0 2px rgba(255, 255, 255, 0.6)",
+        }}
+      >
         {tournamentName}
       </p>
 
@@ -65,7 +71,7 @@ export const SponsorSpotlight = memo(function SponsorSpotlight({
           </p>
 
           {/* Fixed slot — welcome line stays put; only inner content fades */}
-          <div className="relative mt-4 h-[17rem] w-full md:h-[18rem]">
+          <div className="relative mt-4 h-[19rem] w-full md:h-[21rem]">
             <div
               className="absolute inset-0 flex flex-col items-center gap-3 transition-opacity ease-in-out"
               style={{
@@ -73,7 +79,7 @@ export const SponsorSpotlight = memo(function SponsorSpotlight({
                 transitionDuration: `${FADE_MS}ms`,
               }}
             >
-              <div className="flex h-36 w-full max-w-md items-center justify-center rounded-lg bg-white/95 px-8 py-4 shadow-[0_0_40px_rgba(255,255,255,0.08)]">
+              <div className="flex h-44 md:h-48 w-full max-w-xl items-center justify-center">
                 {current.logoUrl ? (
                   <img
                     src={current.logoUrl}

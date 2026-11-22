@@ -2235,16 +2235,16 @@ function OrganizerDashboard({
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search tournaments..."
                 aria-label="Search tournaments"
-                className="od-search-input pl-9 pr-8 h-9 text-sm text-foreground placeholder:text-muted-foreground w-full bg-white border-border"
+                className="od-search-input pl-9 pr-9 h-10 text-sm text-foreground placeholder:text-muted-foreground w-full bg-white border-border rounded-lg shadow-2xs"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground w-7 h-7 flex items-center justify-center rounded-md hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 cursor-pointer"
                   aria-label="Clear search"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               )}
             </div>
@@ -2394,7 +2394,7 @@ function OrganizerDashboard({
 
                             {isAuction && t.licenseStatus !== "active" && !isCompleted && !isLocked && (
                               pendingLicenseRequests[t.id] ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                                   <Clock className="w-2.5 h-2.5" aria-hidden />
                                   License Requested
                                 </span>
@@ -2405,10 +2405,10 @@ function OrganizerDashboard({
                                     e.stopPropagation();
                                     handleOpenLicenseRequest(t);
                                   }}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold text-amber-300 border border-amber-500/40 hover:bg-amber-500/15 transition-colors cursor-pointer"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer"
                                   title="Upgrade tournament from Trial to Live license"
                                 >
-                                  <Zap className="w-2.5 h-2.5 text-amber-400" aria-hidden />
+                                  <Zap className="w-2.5 h-2.5 text-amber-600" aria-hidden />
                                   Need License
                                 </button>
                               )
@@ -2432,11 +2432,23 @@ function OrganizerDashboard({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48 z-[100]">
+                            <DropdownMenuItem
+                              onClick={() =>
+                                navigate(
+                                  isAuction
+                                    ? auctionOverviewPath(t.id)
+                                    : resolveScoringEntryPath(t.id, t.sport),
+                                )
+                              }
+                              className="gap-2 cursor-pointer font-semibold"
+                            >
+                              <Trophy className="w-3.5 h-3.5 text-primary" /> Manage Tournament
+                            </DropdownMenuItem>
                             {isAuction && t.licenseStatus !== "active" && !isCompleted && (
                               <DropdownMenuItem
                                 disabled={isLocked}
                                 onClick={() => handleOpenLicenseRequest(t)}
-                                className="gap-2 cursor-pointer text-amber-300 font-semibold"
+                                className="gap-2 cursor-pointer text-amber-700 dark:text-amber-400 font-semibold"
                               >
                                 <Zap className="w-3.5 h-3.5 text-amber-400" />
                                 {pendingLicenseRequests[t.id] ? "License Under Review" : "Request Live License"}
@@ -2486,8 +2498,16 @@ function OrganizerDashboard({
                       </div>
 
                       <h3
-                        className="font-display font-bold text-base sm:text-[1.05rem] leading-snug text-foreground line-clamp-2 pr-1"
+                        className="font-display font-bold text-base sm:text-[1.05rem] leading-snug text-foreground line-clamp-2 pr-1 cursor-pointer hover:text-primary transition-colors"
                         title={t.name}
+                        onClick={() => {
+                          if (isLocked) return;
+                          navigate(
+                            isAuction
+                              ? auctionOverviewPath(t.id)
+                              : resolveScoringEntryPath(t.id, t.sport),
+                          );
+                        }}
                       >
                         {t.name}
                       </h3>

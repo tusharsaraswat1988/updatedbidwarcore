@@ -4019,7 +4019,7 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="text-[11px] font-bold text-slate-700 uppercase tracking-wider tabular-nums"
+                      className="text-right text-[11px] font-bold text-slate-700 uppercase tracking-wider tabular-nums"
                     />
                     <SortableTableHead
                       label="Sold"
@@ -4028,7 +4028,7 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="text-[11px] font-bold text-slate-700 uppercase tracking-wider tabular-nums"
+                      className="text-right text-[11px] font-bold text-slate-700 uppercase tracking-wider tabular-nums"
                     />
                     <SortableTableHead
                       label="Team"
@@ -4146,10 +4146,10 @@ export default function Players() {
                           <TableCell className="py-1.5 align-middle">
                             <StatusBadge status={player.status} />
                           </TableCell>
-                          <TableCell className={`text-xs font-mono tabular-nums py-1.5 align-middle ${baseValue.className}`}>
+                          <TableCell className={`text-right text-xs font-mono tabular-nums py-2 align-middle ${baseValue.className}`}>
                             {baseValue.text}
                           </TableCell>
-                          <TableCell className={`text-xs font-mono tabular-nums font-semibold py-1.5 align-middle ${soldAt.className}`}>
+                          <TableCell className={`text-right text-xs font-mono tabular-nums font-semibold py-2 align-middle ${soldAt.className}`}>
                             {soldAt.text}
                           </TableCell>
                           <TableCell className="py-1.5 align-middle">

@@ -79,6 +79,7 @@ export const AuctionConnectionBanner = memo(function AuctionConnectionBanner({
   secondsSinceLastActivity,
   placement = "overlay",
   className = "",
+  hideAwaitingOperator = false,
 }: {
   feedState: AuctionFeedState;
   secondsSinceLastActivity?: number | null;
@@ -86,9 +87,16 @@ export const AuctionConnectionBanner = memo(function AuctionConnectionBanner({
   variant?: "banner" | "pill" | "compact";
   placement?: "overlay" | "inline";
   className?: string;
+  hideAwaitingOperator?: boolean;
 }) {
   const visible = useConnectionBannerPulse(feedState);
-  if (feedState === "live" || !visible) return null;
+  if (
+    feedState === "live" ||
+    !visible ||
+    (hideAwaitingOperator && feedState === "awaiting_operator_response")
+  ) {
+    return null;
+  }
 
   const copy = AUCTION_FEED_UI[feedState];
   const styles = BANNER_STYLES[feedState];

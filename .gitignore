@@ -5,6 +5,7 @@ dist
 tmp
 out-tsc
 *.tsbuildinfo
+lib/**/src/**/*.js
 .expo
 .expo-shared
 
@@ -93,4 +94,12 @@ scratch/
 artifacts/chrome-profile-*
 artifacts/simulation-logs/
 artifacts/simulation-screenshots/
+artifacts/*screenshots*/
+*-screenshots/
+dev-dist/
+**/dev-dist/
+**/test-reports/
+scripts/.lh*.json
+scripts/.lighthouse*.json
+public/simulation/
 .agents/teamwork/

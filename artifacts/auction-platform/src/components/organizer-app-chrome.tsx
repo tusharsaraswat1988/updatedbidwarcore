@@ -1,11 +1,15 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { Link } from "wouter";
-import { Menu } from "lucide-react";
+import { Menu, ChevronRight, User } from "lucide-react";
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset, type BrandSurfaceId } from "@/lib/brand-usage";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { useOrganizerAccountAuth } from "@/hooks/use-auth";
+import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
+import { resolveTournamentOrganizerLandingPath } from "@/lib/tournament-navigation";
 
 type OrganizerBrandSurface = Extract<
   BrandSurfaceId,
@@ -103,36 +107,163 @@ export function BidwarOrganizerBrandMark({
   );
 }
 
+function getSectionLabel(location?: string): string | null {
+  if (!location) return null;
+  if (location.endsWith("/auction-overview") || location.endsWith("/overview")) return "Overview";
+  if (location.endsWith("/teams")) return "Teams";
+  if (location.endsWith("/players")) return "Players";
+  if (location.endsWith("/categories")) return "Categories";
+  if (location.endsWith("/settings")) return "Settings";
+  if (location.endsWith("/reports")) return "Reports";
+  if (location.endsWith("/links")) return "Links";
+  if (location.endsWith("/fortune-wheel")) return "Fortune Wheel";
+  if (location.endsWith("/break-timer")) return "Break Timer";
+  if (location.endsWith("/local-mode")) return "Local Mode";
+  if (location.endsWith("/reset")) return "Reset Trial Data";
+  if (location.includes("/mission-control")) return "Mission Control";
+  if (location.includes("/fixtures")) return "Fixtures";
+  if (location.includes("/rules")) return "Rules";
+  if (location.includes("/standings")) return "Standings";
+  if (location.includes("/stats")) return "Stats";
+  if (location.includes("/officials")) return "Officials";
+  if (location.includes("/control")) return "Match Control";
+  if (location.includes("/results")) return "Results";
+  if (location.endsWith("/profile")) return "Profile";
+  return null;
+}
+
 /** Tablet / laptop — persistent BidWar strip above page content (sidebar may be icon-only). */
 export function OrganizerDesktopBrandBar({
   tournamentName,
+  tournamentId,
+  tournament,
+  location,
   className,
   sidebarCollapsed = false,
 }: {
   tournamentName?: string | null;
+  tournamentId?: number;
+  tournament?: {
+    name?: string | null;
+    sport?: string | null;
+    status?: string | null;
+    licenseStatus?: string | null;
+    auctionEnabled?: boolean | null;
+    scoringEnabled?: boolean | null;
+  } | null;
+  location?: string;
   className?: string;
   sidebarCollapsed?: boolean;
 }) {
   const showTournament = !!tournamentName?.trim();
+  const { organizer, isLoggedIn } = useOrganizerAccountAuth();
+  const accountLabel = isLoggedIn && organizer
+    ? (organizer.name?.trim() || organizer.email?.trim() || organizer.mobile?.trim() || null)
+    : null;
+
+  const auctionActive = isAuctionEnabled(tournament);
+  const scoringActive = isScoringEnabled(tournament);
+  const sectionLabel = getSectionLabel(location);
+  const tournamentLandingHref =
+    tournamentId && tournament
+      ? resolveTournamentOrganizerLandingPath(tournamentId, tournament)
+      : tournamentId
+        ? `/tournament/${tournamentId}/auction-overview`
+        : "/organizer";
 
   return (
     <header
       className={cn(
-        "hidden md:flex sticky top-0 z-40 h-12 shrink-0 items-center gap-4 px-4 lg:px-6 border-b border-border bg-background/95 backdrop-blur-md",
+        "hidden md:flex sticky top-0 z-40 h-12 shrink-0 items-center justify-between gap-3 px-4 lg:px-6 border-b border-border bg-background/95 backdrop-blur-md",
         className,
       )}
     >
-      {sidebarCollapsed && (
-        <BidwarOrganizerBrandMark surface="organizer-main-toolbar" />
-      )}
-      {showTournament ? (
-        <p
-          className="min-w-0 flex-1 text-sm font-medium text-muted-foreground truncate text-right lg:text-left lg:max-w-md"
-          title={tournamentName ?? undefined}
-        >
-          {tournamentName}
-        </p>
-      ) : null}
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        {sidebarCollapsed && (
+          <BidwarOrganizerBrandMark surface="organizer-main-toolbar" />
+        )}
+        {showTournament && tournamentId ? (
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 min-w-0 text-xs sm:text-sm font-medium">
+            <Link
+              href="/organizer"
+              className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            >
+              Tournaments
+            </Link>
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" aria-hidden />
+            <Link
+              href={tournamentLandingHref}
+              className={cn(
+                "truncate max-w-[12rem] sm:max-w-[16rem] transition-colors",
+                sectionLabel ? "text-muted-foreground hover:text-foreground" : "text-foreground font-semibold"
+              )}
+              title={tournamentName ?? undefined}
+            >
+              {tournamentName}
+            </Link>
+            {sectionLabel && (
+              <>
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" aria-hidden />
+                <span className="text-foreground font-semibold truncate shrink-0">{sectionLabel}</span>
+              </>
+            )}
+          </nav>
+        ) : showTournament ? (
+          <p
+            className="min-w-0 text-sm font-medium text-foreground truncate"
+            title={tournamentName ?? undefined}
+          >
+            {tournamentName}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        {showTournament && (
+          <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+            {auctionActive && (
+              <Badge
+                variant="outline"
+                className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-300/60"
+              >
+                Auction
+              </Badge>
+            )}
+            {scoringActive && (
+              <Badge
+                variant="outline"
+                className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 bg-sky-500/10 text-sky-800 dark:text-sky-300 border-sky-300/60"
+              >
+                {tournament?.sport ? `${tournament.sport.charAt(0).toUpperCase() + tournament.sport.slice(1)} Scoring` : "Scoring"}
+              </Badge>
+            )}
+            {tournament?.status && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] sm:text-[11px] font-semibold px-2 py-0.5",
+                  tournament.status === "active"
+                    ? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border-emerald-300/60"
+                    : "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-300/60"
+                )}
+              >
+                {tournament.status === "active" ? "Live" : tournament.status.charAt(0).toUpperCase() + tournament.status.slice(1)}
+              </Badge>
+            )}
+          </div>
+        )}
+
+        {isLoggedIn && organizer && (
+          <Link
+            href="/organizer/profile"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent/80 border border-border transition-colors ml-auto shrink-0"
+            title={accountLabel ? `Signed in as ${accountLabel}` : "Organiser Profile"}
+          >
+            <User className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
+            <span className="hidden lg:inline max-w-[10rem] truncate">{accountLabel || "Profile"}</span>
+          </Link>
+        )}
+      </div>
     </header>
   );
 }

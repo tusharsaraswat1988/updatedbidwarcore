@@ -1,9 +1,15 @@
-import React, { ReactNode, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import React, { ReactNode } from "react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
-import { getPortalThemeClass } from "@/lib/portal-theme";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export { hubCardClass, hubPanelClass } from "@/components/platform/platform-surface";
 export { EmptyState } from "@/components/platform/empty-state";
@@ -32,61 +38,39 @@ export function FormModal({
     xl: "max-w-2xl",
   }[size];
 
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
-
-  const node = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
-      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" aria-hidden />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sports-form-modal-title"
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
         className={cn(
-          getPortalThemeClass(),
-          "relative z-10 grid w-full min-h-0 max-h-[calc(100dvh-1.5rem)] overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl sm:max-h-[calc(100dvh-3rem)]",
-          footer ? "grid-rows-[auto_minmax(0,1fr)_auto]" : "grid-rows-[auto_minmax(0,1fr)]",
+          "p-0 gap-0 overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl",
           maxW,
         )}
       >
-        <div className="z-10 flex items-start justify-between gap-3 border-b border-border bg-card px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
-          <div className="min-w-0">
-            <h2 id="sports-form-modal-title" className="text-foreground font-display font-bold text-base sm:text-lg tracking-tight">
-              {title}
-            </h2>
-            {subtitle ? <p className="text-muted-foreground text-xs sm:text-sm mt-0.5 truncate">{subtitle}</p> : null}
-          </div>
-          <button
-            type="button"
-            onClick={() => onCloseRef.current()}
-            aria-label="Close"
-            className="flex-none min-h-10 min-w-10 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent text-xl leading-none transition-colors sm:min-h-11 sm:min-w-11"
-          >
-            ×
-          </button>
-        </div>
+        <DialogHeader className="border-b border-border bg-card px-4 py-3 sm:px-6 sm:py-4 text-left">
+          <DialogTitle className="text-foreground font-display font-bold text-base sm:text-lg tracking-tight">
+            {title}
+          </DialogTitle>
+          {subtitle ? (
+            <DialogDescription className="text-muted-foreground text-xs sm:text-sm mt-0.5 truncate">
+              {subtitle}
+            </DialogDescription>
+          ) : (
+            <DialogDescription className="sr-only">{title}</DialogDescription>
+          )}
+        </DialogHeader>
 
         <div className="min-h-0 max-h-[calc(100dvh-12.5rem)] overflow-y-auto overscroll-contain px-4 py-4 sm:max-h-[calc(100dvh-13.5rem)] sm:px-6 sm:py-5">
           {children}
         </div>
 
         {footer ? (
-          <div className="z-10 border-t border-border bg-card px-4 py-3 sm:px-6 sm:py-4">{footer}</div>
+          <DialogFooter className="border-t border-border bg-card px-4 py-3 sm:px-6 sm:py-4">
+            {footer}
+          </DialogFooter>
         ) : null}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
-
-  if (typeof document === "undefined") return node;
-  return createPortal(node, document.body);
 }
 
 export const inputClass =

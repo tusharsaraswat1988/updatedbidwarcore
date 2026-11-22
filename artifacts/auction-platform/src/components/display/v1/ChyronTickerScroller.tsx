@@ -13,6 +13,7 @@ export function ChyronTickerScroller<T>({
   renderItem,
   pxPerSec,
   enabled = true,
+  loopGapClass = "gap-10",
 }: {
   items: readonly T[];
   renderItem: (item: T, index: number) => ReactNode;
@@ -20,6 +21,7 @@ export function ChyronTickerScroller<T>({
   pxPerSec?: number;
   /** Pause measurement + animation (e.g. match-point strip). */
   enabled?: boolean;
+  loopGapClass?: string;
 }) {
   const contentKey = chyronTickerContentKey(
     items as ReadonlyArray<{ name?: string | null; logoUrl?: string | null; url?: string | null; tier?: string | null; type?: string | null }>,
@@ -29,6 +31,8 @@ export function ChyronTickerScroller<T>({
     enabled,
   });
 
+  const unitClass = `flex items-center whitespace-nowrap shrink-0 ${loopGapClass}`;
+
   return (
     <div
       ref={trackRef}
@@ -36,10 +40,10 @@ export function ChyronTickerScroller<T>({
       style={{ opacity: ready ? 1 : 0 }}
       aria-hidden
     >
-      <div ref={measureRef} className={LOOP_UNIT_CLASS}>
+      <div ref={measureRef} className={unitClass}>
         {items.map((item, index) => renderItem(item, index))}
       </div>
-      <div className={LOOP_UNIT_CLASS} aria-hidden>
+      <div className={unitClass} aria-hidden>
         {items.map((item, index) => renderItem(item, index))}
       </div>
     </div>

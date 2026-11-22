@@ -14,6 +14,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -83,6 +96,7 @@ import {
   Edit2,
   ExternalLink,
   Monitor,
+  MoreVertical,
   Printer,
   Radio,
   Trash2,
@@ -347,14 +361,28 @@ export default function CricketMatchCenterPage() {
               Print Scorecard
             </BtnSecondary>
             {data?.match.status !== "completed" && data?.match.status !== "abandoned" ? (
-              <Button
-                variant="outline"
-                onClick={() => setDeleteOpen(true)}
-                className={cn(btnCompactClass, "text-muted-foreground hover:text-destructive hover:border-destructive/40 gap-1.5")}
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 text-muted-foreground hover:text-foreground hover:border-border cursor-pointer"
+                    title="Match options"
+                    aria-label="Match options"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem
+                    onClick={() => setDeleteOpen(true)}
+                    className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete Match
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : null}
           </div>
         }
@@ -630,81 +658,86 @@ export default function CricketMatchCenterPage() {
       </div>
 
       {/* Modal: Edit Match Details */}
-      {editOpen && data ? (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-5 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-border/60">
+      <Dialog open={editOpen && !!data} onOpenChange={(open) => { if (!open) setEditOpen(false); }}>
+        <DialogContent className="max-w-md p-6 space-y-4">
+          <DialogHeader className="pb-2 border-b border-border/60 text-left">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-base">Edit Match Details</h3>
-                <Badge variant="outline" className="text-[10px] capitalize font-semibold">
-                  {data.match.status}
-                </Badge>
+                <DialogTitle className="font-bold text-base">Edit Match Details</DialogTitle>
+                {data ? (
+                  <Badge variant="outline" className="text-[10px] capitalize font-semibold">
+                    {data.match.status}
+                  </Badge>
+                ) : null}
               </div>
-              <span className="text-xs text-muted-foreground">Match #{data.match.tournamentMatchNumber ?? data.match.id}</span>
+              {data ? (
+                <span className="text-xs text-muted-foreground">Match #{data.match.tournamentMatchNumber ?? data.match.id}</span>
+              ) : null}
+            </div>
+            <DialogDescription className="sr-only">Edit stage, venue, overs and summary</DialogDescription>
+          </DialogHeader>
+
+          {data && data.match.status !== "scheduled" && data.match.status !== "draft" ? (
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-500">
+              Editing a {data.match.status} match updates display information and rules across all screens without resetting scored balls or player statistics.
+            </div>
+          ) : null}
+
+          <div className="space-y-3 text-sm">
+            <div className="space-y-1.5">
+              <Label>Round / Match Stage</Label>
+              <Input
+                value={editRoundName}
+                onChange={(e) => setEditRoundName(e.target.value)}
+              />
             </div>
 
-            {data.match.status !== "scheduled" && data.match.status !== "draft" ? (
-              <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-500">
-                Editing a {data.match.status} match updates display information and rules across all screens without resetting scored balls or player statistics.
-              </div>
-            ) : null}
-
-            <div className="space-y-3 text-sm">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Round / Match Stage</Label>
+                <Label>Overs per Inning</Label>
                 <Input
-                  value={editRoundName}
-                  onChange={(e) => setEditRoundName(e.target.value)}
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={editOvers}
+                  onChange={(e) => setEditOvers(parseInt(e.target.value, 10) || 6)}
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Overs per Inning</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={editOvers}
-                    onChange={(e) => setEditOvers(parseInt(e.target.value, 10) || 6)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Venue (Optional)</Label>
-                  <Input
-                    value={editVenue}
-                    onChange={(e) => setEditVenue(e.target.value)}
-                  />
-                </div>
-              </div>
-
               <div className="space-y-1.5">
-                <Label>Result / Display Summary</Label>
+                <Label>Venue (Optional)</Label>
                 <Input
-                  value={editResultSummary}
-                  onChange={(e) => setEditResultSummary(e.target.value)}
+                  value={editVenue}
+                  onChange={(e) => setEditVenue(e.target.value)}
                 />
-                <p className="text-[11px] text-muted-foreground">
-                  Custom text displayed on cards, scorecards, and overlays.
-                </p>
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2 border-t border-border/40">
-              <Button
-                className="flex-1 font-bold"
-                disabled={savingEdit}
-                onClick={handleSaveEdit}
-              >
-                {savingEdit ? "Saving..." : "Save Changes"}
-              </Button>
-              <Button variant="outline" onClick={() => setEditOpen(false)}>
-                Cancel
-              </Button>
+            <div className="space-y-1.5">
+              <Label>Result / Display Summary</Label>
+              <Input
+                value={editResultSummary}
+                onChange={(e) => setEditResultSummary(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Custom text displayed on cards, scorecards, and overlays.
+              </p>
             </div>
           </div>
-        </div>
-      ) : null}
+
+          <div className="flex gap-2 pt-2 border-t border-border/40">
+            <Button
+              className="flex-1 font-bold"
+              disabled={savingEdit}
+              onClick={handleSaveEdit}
+            >
+              {savingEdit ? "Saving..." : "Save Changes"}
+            </Button>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal: Confirm Delete Match (Pre-toss only) */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
