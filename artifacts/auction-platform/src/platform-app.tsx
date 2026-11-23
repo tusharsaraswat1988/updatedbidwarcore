@@ -220,6 +220,7 @@ function PlatformRouter() {
         <Route path="/tournament/:id/register" component={PlayerRegisterLegacy} />
         <Route path="/tournament/:id/display" component={DisplayView} />
         <Route path="/tournament/:id/side-display" component={SideDisplayView} />
+        <Route path="/tournament/:id/side_display" component={SideDisplayView} />
         <Route path="/tournament/:id/score-display" component={RedirectToScoringApp} />
         {/* SOLD Poster V2 design preview - standalone sandbox, not production */}
         <Route path="/poster-v2-preview" component={SoldPosterV2Preview} />

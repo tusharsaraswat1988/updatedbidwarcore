@@ -244,7 +244,7 @@ export function ImageEditorDialog({
         }
         const fallbackArea: Area = {
           x: Math.max(0, Math.round((naturalWidth - cropW) / 2)),
-          y: Math.max(0, Math.round((naturalHeight - cropH) / 2)),
+          y: aspect && aspect < 1 ? 0 : Math.max(0, Math.round((naturalHeight - cropH) / 2)),
           width: cropW,
           height: cropH,
         };
@@ -297,20 +297,32 @@ export function ImageEditorDialog({
               onDrop={handleDrop}
             >
               {src ? (
-                <Cropper
-                  image={src}
-                  crop={crop}
-                  zoom={zoom}
-                  rotation={rotation}
-                  aspect={aspect}
-                  onCropChange={setCrop}
-                  onZoomChange={setZoom}
-                  onRotationChange={setRotation}
-                  onCropComplete={onCropComplete}
-                  onCropAreaChange={onCropAreaChange}
-                  showGrid={true}
-                  objectFit="contain"
-                />
+                <>
+                  <Cropper
+                    image={src}
+                    crop={crop}
+                    zoom={zoom}
+                    rotation={rotation}
+                    aspect={aspect}
+                    onCropChange={setCrop}
+                    onZoomChange={setZoom}
+                    onRotationChange={setRotation}
+                    onCropComplete={onCropComplete}
+                    onCropAreaChange={onCropAreaChange}
+                    showGrid={true}
+                    objectFit="contain"
+                  />
+                  {aspect && aspect < 1 ? (
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center z-10">
+                      {/* Face & Headroom Guideline Oval for Player Portraits */}
+                      <div className="relative w-28 h-36 sm:w-32 sm:h-44 border-2 border-dashed border-primary/70 rounded-[50%_50%_45%_45%] shadow-[0_0_15px_rgba(59,130,246,0.35)] flex items-start justify-center pt-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-background/90 px-2 py-0.5 rounded-full border border-primary/40 -mt-3 shadow-sm">
+                          Keep Face Here
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
               ) : (
                 <button
                   type="button"
@@ -328,6 +340,14 @@ export function ImageEditorDialog({
                 </div>
               )}
             </div>
+
+            {/* Guidance for vertical portrait / player photo uploads */}
+            {src && aspect && aspect < 1 ? (
+              <p className="text-xs text-primary font-medium flex items-center justify-center gap-1.5 bg-primary/10 py-1.5 px-3 rounded-md border border-primary/20 text-center">
+                <span>💡</span>
+                <span>LED Screen Best Framing: Chehra aur kandhe guide ke andar set karein taaki live screen par perfect dikhe.</span>
+              </p>
+            ) : null}
 
             {/* Sliders — only shown when an image is loaded */}
             {src && (

@@ -179,18 +179,29 @@ export const PlayerPortrait = memo(function PlayerPortrait({
       className="@container/portrait flex flex-col h-full min-h-0 overflow-hidden bg-black/60 border-2"
       style={frameStyle}
     >
-      {/* 1. Unobstructed photo section */}
-      <div className="relative h-[43%] shrink-0 min-h-0 w-full overflow-hidden bg-black/40">
+      {/* 1. Unobstructed photo section with Dual-Layer Broadcast Framing */}
+      <div className="relative h-[52%] shrink-0 min-h-0 w-full overflow-hidden bg-black/60">
         {showPhoto ? (
-          <img
-            src={cldUrl(currentPlayer.portrait, "playerCard")}
-            alt={currentPlayer.name}
-            className="w-full h-full object-cover object-center"
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-            onError={() => setPhotoFailed(true)}
-          />
+          <>
+            {/* Ambient Blurred Background (fills frame smoothly without edge cuts or distortion) */}
+            <img
+              src={cldUrl(currentPlayer.portrait, "playerCard")}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-35 select-none pointer-events-none"
+              loading="eager"
+            />
+            {/* Crisp Foreground Photo (Anchored top-center to protect head, forehead & eyes) */}
+            <img
+              src={cldUrl(currentPlayer.portrait, "playerCard")}
+              alt={currentPlayer.name}
+              className="relative z-10 w-full h-full object-cover object-[center_top]"
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
+              onError={() => setPhotoFailed(true)}
+            />
+          </>
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-white/[0.06] via-black/20 to-black/70">
             <GenderPortraitIcon gender={currentPlayer.gender} />
@@ -224,10 +235,10 @@ export const PlayerPortrait = memo(function PlayerPortrait({
       </div>
 
       {/* 2. Structured stadium-readable information area below photograph */}
-      <div className="flex-1 min-h-0 flex flex-col justify-between p-2.5 sm:p-3 bg-gradient-to-b from-black/95 via-black/90 to-black/85 border-t-2 border-white/10 overflow-hidden">
-        <div className="mb-2">
+      <div className="flex-1 min-h-0 flex flex-col justify-between p-2 sm:p-2.5 bg-gradient-to-b from-black/95 via-black/90 to-black/85 border-t-2 border-white/10 overflow-hidden">
+        <div className="mb-1">
           <PortraitPlayerName name={currentPlayer.name} />
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-['Space_Grotesk'] text-sm sm:text-base font-extrabold uppercase tracking-[0.06em]">
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-['Space_Grotesk'] text-sm sm:text-base font-extrabold uppercase tracking-[0.06em]">
             <span style={{ color: "var(--accent)" }}>{roleLabel}</span>
             {currentPlayer.city ? (
               <>
@@ -241,11 +252,11 @@ export const PlayerPortrait = memo(function PlayerPortrait({
         </div>
 
         {infoRows.length > 0 ? (
-          <div className="mb-2 pt-2 border-t border-white/15">
-            <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.14em] text-white/45 mb-1.5 font-['Space_Grotesk']">
+          <div className="mb-1 pt-1.5 border-t border-white/15">
+            <p className="text-[10px] sm:text-xs font-black uppercase tracking-[0.14em] text-white/45 mb-1 font-['Space_Grotesk']">
               PLAYER SPECIFICATIONS
             </p>
-            <div className={`grid ${specGridClass} gap-x-3 gap-y-1`}>
+            <div className={`grid ${specGridClass} gap-x-3 gap-y-0.5`}>
               {infoRows.map((row, index) => (
                 <SpecRow
                   key={`${row.label}-${index}`}

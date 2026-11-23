@@ -7,6 +7,8 @@ import { SIDE_LED_LAYOUT } from "@/lib/broadcast-canvas/constants";
 import {
   broadcastSpecLabel,
   portraitSpecGridClass,
+  resolveSmartPlayerStats,
+  type SmartProfileStat,
 } from "@/lib/led-view/portrait-footer-stats";
 import { cldUrl } from "@/lib/cloudinary";
 import { SideBroadcastHeader } from "../broadcast-canvas/SideBroadcastHeader";
@@ -61,30 +63,12 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
   const ceiling = Math.max(1, timerCeiling);
   const pct = Math.max(0, Math.min(100, (countdown / ceiling) * 100));
 
-  const profileRows = useMemo(() => {
+  const smartStats = useMemo(() => {
     if (!currentPlayer) return [];
-
-    const specRows = currentPlayer.specs
-      .filter((spec) => {
-        const label = spec.label?.trim().toLowerCase() ?? "";
-        if (label === "role") return false;
-        return Boolean(spec.value?.trim());
-      })
-      .map((spec) => ({
-        shortLabel: broadcastSpecLabel(spec.label),
-        fullLabel: spec.label,
-        value: spec.value.trim(),
-      }));
-
-    return [
-      { shortLabel: "AGE", fullLabel: "Age", value: currentPlayer.age ? String(currentPlayer.age) : "—" },
-      { shortLabel: "CITY", fullLabel: "City", value: currentPlayer.city?.trim() || "—" },
-      { shortLabel: "BASE", fullLabel: "Base Price", value: basePriceLabel, accent: true as const },
-      ...specRows,
-    ];
+    return resolveSmartPlayerStats(currentPlayer, {
+      basePriceLabel,
+    });
   }, [currentPlayer, basePriceLabel]);
-
-  const specGridClass = portraitSpecGridClass(profileRows.length);
 
   if (!currentPlayer) {
     return (
@@ -207,24 +191,11 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
       </div>
 
       <div className="side-player-stats shrink-0 overflow-hidden px-[5%]">
-        <div className={`grid ${specGridClass} side-player-stats-grid`}>
-          {profileRows.map((row, index) => (
-            <SideSpecRow
-              key={`${row.fullLabel}-${index}`}
-              shortLabel={row.shortLabel}
-              fullLabel={row.fullLabel}
-              value={row.value}
-              accent={row.accent === true}
-              className={
-                profileRows.length > 2 &&
-                profileRows.length % 2 === 1 &&
-                index === profileRows.length - 1
-                  ? "col-span-2"
-                  : undefined
-              }
-            />
-          ))}
-        </div>
+        <SidePlayerStatsGrid
+          stats={smartStats}
+          serialNo={player.serialNo}
+          categoryName={player.categoryName}
+        />
 
         {player.achievements ? (
           <p
@@ -402,6 +373,120 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
     </div>
   );
 });
+
+function SidePlayerStatsGrid({
+  stats,
+  serialNo,
+  categoryName,
+}: {
+  stats: SmartProfileStat[];
+  serialNo: number;
+  categoryName: string | null;
+}) {
+  // Mode D: Minimal (0 items)
+  if (stats.length === 0) {
+    return (
+      <div className="side-player-stat-plate flex items-center justify-between gap-4 w-full">
+        <div className="flex items-center gap-3.5">
+          <span
+            className="text-[26px] font-black px-4 py-1.5 rounded-xl font-['Space_Grotesk'] shadow"
+            style={{ backgroundColor: "var(--accent)", color: "var(--accent-on)" }}
+          >
+            #{serialNo}
+          </span>
+          <div className="flex flex-col">
+            <span className="text-white/60 text-[18px] font-bold uppercase tracking-wider font-['Space_Grotesk']">
+              ATHLETE DIVISION
+            </span>
+            <span className="text-white text-[28px] sm:text-[32px] font-black uppercase tracking-wide leading-tight font-['Space_Grotesk']">
+              {categoryName ? `${categoryName} GRADE` : "OFFICIAL DRAFT ENTRY"}
+            </span>
+          </div>
+        </div>
+        <span
+          className="text-[18px] font-extrabold uppercase tracking-widest px-4 py-2 rounded-full font-['Space_Grotesk'] shrink-0 border"
+          style={{
+            backgroundColor: "rgba(212, 175, 55, 0.12)",
+            color: "var(--accent)",
+            borderColor: "rgba(212, 175, 55, 0.3)",
+          }}
+        >
+          DRAFT READY
+        </span>
+      </div>
+    );
+  }
+
+  // Mode A: Dual Hero Pods (Exactly 2 items)
+  if (stats.length === 2) {
+    return (
+      <div className="grid grid-cols-2 gap-5 w-full">
+        {stats.map((stat) => (
+          <div
+            key={stat.id}
+            className="side-player-stat-card side-player-stat-card--hero flex flex-col justify-center min-w-0"
+          >
+            <span
+              className="side-player-stat-card-label font-extrabold uppercase tracking-widest text-[20px] sm:text-[22px] leading-tight"
+              style={{ color: stat.accent ? "var(--accent)" : "rgba(255, 255, 255, 0.72)" }}
+            >
+              {stat.shortLabel}
+            </span>
+            <span className="side-player-stat-card-value side-player-stat-card-value--hero font-black uppercase text-white truncate text-[48px] sm:text-[54px] leading-none mt-1">
+              {stat.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Mode B: Quad Balanced Matrix (3 or 4 items)
+  if (stats.length <= 4) {
+    return (
+      <div className="grid grid-cols-2 gap-3.5 w-full">
+        {stats.map((stat) => (
+          <div
+            key={stat.id}
+            className="side-player-stat-card side-player-stat-card--quad flex flex-col justify-center min-w-0"
+          >
+            <span
+              className="side-player-stat-card-label font-bold uppercase tracking-wider text-[18px] leading-tight"
+              style={{ color: stat.accent ? "var(--accent)" : "rgba(255, 255, 255, 0.68)" }}
+            >
+              {stat.shortLabel}
+            </span>
+            <span className="side-player-stat-card-value side-player-stat-card-value--quad font-extrabold uppercase text-white truncate text-[32px] sm:text-[36px] leading-tight mt-0.5">
+              {stat.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Mode C: Dense Multi-Tile Grid (5+ items)
+  return (
+    <div className="grid grid-cols-2 gap-2.5 w-full">
+      {stats.map((stat) => (
+        <div
+          key={stat.id}
+          className="side-player-stat-card side-player-stat-card--dense flex items-baseline justify-between gap-2 min-w-0"
+        >
+          <span
+            className="side-player-stat-card-label font-bold uppercase tracking-wider text-[17px] shrink-0"
+            style={{ color: stat.accent ? "var(--accent)" : "rgba(255, 255, 255, 0.65)" }}
+          >
+            {stat.shortLabel}:
+          </span>
+          <span className="side-player-stat-card-value side-player-stat-card-value--dense font-extrabold uppercase text-white truncate text-[26px]">
+            {stat.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function SideSpecRow({
   shortLabel,

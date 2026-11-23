@@ -19,7 +19,9 @@ function parsePanelMode(raw: string | null): SideLedPanelMode {
  *   ?dev=1&guides=safe,center,grid&scale=fit
  */
 export default function SideDisplayView() {
-  const [, params] = useRoute("/tournament/:id/side-display");
+  const [, paramsHyphen] = useRoute("/tournament/:id/side-display");
+  const [, paramsUnderscore] = useRoute("/tournament/:id/side_display");
+  const params = paramsHyphen || paramsUnderscore;
   const tournamentId = parseInt(params?.id || "0");
   const search = useSearch();
   const paramsObj = new URLSearchParams(search);

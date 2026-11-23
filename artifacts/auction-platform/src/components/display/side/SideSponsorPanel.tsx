@@ -28,6 +28,7 @@ import {
 import { SideBroadcastHeader } from "../broadcast-canvas/SideBroadcastHeader";
 import { SideDivider } from "../broadcast-canvas/SideDivider";
 import { SideSponsorLogoGlow } from "../broadcast-canvas/SideSponsorLogoGlow";
+import { useAutoCroppedLogo } from "@/lib/broadcast-canvas/auto-crop-logo";
 
 function sponsorTier(sponsor: LiveSponsorDTO): SponsorBroadcastTier {
   return sponsor.tier ?? "normal";
@@ -141,13 +142,14 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
   const { entries, index, animationClass } = useSponsorCarousel(sponsors);
   const current = entries[index];
   const tier = current ? sponsorTier(current) : "normal";
+  const croppedLogoUrl = useAutoCroppedLogo(current?.logoUrl);
 
   useEffect(() => {
     preloadImageUrls(entries.map((s) => s.logoUrl));
   }, [entries]);
 
   const L = SIDE_LED_LAYOUT;
-  const logoPad = 28;
+  const logoPad = 16;
   const logoFrameWidth = L.sponsorLogoWidth;
   const logoFrameHeight = L.sponsorLogoMaxHeight;
 
@@ -201,6 +203,7 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
           >
             <SideSponsorLogoGlow width={logoFrameWidth} height={logoFrameHeight} tier={tier} />
             <div
+              className="broadcast-sponsor-plinth"
               style={{
                 position: "absolute",
                 left: "50%",
@@ -218,11 +221,18 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
                 ...getSideLedLogoFrameStyle(tier),
               }}
             >
+              {/* Dynamic 45-degree Metallic Sheen Glint */}
+              <div className="broadcast-sheen-effect" aria-hidden />
+              {/* Inner ambient vignette to eliminate high-contrast glare */}
+              <div className="broadcast-plinth-inner-vignette" aria-hidden />
+
               {current.logoUrl ? (
                 <img
-                  src={current.logoUrl}
+                  src={croppedLogoUrl || current.logoUrl}
                   alt={current.name || "Sponsor"}
                   style={{
+                    position: "relative",
+                    zIndex: 3,
                     display: "block",
                     width: "100%",
                     maxWidth: logoFrameWidth - logoPad * 2,
@@ -235,7 +245,7 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
               ) : (
                 <span
                   className="broadcast-sponsor-name"
-                  style={{ color: "rgba(0,0,0,0.88)", fontSize: 80, padding: "0 16px", fontWeight: 800 }}
+                  style={{ position: "relative", zIndex: 3, color: "rgba(0,0,0,0.88)", fontSize: 80, padding: "0 16px", fontWeight: 800 }}
                 >
                   {current.name}
                 </span>

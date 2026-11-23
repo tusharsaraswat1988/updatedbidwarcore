@@ -74,7 +74,7 @@ export const EffectsLayer = memo(function EffectsLayer({
           }}
         />
         <div
-          className="relative grid grid-cols-[auto_1fr_auto] items-center gap-8 px-12 py-6 border-8 bg-black/85"
+          className="relative grid grid-cols-[auto_1fr_auto] items-center gap-8 px-12 py-6 border-8 bg-black shadow-[0_25px_60px_rgba(0,0,0,0.95)]"
           style={{
             borderColor: teamColor,
             animation: "auction-sold-slam 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both",
@@ -134,7 +134,7 @@ export const EffectsLayer = memo(function EffectsLayer({
           }}
         />
         <div
-          className="relative grid grid-cols-[auto_1fr] items-center gap-8 px-12 py-6 border-8 border-red-500 bg-black/85"
+          className="relative grid grid-cols-[auto_1fr] items-center gap-8 px-12 py-6 border-8 border-red-500 bg-black shadow-[0_25px_60px_rgba(0,0,0,0.95)]"
           style={{ animation: "auction-sold-slam 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both" }}
         >
           {photo ? (

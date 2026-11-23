@@ -350,26 +350,27 @@ export function getSideLedLogoFrameStyle(tier: SponsorBroadcastTier): CSSPropert
   switch (tier) {
     case "title":
       return {
-        border: "3px solid rgba(247, 223, 138, 0.85)",
+        border: "3.5px solid rgba(247, 223, 138, 0.95)",
         background:
           "linear-gradient(145deg, rgba(255,255,255,0.99) 0%, rgba(255, 248, 230, 0.98) 100%)",
         boxShadow:
-          "0 0 60px rgba(247, 223, 138, 0.5), 0 0 110px rgba(201, 162, 39, 0.25), 0 18px 48px rgba(0, 0, 0, 0.5)",
+          "0 0 65px rgba(247, 223, 138, 0.55), 0 0 110px rgba(201, 162, 39, 0.3), 0 24px 60px rgba(0, 0, 0, 0.65)",
       };
     case "co_sponsor":
       return {
-        border: "3px solid rgba(180, 200, 220, 0.75)",
+        border: "3px solid rgba(180, 200, 220, 0.85)",
         background:
           "linear-gradient(145deg, rgba(255,255,255,0.99) 0%, rgba(240, 246, 255, 0.98) 100%)",
         boxShadow:
-          "0 0 50px rgba(180, 200, 220, 0.42), 0 0 90px rgba(140, 165, 200, 0.2), 0 18px 48px rgba(0, 0, 0, 0.5)",
+          "0 0 55px rgba(180, 200, 220, 0.45), 0 0 95px rgba(140, 165, 200, 0.25), 0 24px 60px rgba(0, 0, 0, 0.65)",
       };
     default:
       return {
-        border: "2px solid rgba(255,255,255,0.3)",
-        background: "rgba(255,255,255,0.99)",
+        border: "2.5px solid rgba(245, 158, 11, 0.75)",
+        background:
+          "linear-gradient(145deg, rgba(255,255,255,0.99) 0%, rgba(255, 252, 240, 0.98) 100%)",
         boxShadow:
-          "0 0 44px rgba(212, 175, 55, 0.4), 0 0 80px rgba(212, 175, 55, 0.18), 0 18px 48px rgba(0, 0, 0, 0.5)",
+          "0 0 50px rgba(245, 158, 11, 0.45), 0 0 90px rgba(212, 175, 55, 0.22), 0 24px 60px rgba(0, 0, 0, 0.65)",
       };
   }
 }
