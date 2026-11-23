@@ -76,6 +76,7 @@ import {
 } from "@/lib/organizer-tournament-display";
 import { scoringAppHomePath } from "@workspace/api-base/scoring-urls";
 import { auctionOverviewPath, resolveScoringEntryPath } from "@/lib/tournament-navigation";
+import { downloadAuctionRulesPdf } from "@/lib/auction-rules-download";
 import { sortOrganizerTournaments } from "@/lib/organizer-tournament-list";
 import "@/styles/organizer-dashboard-premium.css";
 
@@ -90,6 +91,17 @@ type OrganizerInfo = {
 type Tournament = {
   id: number; name: string; sport: string; status: string;
   licenseStatus: string; city: string | null; venue: string | null; auctionDate: string | null; createdAt: string;
+  basePurse?: number | null;
+  minBid?: number | null;
+  timerSeconds?: number | null;
+  bidTimerSeconds?: number | null;
+  minimumSquadSize?: number | null;
+  bidTiers?: string | null;
+  bidTier1UpTo?: number | null;
+  bidTier1Increment?: number | null;
+  bidTier2UpTo?: number | null;
+  bidTier2Increment?: number | null;
+  bidTier3Increment?: number | null;
   auctionRulesPdfReady?: boolean;
   auctionRulesPdfBlockedReason?: string | null;
   auctionEnabled?: boolean;
@@ -1805,6 +1817,7 @@ function OrganizerDashboard({
   const { toast } = useToast();
   const { logos, brandName, miniBrandText, poweredByText } = useBranding();
   const logoAlt = getBrandLogoAlt(brandName);
+  const organizerFirstName = (organizer?.name || "Organizer").trim().split(/\s+/)[0] || "Organizer";
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "completed">("all");
@@ -1876,37 +1889,21 @@ function OrganizerDashboard({
   }
 
   async function handleDownloadAuctionRules(tournament: Tournament) {
-    if (!tournament.auctionRulesPdfReady) {
-      toast({
-        title: "Auction rules incomplete",
-        description: tournament.auctionRulesPdfBlockedReason
-          || "Complete Auction Rules in Settings first",
-        variant: "destructive",
-      });
-      return;
-    }
     setDownloadingRulesTid(tournament.id);
     try {
-      const r = await fetch(`/api/tournaments/${tournament.id}/auction-rules.pdf`, {
-        credentials: "include",
-      });
-      if (!r.ok) {
-        if (r.status === 401 || r.status === 403) {
-          throw new Error("Sign in again to download auction rules.");
-        }
-        const err = await r.json().catch(() => null) as { error?: string } | null;
-        throw new Error(err?.error || `Couldn't download PDF (${r.status})`);
+      const result = await downloadAuctionRulesPdf(tournament);
+      if (!result.success) {
+        toast({
+          title: "Auction rules incomplete",
+          description: result.error || tournament.auctionRulesPdfBlockedReason || "Complete Auction Rules in Settings first",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Download complete",
+          description: "Auction rules PDF downloaded successfully.",
+        });
       }
-      const blob = await r.blob();
-      const cd = r.headers.get("Content-Disposition") || "";
-      const m = cd.match(/filename="?([^"]+)"?/);
-      const filename = m?.[1] || `${tournament.name.replace(/[^a-zA-Z0-9]+/g, "_")}_Auction_Rules.pdf`;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
     } catch (e) {
       toast({
         title: "Download failed",
@@ -1958,15 +1955,15 @@ function OrganizerDashboard({
       <div className="organizer-dashboard-content">
       {/* ── Enhanced Header ── */}
       <div className="organizer-dash-header sticky top-0 backdrop-blur-xl z-20">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-[4.25rem] sm:h-[4.5rem] flex items-center justify-between gap-3">
-          {/* Brand & Portal Title */}
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-[4.25rem] sm:h-[4.5rem] flex items-center justify-between gap-4">
+          {/* Brand & Tagline */}
+          <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
             {/* BidWar brand mark */}
             {(() => {
               const headerLogoSrc = getBrandLogoSrc(logos, organizerHeaderPreset.logoOrder);
               const isWordmark = Boolean(logos.main || logos.mainReverse);
               return (
-                <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
                   {headerLogoSrc ? (
                     <img src={headerLogoSrc} alt={logoAlt} className={organizerHeaderPreset.sizeClass} />
                   ) : (
@@ -1974,17 +1971,19 @@ function OrganizerDashboard({
                       {miniBrandText}
                     </div>
                   )}
-                  <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-2">
-                      {!isWordmark && (
-                        <span className="font-display font-black text-sm tracking-tight text-foreground leading-none">BIDWAR</span>
-                      )}
-                      <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/35 text-[10px] font-bold text-amber-700 tracking-wider uppercase leading-none hidden sm:inline-block">
-                        Organizer Hub
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5 hidden sm:block">
-                      Sports Auction &amp; Event Management
+
+                  {!isWordmark && (
+                    <span className="font-display font-black text-sm tracking-tight text-foreground leading-none">BIDWAR</span>
+                  )}
+
+                  {/* Elegant vertical separator */}
+                  <div className="h-5 w-px bg-slate-300/80 dark:bg-slate-700/80 hidden sm:block shrink-0" aria-hidden />
+
+                  {/* Beautiful Single-Line Tagline Badge */}
+                  <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/[0.08] border border-amber-500/25 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                    <span className="text-[10.5px] sm:text-[11px] font-bold text-amber-900 dark:text-amber-300 tracking-wider uppercase whitespace-nowrap">
+                      SPORT AUCTION AND SCORING MANAGEMENT SOFTWARE
                     </span>
                   </div>
                 </div>
@@ -1993,7 +1992,7 @@ function OrganizerDashboard({
           </div>
 
           {/* Right Area: Profile Menu */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <OrganizerAvatarMenu organizer={organizer} onLogout={onLogout} />
           </div>
         </div>
@@ -2108,7 +2107,7 @@ function OrganizerDashboard({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h1 className="font-display font-black text-xl sm:text-2xl text-foreground tracking-tight">
-              My Tournaments
+              Welcome, {organizerFirstName}
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5 hidden sm:block">
               Open auction or match scoring for each event
@@ -2479,7 +2478,7 @@ function OrganizerDashboard({
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
-                                  disabled={isLocked || !t.auctionRulesPdfReady || downloadingRulesTid === t.id}
+                                  disabled={isLocked || downloadingRulesTid === t.id}
                                   onClick={() => { void handleDownloadAuctionRules(t); }}
                                   className="gap-2 cursor-pointer"
                                 >

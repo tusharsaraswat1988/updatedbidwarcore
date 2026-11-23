@@ -7,6 +7,7 @@ export const auctionSessionsTable = pgTable("auction_sessions", {
   tournamentId: integer("tournament_id").notNull().unique(),
   status: text("status").notNull().default("idle"),
   currentPlayerId: integer("current_player_id"),
+  currentPlayerStartedAt: timestamp("current_player_started_at", { withTimezone: true }),
   currentBid: integer("current_bid"),
   currentBidTeamId: integer("current_bid_team_id"),
   timerSeconds: integer("timer_seconds"),

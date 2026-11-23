@@ -41,7 +41,7 @@ import {
   useGetTournament,
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
 import { DisplayConnectionBanner } from "@/components/display/display-connection-banner";
@@ -120,6 +120,192 @@ function playerMatchesSearch(
 function mutationErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof Error && err.message.trim()) return err.message;
   return fallback;
+}
+
+interface StagePrompterData {
+  tournamentId: number;
+  currentPlayer: {
+    id: number;
+    name: string;
+    role: string | null;
+    categoryId: number | null;
+    categoryName: string | null;
+    basePrice: number;
+    currentBid: number | null;
+  } | null;
+  rivalryBulletins: Array<{
+    teams: Array<{ id: number; name: string; shortCode: string; purseRemaining: number }>;
+    message: string;
+  }>;
+  categoryInflation: {
+    multiplier: number | null;
+    soldCount: number;
+    message: string;
+  } | null;
+  categoryScarcity: {
+    categoryId: number | null;
+    categoryName: string | null;
+    availableCategoryPlayers: number;
+    unfilledCategorySlots: number;
+    isCriticalSqueeze: boolean;
+    deficit: number;
+    message: string;
+  } | null;
+  roomLiquidity: {
+    totalPurseRemaining: number;
+    totalUnfilledMandatorySlots: number;
+    minBasePrice: number;
+    ratio: number | null;
+    isDeficit: boolean;
+    message: string;
+  };
+  teamDistressAlerts: Array<{
+    teamId: number;
+    teamName: string;
+    teamColor: string | null;
+    purseSpentPct: number;
+    purseRemaining: number;
+    mandatorySlotsRemaining: number;
+    message: string;
+  }>;
+}
+
+function StageAuctioneerPrompterRadar({
+  tournamentId,
+  playerId,
+}: {
+  tournamentId: number;
+  playerId?: number | null;
+}) {
+  const { data: prompter } = useQuery<StagePrompterData | null>({
+    queryKey: ["stage-prompter-radar", tournamentId, playerId],
+    queryFn: async () => {
+      if (!tournamentId || !playerId) return null;
+      try {
+        const res = await fetch(`/api/intelligence/stage-prompter/${tournamentId}?playerId=${playerId}`, {
+          credentials: "include",
+        });
+        if (res.ok) return await res.json();
+        const fallback = await fetch(`/api/tournaments/${tournamentId}/intelligence/stage-prompter?playerId=${playerId}`, {
+          credentials: "include",
+        });
+        if (fallback.ok) return await fallback.json();
+      } catch (err) {
+        console.warn("Stage prompter radar fetch error:", err);
+      }
+      return null;
+    },
+    enabled: Boolean(tournamentId && playerId),
+    refetchInterval: 5000,
+  });
+
+  if (!prompter || !prompter.currentPlayer) return null;
+
+  const { rivalryBulletins, categoryInflation, categoryScarcity, roomLiquidity, teamDistressAlerts } = prompter;
+  const hasInsights =
+    rivalryBulletins.length > 0 ||
+    categoryScarcity != null ||
+    categoryInflation != null ||
+    teamDistressAlerts.length > 0 ||
+    roomLiquidity?.isDeficit === true ||
+    (roomLiquidity?.ratio !== null && roomLiquidity?.ratio !== undefined);
+
+  if (!hasInsights) return null;
+
+  return (
+    <div className="rounded-xl bg-gradient-to-r from-amber-500/10 via-slate-900/60 to-indigo-500/10 border border-amber-500/30 p-2.5 sm:p-3 space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
+          <span className="font-mono text-[10px] font-black uppercase tracking-wider text-amber-300">
+            Stage Auctioneer Prompter & Scarcity Radar
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          {categoryScarcity && (
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                categoryScarcity.isCriticalSqueeze
+                  ? "bg-rose-500/20 text-rose-300 border-rose-500/50"
+                  : "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+              }`}
+            >
+              {categoryScarcity.isCriticalSqueeze ? "⚠️ SQUEEZE: " : "SUPPLY: "}
+              {categoryScarcity.availableCategoryPlayers} left ({categoryScarcity.unfilledCategorySlots} slots)
+            </span>
+          )}
+
+          {categoryInflation && categoryInflation.multiplier && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              📈 {categoryInflation.multiplier.toFixed(1)}x Base Price
+            </span>
+          )}
+
+          {roomLiquidity && roomLiquidity.ratio !== null && (
+            <span
+              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                roomLiquidity.isDeficit
+                  ? "bg-rose-500/20 text-rose-300 border-rose-500/50"
+                  : "bg-sky-500/20 text-sky-300 border-sky-500/30"
+              }`}
+            >
+              💧 Liquidity: {roomLiquidity.ratio.toFixed(1)}x
+            </span>
+          )}
+
+          {teamDistressAlerts.length > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/40">
+              🚨 Distress: {teamDistressAlerts[0].teamName} ({teamDistressAlerts[0].purseSpentPct}% spent)
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Primary Talking Point Bulletin */}
+      {rivalryBulletins.length > 0 ? (
+        <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2.5 py-1.5 text-xs text-amber-200">
+          <Info className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+          <p className="font-semibold leading-snug">
+            <span className="text-amber-400 uppercase text-[10px] tracking-wide font-black mr-1.5">Auctioneer Cue:</span>
+            {rivalryBulletins[0].message}
+          </p>
+        </div>
+      ) : categoryScarcity ? (
+        <div className="flex items-start gap-2 bg-slate-900/60 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white/80">
+          <Info className="w-3.5 h-3.5 text-sky-400 shrink-0 mt-0.5" />
+          <p className="font-medium leading-snug">
+            <span className="text-sky-300 uppercase text-[10px] tracking-wide font-black mr-1.5">Market Pulse:</span>
+            {categoryScarcity.message}
+          </p>
+        </div>
+      ) : categoryInflation ? (
+        <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2.5 py-1.5 text-xs text-amber-200">
+          <Info className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+          <p className="font-medium leading-snug">
+            <span className="text-amber-300 uppercase text-[10px] tracking-wide font-black mr-1.5">Price Dynamic:</span>
+            {categoryInflation.message}
+          </p>
+        </div>
+      ) : teamDistressAlerts.length > 0 ? (
+        <div className="flex items-start gap-2 bg-orange-500/10 border border-orange-500/30 rounded-lg px-2.5 py-1.5 text-xs text-orange-200">
+          <Info className="w-3.5 h-3.5 text-orange-400 shrink-0 mt-0.5" />
+          <p className="font-medium leading-snug">
+            <span className="text-orange-300 uppercase text-[10px] tracking-wide font-black mr-1.5">Distress Alert:</span>
+            {teamDistressAlerts[0].message}
+          </p>
+        </div>
+      ) : roomLiquidity?.message ? (
+        <div className="flex items-start gap-2 bg-slate-900/60 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white/80">
+          <Info className="w-3.5 h-3.5 text-sky-400 shrink-0 mt-0.5" />
+          <p className="font-medium leading-snug">
+            <span className="text-sky-300 uppercase text-[10px] tracking-wide font-black mr-1.5">Room Liquidity:</span>
+            {roomLiquidity.message}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export default function AuctionOperatorV2() {
@@ -288,11 +474,11 @@ export default function AuctionOperatorV2() {
     (tournament as { ownerBiddingEnabled?: boolean } | undefined)?.ownerBiddingEnabled ??
     true;
 
-  const auctionStatus = state?.status || "pending";
-  const isPreAuction = auctionStatus === "pending";
+  const auctionStatus = state?.status || "idle";
   const isPaused = auctionStatus === "paused";
   const isCompleted = auctionStatus === "completed";
   const isActive = auctionStatus === "active";
+  const isPreAuction = !isActive && !isPaused && !isCompleted;
   const auctionLive = isActive || isPaused;
   const controlsLocked = isCompleted || operatorReadOnly;
 
@@ -680,9 +866,11 @@ export default function AuctionOperatorV2() {
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider shrink-0 ${
               isActive ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/35 animate-pulse" :
               isPaused ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/35" :
+              isCompleted ? "bg-blue-500/20 text-blue-300 border border-blue-500/35" :
+              isPreAuction ? "bg-amber-400/15 text-amber-300 border border-amber-400/30" :
               "bg-white/10 text-white/50"
             }`}>
-              {isActive ? "LIVE" : isPaused ? "PAUSED" : "OFFLINE"}
+              {isActive ? "LIVE" : isPaused ? "PAUSED" : isCompleted ? "COMPLETED" : isPreAuction ? "PRE-AUCTION" : "OFFLINE"}
             </span>
           </div>
 
@@ -765,9 +953,10 @@ export default function AuctionOperatorV2() {
             <Button
               size="sm"
               onClick={handleStartAuction}
+              disabled={controlsLocked || startAuction.isPending}
               className="h-8 px-2.5 sm:px-3 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
             >
-              <Play className="w-3.5 h-3.5 mr-1 fill-current" /> Start
+              <Play className="w-3.5 h-3.5 mr-1 fill-current" /> {startAuction.isPending ? "Starting…" : "Start Live"}
             </Button>
           ) : null}
 
@@ -967,7 +1156,9 @@ export default function AuctionOperatorV2() {
                           disabled={controlsLocked || !isActive || hasPlayer || timerActive || nextPlayer.isPending}
                           onClick={() => handleNextPlayer("sequential", player.id)}
                           title={
-                            hasPlayer
+                            isPreAuction
+                              ? "Start auction first to nominate player"
+                              : hasPlayer
                               ? "Hammer or defer current player first"
                               : selectionMode !== "manual"
                               ? "Direct Pick (Switches to this player)"
@@ -1139,6 +1330,39 @@ export default function AuctionOperatorV2() {
                     </div>
                   )}
                 </div>
+
+                {/* ── Stage Auctioneer Prompter & Scarcity Radar (P2) ── */}
+                <div className="md:col-span-12 pt-2.5 border-t border-white/10">
+                  <StageAuctioneerPrompterRadar
+                    tournamentId={tournamentId}
+                    playerId={currentPlayer.id}
+                  />
+                </div>
+              </div>
+            ) : isPreAuction ? (
+              <div className="py-7 sm:py-9 px-4 sm:px-6 flex flex-col items-center justify-center text-center space-y-4 bg-gradient-to-b from-emerald-500/10 via-emerald-950/20 to-transparent rounded-2xl border border-emerald-500/25 shadow-lg relative overflow-hidden">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  Pre-Auction Staged &amp; Ready
+                </div>
+                <div className="space-y-1.5 max-w-lg">
+                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    Ready to Launch Live Auction
+                  </h3>
+                  <p className="text-xs sm:text-sm text-white/70 leading-relaxed">
+                    <span className="font-bold text-white">{teams?.length ?? 0} Teams</span> and{" "}
+                    <span className="font-bold text-amber-300">{statusCounts.available} Available Players</span> are staged and ready. Starting the auction will synchronize venue displays, open team bidding pads, and unlock player nominations.
+                  </p>
+                </div>
+                <Button
+                  size="lg"
+                  onClick={handleStartAuction}
+                  disabled={controlsLocked || startAuction.isPending}
+                  className="h-11 sm:h-12 px-6 sm:px-8 text-xs sm:text-sm font-black rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl shadow-emerald-600/30 ring-1 ring-emerald-400/50 transition-all cursor-pointer flex items-center gap-2"
+                >
+                  <Play className="w-4 h-4 fill-current" />
+                  {startAuction.isPending ? "Starting Live Auction…" : "START LIVE AUCTION"}
+                </Button>
               </div>
             ) : (
               <div className="py-6 sm:py-7 flex flex-col items-center justify-center text-center space-y-2">
@@ -1191,6 +1415,7 @@ export default function AuctionOperatorV2() {
             <button
               disabled={controlsLocked || !isActive || hasPlayer || timerActive || nextPlayer.isPending || isRandomRevealing}
               onClick={() => handleNextPlayer(selectionMode === "random" ? "random" : "sequential")}
+              title={isPreAuction ? "Click START LIVE AUCTION above to begin session" : undefined}
               className="sm:col-span-3 h-11 sm:h-11.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 bg-amber-400 text-slate-950 hover:bg-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.25)] transition-all disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer"
             >
               {selectionMode === "random" ? <Shuffle className="w-4 h-4" /> : <SkipForward className="w-4 h-4" />}
@@ -1212,6 +1437,7 @@ export default function AuctionOperatorV2() {
               <button
                 onClick={handleStartBiddingClick}
                 disabled={!hasPlayer || !isActive || startTimerMut.isPending}
+                title={isPreAuction ? "Start live auction first" : !hasPlayer ? "Load player onto stage first" : undefined}
                 className="sm:col-span-2 h-11 sm:h-11.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.25)] transition-all disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer"
               >
                 <Play className="w-4 h-4 fill-current" />

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRoute } from "wouter";
 import {
   useGetTournament,
@@ -62,7 +62,7 @@ function matchingPreset(cols: Set<ColKey>): PresetKey | null {
 }
 
 const REPORT_TH =
-  "border border-gray-400 px-1.5 py-1 text-[10px] font-bold uppercase leading-tight tracking-wide align-middle select-none";
+  "border border-slate-500 bg-slate-800 px-1.5 py-1 text-[10px] font-bold uppercase leading-tight tracking-wider text-yellow-300 align-middle select-none";
 const REPORT_CELL = "border border-gray-400 px-1.5 py-1 align-middle text-xs";
 
 type ActiveColumnDef = {
@@ -114,9 +114,7 @@ function getActiveColumns(cols: Set<ColKey>): ActiveColumnDef[] {
 
   return result;
 }
-const PLANNING_ROW_MIN_PX = 28;
-const PLANNING_SECTION_TITLE_PX = 22;
-const PLANNING_TABLE_HEAD_PX = 30;
+const PLANNING_ROW_HEIGHT_PX = 28;
 
 function loadCols(tid: number): Set<ColKey> {
   try {
@@ -272,7 +270,7 @@ function PlayerTable({
 
   return (
     <div className="mb-2 flex-shrink-0 print-section">
-      <h3 className="mb-1 px-1 text-[10px] font-bold uppercase tracking-widest text-gray-500 print-section-heading">{sectionLabel}</h3>
+      <h3 className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-700 print-section-heading">{sectionLabel}</h3>
       <table className="w-full table-fixed border-collapse border border-gray-400 text-xs">
         <colgroup>
           {activeCols.map((col) => {
@@ -281,7 +279,7 @@ function PlayerTable({
           })}
         </colgroup>
         <thead>
-          <tr className="bg-slate-800 text-yellow-400 print-table-header">
+          <tr className="bg-slate-800 text-yellow-300 print-table-header">
             {activeCols.map((col) => (
               <th
                 key={col.key}
@@ -302,7 +300,11 @@ function PlayerTable({
             const rowBalance = balance;
             const cell = REPORT_CELL;
             return (
-              <tr key={p.id} className={`print-row ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+              <tr
+                key={p.id}
+                className={`print-row h-7 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
+                style={{ height: `${PLANNING_ROW_HEIGHT_PX}px`, minHeight: `${PLANNING_ROW_HEIGHT_PX}px` }}
+              >
                 <td className={cn(cell, "text-left font-mono text-[11px] text-gray-500 whitespace-nowrap")}>
                   {p.serialNo ?? p.id}
                 </td>
@@ -387,81 +389,83 @@ function PlayerTable({
 
 function AuctionPlanningTable({
   displayRows,
-  rowHeight,
   startSno,
   cols,
   showPhoto,
   className,
 }: {
   displayRows: number;
-  rowHeight: number;
   startSno: number;
   cols: Set<ColKey>;
   showPhoto: boolean;
   className?: string;
 }) {
+  if (displayRows <= 0) return null;
+
   const activeCols = getActiveColumns(cols);
   const totalWeight = activeCols.reduce((sum, c) => sum + c.weight, 0);
   const bodyCell = REPORT_CELL;
-  const rowStyle = { height: rowHeight, minHeight: rowHeight };
+  const rowStyle = {
+    height: `${PLANNING_ROW_HEIGHT_PX}px`,
+    minHeight: `${PLANNING_ROW_HEIGHT_PX}px`,
+    maxHeight: `${PLANNING_ROW_HEIGHT_PX}px`,
+  };
 
   return (
-    <div className={cn("print-section flex min-h-0 flex-1 flex-col", className)}>
-      <h3 className="mb-1.5 flex-shrink-0 px-1 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+    <div className={cn("print-section mt-2 flex-shrink-0", className)}>
+      <h3 className="mb-1.5 flex-shrink-0 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-700">
         Auction Working Sheet — {displayRows} Slots
       </h3>
-      <div className="flex min-h-0 flex-1 flex-col">
-        <table className="h-full w-full table-fixed border-collapse border border-gray-400 text-xs print-table">
-          <colgroup>
-            {activeCols.map((col) => {
-              const widthPct = `${((col.weight / totalWeight) * 100).toFixed(2)}%`;
-              return <col key={col.key} style={{ width: widthPct }} />;
-            })}
-          </colgroup>
-          <thead>
-            <tr className="bg-slate-800 text-yellow-400 print-table-header">
-              {activeCols.map((col) => (
-                <th
-                  key={col.key}
-                  className={cn(
-                    REPORT_TH,
-                    col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left",
-                  )}
-                >
-                  {col.header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {Array.from({ length: displayRows }, (_, i) => (
-              <tr
-                key={i}
-                style={rowStyle}
-                className={cn("print-row", i % 2 === 0 ? "bg-white" : "bg-gray-50")}
+      <table className="w-full table-fixed border-collapse border border-gray-400 text-xs print-table">
+        <colgroup>
+          {activeCols.map((col) => {
+            const widthPct = `${((col.weight / totalWeight) * 100).toFixed(2)}%`;
+            return <col key={col.key} style={{ width: widthPct }} />;
+          })}
+        </colgroup>
+        <thead>
+          <tr className="bg-slate-800 text-yellow-300 print-table-header">
+            {activeCols.map((col) => (
+              <th
+                key={col.key}
+                className={cn(
+                  REPORT_TH,
+                  col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left",
+                )}
               >
-                <td className={cn(bodyCell, "text-left font-mono text-[11px] text-gray-500 whitespace-nowrap")} style={rowStyle}>
-                  {startSno + i}
-                </td>
-                <td className={cn(bodyCell, "text-left")} style={rowStyle}>
-                  <PlayerNameCell showPhoto={showPhoto} placeholder />
-                </td>
-                {cols.has("age") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
-                {cols.has("city") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
-                {cols.has("mobileNumber") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
-                {cols.has("email") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
-                {cols.has("categoryName") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
-                {cols.has("role") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
-                {cols.has("jerseyNumber") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
-                {cols.has("jerseySize") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
-                {cols.has("status") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
-                <td className={bodyCell} style={rowStyle}>&nbsp;</td>
-                {cols.has("remainingBalance") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
-              </tr>
+                {col.header}
+              </th>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: displayRows }, (_, i) => (
+            <tr
+              key={i}
+              style={rowStyle}
+              className={cn("print-row h-7", i % 2 === 0 ? "bg-white" : "bg-gray-50")}
+            >
+              <td className={cn(bodyCell, "text-left font-mono text-[11px] text-gray-500 whitespace-nowrap")} style={rowStyle}>
+                {startSno + i}
+              </td>
+              <td className={cn(bodyCell, "text-left")} style={rowStyle}>
+                <PlayerNameCell showPhoto={showPhoto} placeholder />
+              </td>
+              {cols.has("age") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+              {cols.has("city") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+              {cols.has("mobileNumber") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+              {cols.has("email") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+              {cols.has("categoryName") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+              {cols.has("role") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+              {cols.has("jerseyNumber") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+              {cols.has("jerseySize") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+              {cols.has("status") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+              <td className={bodyCell} style={rowStyle}>&nbsp;</td>
+              {cols.has("remainingBalance") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -500,57 +504,7 @@ function ReportPreview({
   const auctionRuleLines = buildAuctionRuleLines(auctionRules, formatAmount);
   const hasNonPlayingMembers = nonPlayingMembers.length > 0;
   const visibleSponsors = showSponsors ? sponsors.filter((sponsor) => sponsor.name?.trim()) : [];
-  const tablesRef = useRef<HTMLDivElement>(null);
-  const acquiredTablesRef = useRef<HTMLDivElement>(null);
-  const [planningSheetLayout, setPlanningSheetLayout] = useState({
-    displayRows: squadInfo.planningRows,
-    rowHeight: PLANNING_ROW_MIN_PX,
-  });
-
-  useLayoutEffect(() => {
-    const tablesEl = tablesRef.current;
-    if (!tablesEl) return;
-
-    const measure = () => {
-      const tablesHeight = tablesEl.clientHeight;
-      const acquiredHeight = acquiredTablesRef.current?.offsetHeight ?? 0;
-      const availableForRows = tablesHeight
-        - acquiredHeight
-        - PLANNING_SECTION_TITLE_PX
-        - PLANNING_TABLE_HEAD_PX
-        - 8;
-
-      const minRows = squadInfo.planningRows;
-      const maxRows = Math.max(minRows, squadInfo.slotsRemaining || minRows);
-
-      if (availableForRows <= 0) {
-        setPlanningSheetLayout({ displayRows: minRows, rowHeight: PLANNING_ROW_MIN_PX });
-        return;
-      }
-
-      const rowsThatFit = Math.floor(availableForRows / PLANNING_ROW_MIN_PX);
-      const displayRows = Math.max(minRows, Math.min(rowsThatFit, maxRows));
-      const rowHeight = Math.max(PLANNING_ROW_MIN_PX, Math.floor(availableForRows / displayRows));
-
-      setPlanningSheetLayout({ displayRows, rowHeight });
-    };
-
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(tablesEl);
-    return () => observer.disconnect();
-  }, [
-    squadInfo.planningRows,
-    squadInfo.slotsRemaining,
-    retainedPlayers.length,
-    preSoldPlayers.length,
-    cols,
-    showPhoto,
-    showSponsors,
-    auctionRuleLines.length,
-    hasNonPlayingMembers,
-    visibleSponsors.length,
-  ]);
+  const planningRows = squadInfo.planningRows;
 
   return (
     <div
@@ -588,33 +542,33 @@ function ReportPreview({
 
       {/* Header */}
       <div className="print-header flex-shrink-0 bg-slate-900 text-white">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-700/60 px-4 py-2">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-700/80 px-4 py-2">
           <img
             src={platformLogoUrl}
             alt={logoAlt}
             className="h-9 w-auto max-w-[150px] flex-shrink-0 object-contain"
           />
-          <p className="flex-1 text-center text-xs font-semibold uppercase tracking-[0.15em] text-slate-300">
+          <p className="flex-1 text-center text-xs font-bold uppercase tracking-[0.15em] text-white">
             {reportHeading}
           </p>
-          <p className="flex-shrink-0 text-[10px] text-slate-500">
+          <p className="flex-shrink-0 text-[10px] font-semibold text-slate-300">
             {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
           </p>
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-b border-slate-700/60 px-4 py-1.5">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-700/80 px-4 py-1.5">
           <div className="flex min-w-0 items-start gap-2">
             {tournament.logoUrl ? (
               <img src={cldUrl(tournament.logoUrl, "teamLogo") || tournament.logoUrl} alt={tournament.name} className="mt-0.5 h-8 w-8 flex-shrink-0 rounded object-contain" />
             ) : null}
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase leading-snug text-yellow-400">{tournament.name}</p>
-              <p className="text-[10px] capitalize text-slate-500">{tournament.sport}</p>
+              <p className="text-[11px] font-black uppercase leading-snug text-yellow-300">{tournament.name}</p>
+              <p className="text-[10px] font-semibold capitalize text-slate-200">{tournament.sport}</p>
             </div>
           </div>
-          <div className="flex-shrink-0 rounded border border-slate-500/70 bg-white px-2.5 py-1.5 shadow-sm">
-            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-600">{isCompleted ? "Status" : "Access Code"}</p>
-            <p className="mt-1 font-mono text-sm font-semibold tracking-[0.2em] text-slate-500">{isCompleted ? "COMPLETED" : "_ _ _ _ _ _"}</p>
+          <div className="flex-shrink-0 rounded border border-slate-600 bg-slate-800/90 px-3 py-1 shadow-sm text-center">
+            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-amber-300">{isCompleted ? "Status" : "Access Code"}</p>
+            <p className="mt-0.5 font-mono text-sm font-extrabold tracking-[0.2em] text-white">{isCompleted ? "COMPLETED" : "_ _ _ _ _ _"}</p>
           </div>
         </div>
 
@@ -631,7 +585,7 @@ function ReportPreview({
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-base font-black leading-tight" style={{ color: team.color || "#FBBF24" }}>{team.name}</p>
+              <p className="truncate text-base font-black leading-tight drop-shadow-sm" style={{ color: team.color || "#FBBF24" }}>{team.name}</p>
               <div className="mt-1 flex items-center gap-2">
                 {team.ownerPhotoUrl ? (
                   <img
@@ -641,20 +595,20 @@ function ReportPreview({
                   />
                 ) : (
                   <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border border-slate-600 bg-slate-800">
-                    <User className="h-4 w-4 text-slate-500" />
+                    <User className="h-4 w-4 text-slate-300" />
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold text-slate-200">{team.ownerName}</p>
-                  {team.ownerMobile ? <p className="font-mono text-[11px] text-slate-400">{team.ownerMobile}</p> : null}
+                  <p className="truncate text-xs font-bold text-white">{team.ownerName}</p>
+                  {team.ownerMobile ? <p className="font-mono text-[11px] font-semibold text-amber-300">{team.ownerMobile}</p> : null}
                 </div>
               </div>
             </div>
           </div>
 
           <div>
-            <p className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">Purse Summary</p>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-amber-300">Purse Summary</p>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded bg-slate-800/80 p-2 border border-slate-700/60">
               {[
                 { label: "Total Purse", value: formatAmount(purgeSummary.totalPurse), highlight: false },
                 { label: "Retained Spend", value: formatAmount(purgeSummary.retainedSpend), highlight: false },
@@ -662,8 +616,8 @@ function ReportPreview({
                 { label: remainingPurseLabel, value: formatAmount(purgeSummary.remainingPurse), highlight: true },
               ].map(item => (
                 <div key={item.label}>
-                  <p className="text-[10px] text-slate-500">{item.label}</p>
-                  <p className={cn("text-xs font-bold", item.highlight ? "text-yellow-400" : "text-slate-200")}>{item.value}</p>
+                  <p className="text-[10px] font-semibold text-slate-300">{item.label}</p>
+                  <p className={cn("text-xs font-extrabold tracking-tight", item.highlight ? "text-yellow-300" : "text-white")}>{item.value}</p>
                 </div>
               ))}
             </div>
@@ -671,14 +625,14 @@ function ReportPreview({
 
           {hasNonPlayingMembers ? (
             <div>
-              <p className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">Non-Playing Members</p>
-              <div className="space-y-0.5">
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-amber-300">Non-Playing Members</p>
+              <div className="rounded bg-slate-800/80 p-2 border border-slate-700/60 space-y-1">
                 {nonPlayingMembers.map(member => (
                   <div key={member.id} className="flex items-center gap-1.5">
-                    <div className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-slate-600" />
-                    <span className="truncate text-[11px] text-slate-300">
+                    <div className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" />
+                    <span className="truncate text-[11px] font-semibold text-white">
                       {member.name}
-                      {member.role ? <span className="text-slate-500"> ({member.role.replace(/_/g, " ")})</span> : null}
+                      {member.role ? <span className="text-slate-300 font-normal"> ({member.role.replace(/_/g, " ")})</span> : null}
                     </span>
                   </div>
                 ))}
@@ -689,10 +643,10 @@ function ReportPreview({
       </div>
 
       {/* Tables */}
-      <div ref={tablesRef} className="flex min-h-0 flex-1 flex-col px-4 py-2 print-tables">
-        <div ref={acquiredTablesRef} className="flex-shrink-0">
+      <div className="flex min-h-0 flex-1 flex-col px-4 py-2 print-tables">
+        <div className="flex-shrink-0">
           {retainedPlayers.length === 0 && preSoldPlayers.length === 0 && (
-            <p className="mb-4 flex-shrink-0 text-sm italic text-gray-400">No retained or pre-sold players assigned to this team.</p>
+            <p className="mb-2 flex-shrink-0 text-xs italic text-gray-500">No retained or pre-sold players assigned to this team.</p>
           )}
 
           <PlayerTable
@@ -712,31 +666,32 @@ function ReportPreview({
           />
         </div>
 
-        <AuctionPlanningTable
-          displayRows={planningSheetLayout.displayRows}
-          rowHeight={planningSheetLayout.rowHeight}
-          startSno={allAcquired + 1}
-          cols={cols}
-          showPhoto={showPhoto}
-        />
+        {planningRows > 0 ? (
+          <AuctionPlanningTable
+            displayRows={planningRows}
+            startSno={allAcquired + 1}
+            cols={cols}
+            showPhoto={showPhoto}
+          />
+        ) : null}
       </div>
 
       {/* Footer */}
       <div className="print-footer mt-auto flex flex-shrink-0 flex-col bg-slate-900 text-white">
         {auctionRuleLines.length > 0 ? (
-          <div className="border-b border-slate-700/60 px-4 py-1">
-            <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Auction Rules</p>
+          <div className="border-b border-slate-700/80 px-4 py-1.5">
+            <p className="mb-0.5 text-[9px] font-bold uppercase tracking-[0.18em] text-amber-300">Auction Rules</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
               {auctionRuleLines.map((line) => (
-                <p key={line} className="text-[9px] leading-snug text-slate-400">{line}</p>
+                <p key={line} className="text-[9px] font-medium leading-snug text-slate-200">{line}</p>
               ))}
             </div>
           </div>
         ) : null}
         {visibleSponsors.length > 0 ? (
-          <div className="border-b border-slate-700/60 px-4 py-2 text-center">
-            <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-500">Sponsors</p>
-            <p className="text-[10px] leading-relaxed text-slate-300">
+          <div className="border-b border-slate-700/80 px-4 py-2 text-center">
+            <p className="mb-1 text-[9px] font-bold uppercase tracking-[0.2em] text-amber-300">Sponsors</p>
+            <p className="text-[10px] font-semibold leading-relaxed text-white">
               {visibleSponsors.map((sponsor) => sponsor.name).join("  ·  ")}
             </p>
           </div>
@@ -755,16 +710,16 @@ function ReportPreview({
                   <span className="text-xs font-black text-slate-900">{miniBrandText}</span>
                 </div>
               )}
-              <span className="truncate text-[10px] font-bold text-yellow-400">{poweredByText}</span>
+              <span className="truncate text-[10px] font-bold text-yellow-300">{poweredByText}</span>
             </div>
           ) : (
             <div />
           )}
-          <span className="max-w-[45%] truncate text-center text-[10px] text-slate-500">{team.name} — Confidential</span>
+          <span className="max-w-[45%] truncate text-center text-[10px] font-medium text-slate-300">{team.name} — Confidential</span>
           {!isLicensed ? (
-            <span className="flex-shrink-0 text-[10px] font-semibold text-red-400">UNLICENSED COPY</span>
+            <span className="flex-shrink-0 text-[10px] font-bold text-red-400">UNLICENSED COPY</span>
           ) : (
-            <span className="flex-shrink-0 text-[10px] text-slate-500">{websiteUrl.replace(/^https?:\/\//, "")}</span>
+            <span className="flex-shrink-0 text-[10px] font-medium text-slate-300">{websiteUrl.replace(/^https?:\/\//, "")}</span>
           )}
         </div>
       </div>

@@ -46,6 +46,10 @@ export const ListTournamentsResponseItem = zod.object({
     .string()
     .nullish()
     .describe("Auto-generated 8-char code e.g. RC732504"),
+  season: zod
+    .string()
+    .nullish()
+    .describe("Tournament season, edition or year e.g. Season 2026-27"),
   venue: zod.string().nullish(),
   city: zod
     .string()
@@ -238,6 +242,7 @@ export const ListTournamentsResponse = zod.array(ListTournamentsResponseItem);
  */
 export const CreateTournamentBody = zod.object({
   name: zod.string(),
+  season: zod.string().nullish().describe("Tournament season, edition or year"),
   sport: zod.string(),
   venue: zod.string().optional(),
   city: zod
@@ -306,6 +311,10 @@ export const GetTournamentResponse = zod.object({
     .string()
     .nullish()
     .describe("Auto-generated 8-char code e.g. RC732504"),
+  season: zod
+    .string()
+    .nullish()
+    .describe("Tournament season, edition or year e.g. Season 2026-27"),
   venue: zod.string().nullish(),
   city: zod
     .string()
@@ -501,6 +510,7 @@ export const UpdateTournamentParams = zod.object({
 
 export const UpdateTournamentBody = zod.object({
   name: zod.string().optional(),
+  season: zod.string().nullish().describe("Tournament season, edition or year"),
   sport: zod.string().optional(),
   venue: zod.string().optional(),
   city: zod.string().optional().describe("City where the tournament is held"),
@@ -604,6 +614,10 @@ export const UpdateTournamentResponse = zod.object({
     .string()
     .nullish()
     .describe("Auto-generated 8-char code e.g. RC732504"),
+  season: zod
+    .string()
+    .nullish()
+    .describe("Tournament season, edition or year e.g. Season 2026-27"),
   venue: zod.string().nullish(),
   city: zod
     .string()
@@ -829,6 +843,10 @@ export const ExportTournamentForLocalResponse = zod.object({
       .string()
       .nullish()
       .describe("Auto-generated 8-char code e.g. RC732504"),
+    season: zod
+      .string()
+      .nullish()
+      .describe("Tournament season, edition or year e.g. Season 2026-27"),
     venue: zod.string().nullish(),
     city: zod
       .string()

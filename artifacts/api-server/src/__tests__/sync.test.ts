@@ -11,19 +11,39 @@ const { mockDbWhere, mockDbUpdateWhere, mockDbInsertValues } = vi.hoisted(() => 
   mockDbInsertValues: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock("@workspace/db", () => ({
-  db: {
-    select: () => ({ from: () => ({ where: mockDbWhere }) }),
+vi.mock("@workspace/db", () => {
+  const txMock = {
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          for: () => Promise.resolve([makeTournament()]),
+        }),
+      }),
+    }),
     update: () => ({ set: () => ({ where: mockDbUpdateWhere }) }),
     insert: () => ({ values: mockDbInsertValues }),
-  },
-  pool: { query: vi.fn() },
-  tournamentsTable: { id: {} },
-  teamsTable: { id: {} },
-  playersTable: { id: {} },
-  bidsTable: {},
-  categoriesTable: {},
-  auctionSessionsTable: { tournamentId: {} },
+  };
+  return {
+    db: {
+      select: () => ({ from: () => ({ where: mockDbWhere }) }),
+      update: () => ({ set: () => ({ where: mockDbUpdateWhere }) }),
+      insert: () => ({ values: mockDbInsertValues }),
+      transaction: vi.fn(async (cb: (tx: any) => Promise<any>) => cb(txMock)),
+    },
+    pool: { query: vi.fn() },
+    tournamentsTable: { id: {} },
+    teamsTable: { id: {} },
+    playersTable: { id: {}, tournamentId: {} },
+    bidsTable: {},
+    categoriesTable: {},
+    auctionSessionsTable: { tournamentId: {} },
+    purseBoostersTable: {},
+  };
+});
+
+vi.mock("../lib/tournament-locks", () => ({
+  lockTournamentLifecycleShared: vi.fn().mockResolvedValue(undefined),
+  lockAuctionLotExclusive: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../lib/broadcast", () => ({ broadcastToTournament: vi.fn() }));

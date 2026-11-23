@@ -120,6 +120,7 @@ describe("Phase 4E: Tournament Settings Backend Authorization", () => {
     currentTournamentState = {
       id: 1,
       name: "Championship 2026",
+      season: "Season 2025-26",
       sport: "cricket",
       city: "Mumbai",
       venue: "Wankhede",
@@ -381,6 +382,32 @@ describe("Phase 4E: Tournament Settings Backend Authorization", () => {
       expect(res.status).toBe(400);
       expect(res.body.code).toBe("INVALID_MODULE_STATE");
       expect(res.body.error).toContain("at least one enabled product module");
+    });
+  });
+
+  describe("Season Field Persistence", () => {
+    it("updates season successfully and returns it in serialized response", async () => {
+      const res = await request(app)
+        .patch("/api/tournaments/1")
+        .send({
+          season: "Season 2026-27",
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.season).toBe("Season 2026-27");
+      expect(currentTournamentState.season).toBe("Season 2026-27");
+    });
+
+    it("clears season to null when empty string or null is provided", async () => {
+      const res = await request(app)
+        .patch("/api/tournaments/1")
+        .send({
+          season: "",
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.season).toBeNull();
+      expect(currentTournamentState.season).toBeNull();
     });
   });
 });

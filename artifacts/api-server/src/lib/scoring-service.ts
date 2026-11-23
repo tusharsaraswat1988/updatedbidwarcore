@@ -125,6 +125,13 @@ async function ensureTournamentScoring(tournamentId: number) {
       "SCORING_DISABLED",
     );
   }
+  if (tournament.status === "completed") {
+    throw new ScoringServiceError(
+      "Tournament is completed. Scoring is closed.",
+      409,
+      "TOURNAMENT_COMPLETED",
+    );
+  }
   if (tournament.sport !== CRICKET_SPORT_SLUG) {
     throw new ScoringServiceError(
       "Only cricket scoring is supported in V1",

@@ -130,6 +130,7 @@ router.get("/tournaments", async (req, res) => {
 
 const tournamentInputSchema = z.object({
   name: z.string().min(1),
+  season: z.string().trim().nullable().optional(),
   sport: z.string().default("cricket"),
   city: z.string().trim().min(1, "City is required"),
   venue: z.string().optional(),
@@ -295,6 +296,7 @@ router.post("/tournaments", async (req, res) => {
       sport: d.sport,
       sportId: await resolveSportIdBySlug(d.sport),
       auctionCode,
+      season: d.season ? d.season.trim() : null,
       city: d.city,
       venue: d.venue ?? null,
       auctionDate: d.auctionDate ?? null,
@@ -378,6 +380,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (!(await requireTournamentOrganizer(req, res, id))) return;
   const schema = z.object({
     name: z.string().optional(),
+    season: z.string().trim().nullable().optional(),
     sport: z.string().optional(),
     city: z.string().trim().min(1).optional(),
     venue: z.string().optional(),
@@ -570,6 +573,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   const imageChanges: ImageFieldChange[] = [];
   let removedSponsorLogos: ReturnType<typeof listRemovedSponsorLogos> = [];
   if (d.name !== undefined) updates.name = d.name;
+  if (d.season !== undefined) {
+    updates.season = d.season === "" || d.season === null ? null : d.season;
+  }
   if (d.sport !== undefined) {
     updates.sport = d.sport;
     updates.sportId = await resolveSportIdBySlug(d.sport);
@@ -1071,92 +1077,133 @@ router.post("/tournaments/:tournamentId/sync", async (req, res) => {
 
   const { playerResults, teamPurses, bids, purseBoosters } = parsed.data;
 
-  let playersUpdated = 0;
-  for (const p of playerResults) {
-    await db.update(playersTable).set({
-      status: p.status,
-      teamId: p.teamCloudId ?? null,
-      soldPrice: p.soldPrice ?? null,
-    }).where(and(eq(playersTable.id, p.cloudId), eq(playersTable.tournamentId, id)));
-    playersUpdated++;
-  }
+  try {
+    const { lockTournamentLifecycleShared, lockAuctionLotExclusive } = await import("../lib/tournament-locks");
+    const { auctionSessionsTable } = await import("@workspace/db");
 
-  let teamsUpdated = 0;
-  for (const t of teamPurses) {
-    await db.update(teamsTable).set({ purseUsed: t.purseUsed })
-      .where(and(eq(teamsTable.id, t.cloudId), eq(teamsTable.tournamentId, id)));
-    teamsUpdated++;
-  }
+    const result = await db.transaction(async (tx) => {
+      // 1. Acquire Tier 1 Shared lock to coordinate with lifecycle transitions (Reset Data / Activate Live)
+      await lockTournamentLifecycleShared(tx, id);
 
-  let bidsInserted = 0;
-  for (const b of bids) {
-    await db.insert(bidsTable).values({
-      tournamentId: id,
-      playerId: b.playerCloudId,
-      teamId: b.teamCloudId,
-      amount: b.amount,
+      // 2. Acquire Tier 2 Auction Lot lock to coordinate with active auction mutations
+      await lockAuctionLotExclusive(tx, id);
+
+      // 3. Row lock and re-validate inside transaction to prevent race conditions
+      const [lockedTournament] = await tx
+        .select()
+        .from(tournamentsTable)
+        .where(eq(tournamentsTable.id, id))
+        .for("update");
+
+      if (!lockedTournament) {
+        const notFoundErr: any = new Error("Tournament not found");
+        notFoundErr.status = 404;
+        throw notFoundErr;
+      }
+
+      if (lockedTournament.exportTokenSyncedAt) {
+        const replayErr: any = new Error("This export token has already been used for sync. Re-export from cloud to sync again.");
+        replayErr.status = 409;
+        replayErr.syncedAt = lockedTournament.exportTokenSyncedAt.toISOString();
+        throw replayErr;
+      }
+
+      let playersUpdated = 0;
+      for (const p of playerResults) {
+        await tx.update(playersTable).set({
+          status: p.status,
+          teamId: p.teamCloudId ?? null,
+          soldPrice: p.soldPrice ?? null,
+        }).where(and(eq(playersTable.id, p.cloudId), eq(playersTable.tournamentId, id)));
+        playersUpdated++;
+      }
+
+      let teamsUpdated = 0;
+      for (const t of teamPurses) {
+        await tx.update(teamsTable).set({ purseUsed: t.purseUsed })
+          .where(and(eq(teamsTable.id, t.cloudId), eq(teamsTable.tournamentId, id)));
+        teamsUpdated++;
+      }
+
+      let bidsInserted = 0;
+      for (const b of bids) {
+        await tx.insert(bidsTable).values({
+          tournamentId: id,
+          playerId: b.playerCloudId,
+          teamId: b.teamCloudId,
+          amount: b.amount,
+        });
+        bidsInserted++;
+      }
+
+      let boostersSynced = 0;
+      for (const b of purseBoosters) {
+        const [team] = await tx
+          .select({ id: teamsTable.id })
+          .from(teamsTable)
+          .where(and(eq(teamsTable.id, b.teamCloudId), eq(teamsTable.tournamentId, id)));
+        if (!team) continue;
+
+        await tx
+          .insert(purseBoostersTable)
+          .values({
+            localUuid: b.localUuid,
+            tournamentId: id,
+            teamId: team.id,
+            amount: b.amount,
+            reason: b.reason,
+            status: b.status,
+            createdByType: "system",
+            createdByLabel: b.createdByLabel ?? "Local Sync",
+            createdAt: new Date(b.createdAt),
+            cancelledAt: b.cancelledAt ? new Date(b.cancelledAt) : null,
+            cancelReason: b.cancelReason ?? null,
+            previousCapacity: b.previousCapacity,
+            newCapacity: b.newCapacity,
+            origin: "local",
+            syncState: "synced",
+          })
+          .onConflictDoUpdate({
+            target: purseBoostersTable.localUuid,
+            set: {
+              status: b.status,
+              cancelledAt: b.cancelledAt ? new Date(b.cancelledAt) : null,
+              cancelReason: b.cancelReason ?? null,
+              syncState: "synced",
+            },
+          });
+        boostersSynced++;
+      }
+
+      // Mark tournament complete and stamp the token as used — prevents replay sync
+      const isScoringPending = (lockedTournament.scoringEnabled ?? false) && lockedTournament.scoringPhase !== "completed";
+      await tx.update(tournamentsTable).set({
+        ...(isScoringPending ? {} : { status: "completed" }),
+        exportTokenSyncedAt: new Date(),
+      }).where(eq(tournamentsTable.id, id));
+
+      await tx
+        .update(auctionSessionsTable)
+        .set({
+          status: "completed",
+          currentPlayerId: null,
+          lastAction: "Auction concluded via local offline sync",
+        })
+        .where(eq(auctionSessionsTable.tournamentId, id));
+
+      return { ok: true, playersUpdated, teamsUpdated, bidsInserted, boostersSynced };
     });
-    bidsInserted++;
+
+    invalidateAuctionBuildCache(id);
+    res.json(result);
+  } catch (err: any) {
+    req.log.error({ err, tournamentId: id }, "Sync: failed to sync offline auction results");
+    const status = typeof err?.status === "number" ? err.status : 500;
+    res.status(status).json({
+      error: err?.message || "Internal server error during sync",
+      ...(err?.syncedAt ? { syncedAt: err.syncedAt } : {}),
+    });
   }
-
-  let boostersSynced = 0;
-  for (const b of purseBoosters) {
-    const [team] = await db
-      .select({ id: teamsTable.id })
-      .from(teamsTable)
-      .where(and(eq(teamsTable.id, b.teamCloudId), eq(teamsTable.tournamentId, id)));
-    if (!team) continue;
-
-    await db
-      .insert(purseBoostersTable)
-      .values({
-        localUuid: b.localUuid,
-        tournamentId: id,
-        teamId: team.id,
-        amount: b.amount,
-        reason: b.reason,
-        status: b.status,
-        createdByType: "system",
-        createdByLabel: b.createdByLabel ?? "Local Sync",
-        createdAt: new Date(b.createdAt),
-        cancelledAt: b.cancelledAt ? new Date(b.cancelledAt) : null,
-        cancelReason: b.cancelReason ?? null,
-        previousCapacity: b.previousCapacity,
-        newCapacity: b.newCapacity,
-        origin: "local",
-        syncState: "synced",
-      })
-      .onConflictDoUpdate({
-        target: purseBoostersTable.localUuid,
-        set: {
-          status: b.status,
-          cancelledAt: b.cancelledAt ? new Date(b.cancelledAt) : null,
-          cancelReason: b.cancelReason ?? null,
-          syncState: "synced",
-        },
-      });
-    boostersSynced++;
-  }
-
-  // Mark tournament complete and stamp the token as used — prevents replay sync
-  const isScoringPending = (tournament.scoringEnabled ?? false) && tournament.scoringPhase !== "completed";
-  await db.update(tournamentsTable).set({
-    ...(isScoringPending ? {} : { status: "completed" }),
-    exportTokenSyncedAt: new Date(),
-  }).where(eq(tournamentsTable.id, id));
-
-  const { auctionSessionsTable } = await import("@workspace/db");
-  await db
-    .update(auctionSessionsTable)
-    .set({
-      status: "completed",
-      phase: "completed",
-      activePlayerId: null,
-      lastAction: "Auction concluded via local offline sync",
-    })
-    .where(eq(auctionSessionsTable.tournamentId, id));
-
-  res.json({ ok: true, playersUpdated, teamsUpdated, bidsInserted, boostersSynced });
 });
 
 // ─── Share viewer link — fire DLT SMS to organizer ───────────────────────────
@@ -1604,6 +1651,147 @@ router.post("/auth/admin/tournaments/:id/verify-and-grant-license", requireAdmin
     demoRemoved: result.demoRemoved,
     tournament: privateTournamentSerializer(result.tournament),
   });
+});
+
+// ─── POST /tournaments/:tournamentId/reset-data ─────────────────────────────
+// Unified Reset Data: resets practice/trial operational data across Auction,
+// Cricket, and Badminton while preserving permanent tournament configuration.
+// Available unlimited times during testing/trial; permanently disabled after official activation.
+router.post("/tournaments/:tournamentId/reset-data", async (req, res) => {
+  const tid = parseInt(String(req.params.tournamentId), 10);
+  if (isNaN(tid)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+
+  // 1. Authorization: tournament organizer or admin
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const isAdminCaller = req.jwtUser?.isAdmin === true;
+  const actorType = isAdminCaller ? "super_admin" : "organizer";
+  const actorLabel = isAdminCaller
+    ? (req.jwtUser?.email || "super_admin")
+    : (req.jwtUser?.organizerAccountId ? `org_acc_${req.jwtUser.organizerAccountId}` : `organizer_t${tid}`);
+
+  const bodySchema = z.object({
+    password: z.string().optional(),
+    reason: z.string().optional(),
+  });
+  const parsed = bodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body" });
+    return;
+  }
+
+  try {
+    const { executeUnifiedResetData } = await import("../lib/tournament-lifecycle-service");
+    const result = await executeUnifiedResetData({
+      tournamentId: tid,
+      actorLabel,
+      actorType,
+      reason: parsed.data.reason,
+    });
+
+    auditLog(req, {
+      category: "tournament",
+      action: "tournament.reset_data",
+      summary: `Operational trial data reset by ${actorLabel}`,
+      severity: "warning",
+      outcome: "success",
+      reason: parsed.data.reason || "Organizer reset trial operational data",
+      tournamentId: tid,
+      resource: { type: "tournament", id: tid },
+      metadata: { ...result.counts, actorType, actorLabel },
+      alertKey: "tournament_reset_data",
+    });
+
+    invalidateAuctionBuildCache(tid);
+    broadcastToTournament(tid, {
+      type: "reset_data_completed",
+      tournamentId: tid,
+      resetAt: result.resetAt,
+    });
+
+    res.json(result);
+  } catch (err: any) {
+    const status = typeof err?.status === "number" ? err.status : 500;
+    const message = err instanceof Error ? err.message : "Reset Data failed";
+    const code = err?.code || "RESET_DATA_FAILED";
+    res.status(status).json({ error: message, code });
+  }
+});
+
+// ─── POST /tournaments/:tournamentId/activate-live ──────────────────────────
+// One-time official live activation: verifies licensing readiness, executes
+// final automated trial data cleanup, and permanently seals officialActivatedAt.
+// Safe and idempotent against duplicate clicks and retries.
+router.post("/tournaments/:tournamentId/activate-live", async (req, res) => {
+  const tid = parseInt(String(req.params.tournamentId), 10);
+  if (isNaN(tid)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+
+  // 1. Authorization: tournament organizer or admin
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const isAdminCaller = req.jwtUser?.isAdmin === true;
+  const actorType = isAdminCaller ? "super_admin" : "organizer";
+  const actorLabel = isAdminCaller
+    ? (req.jwtUser?.email || "super_admin")
+    : (req.jwtUser?.organizerAccountId ? `org_acc_${req.jwtUser.organizerAccountId}` : `organizer_t${tid}`);
+
+  const bodySchema = z.object({
+    confirmation: z.boolean().optional(),
+    reason: z.string().optional(),
+  });
+  const parsed = bodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body" });
+    return;
+  }
+
+  try {
+    const { executeActivateLive } = await import("../lib/tournament-lifecycle-service");
+    const result = await executeActivateLive({
+      tournamentId: tid,
+      actorLabel,
+      actorType,
+      reason: parsed.data.reason,
+    });
+
+    auditLog(req, {
+      category: "tournament",
+      action: "tournament.activate_live",
+      summary: `Tournament officially activated for live production by ${actorLabel}`,
+      severity: "critical",
+      outcome: "success",
+      reason: parsed.data.reason || "Organizer officially activated tournament for live production",
+      tournamentId: tid,
+      resource: { type: "tournament", id: tid },
+      metadata: {
+        officialActivatedAt: result.officialActivatedAt,
+        alreadyActivated: result.alreadyActivated,
+        actorType,
+        actorLabel,
+      },
+      alertKey: "tournament_activate_live",
+    });
+
+    invalidateAuctionBuildCache(tid);
+    broadcastToTournament(tid, {
+      type: "tournament_activated_live",
+      tournamentId: tid,
+      officialActivatedAt: result.officialActivatedAt,
+    });
+
+    res.json(result);
+  } catch (err: any) {
+    const status = typeof err?.status === "number" ? err.status : 500;
+    const message = err instanceof Error ? err.message : "Activate Live failed";
+    const code = err?.code || "ACTIVATE_LIVE_FAILED";
+    res.status(status).json({ error: message, code });
+  }
 });
 
 export default router;

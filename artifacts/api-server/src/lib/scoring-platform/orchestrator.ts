@@ -50,6 +50,11 @@ import {
   cricketLiveSlotsConflict,
   incompleteLiveMatchBlocksStart,
 } from "../cricket-competition-scope";
+import {
+  lockTournamentLifecycleShared,
+  lockCricketMatchExclusive,
+  lockBadmintonMatchExclusive,
+} from "../tournament-locks";
 
 export type ScoringActor = {
   /** 'scorer' = dedicated Empire scorer acting on a locked match. */
@@ -466,6 +471,12 @@ export async function appendSingleMatchEvent(
 
   try {
     const committed = await db.transaction(async (tx) => {
+      // 0. Enforce two-tier advisory lock hierarchy:
+      // Tier 1 Shared Lifecycle Lock (coexists with auction bids/other scoring, blocks maintenance)
+      await lockTournamentLifecycleShared(tx, input.tournamentId);
+      // Tier 2 Cricket Match Exclusive Lock
+      await lockCricketMatchExclusive(tx, input.matchId);
+
       // 1. Authoritative lease fencing at the transaction write boundary.
       // Row is locked FOR UPDATE in Postgres to prevent TOCTOU takeover races.
       if (input.lease) {
@@ -770,6 +781,16 @@ export async function appendMatchEventBatch(input: AppendEventBatchInput) {
   }
 
   const { startSequence, envelopes } = await db.transaction(async (tx) => {
+    // 0. Enforce two-tier advisory lock hierarchy:
+    // Tier 1 Shared Lifecycle Lock (coexists with auction bids/other scoring, blocks maintenance)
+    await lockTournamentLifecycleShared(tx, input.tournamentId);
+    // Tier 2 Match Exclusive Lock (Badminton or Cricket)
+    if (input.sportSlug === "badminton") {
+      await lockBadmintonMatchExclusive(tx, input.matchId);
+    } else {
+      await lockCricketMatchExclusive(tx, input.matchId);
+    }
+
     // 1. Authoritative lease fencing inside transaction write boundary.
     // Row is locked FOR UPDATE in Postgres to prevent TOCTOU takeover races.
     if (input.lease) {

@@ -85,6 +85,9 @@ export const auctionPlayerEventsTable = pgTable("auction_player_events", {
   auctionDurationSeconds: integer("auction_duration_seconds"),
   averageSecsBetweenBids: integer("average_secs_between_bids"),
 
+  // Lifecycle safety flag (set to true if sale undone or player re-auctioned)
+  isSuperseded: boolean("is_superseded").default(false),
+
   timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
 });
 

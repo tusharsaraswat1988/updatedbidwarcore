@@ -532,6 +532,50 @@ export async function checkOrganizerAccountAuth(): Promise<{
   organizer?: OrganizerInfo;
   tournaments?: import("@/lib/organizer-account-auth-cache").OrganizerAccountTournament[];
 }> {
+  if (import.meta.env.DEV && typeof window !== "undefined") {
+    const search = window.location.search || "";
+    const devMock = window.localStorage.getItem("bidwar_dev_mock_organizer");
+    if (devMock || search.includes("dev_organizer=1")) {
+      return {
+        loggedIn: true,
+        organizer: {
+          id: 2,
+          name: "Tushar Saraswat",
+          email: "tusharsaraswat1988@gmail.com",
+          mobile: "8707488250",
+          photoUrl: "https://res.cloudinary.com/dja0upxxe/image/upload/v1781060032/bidwar/ofqv9lev9rsnxihcxagd.jpg",
+          licenseStatus: "active",
+          maxTournaments: 5,
+          phoneVerified: true,
+        },
+        tournaments: [
+          {
+            id: 5,
+            name: "Vyapari Network Badminton League",
+            sport: "badminton",
+            status: "setup",
+            licenseStatus: "active",
+            city: "Varanasi",
+            venue: "BLW Officer Club",
+            auctionDate: "2027-08-01",
+            createdAt: "2026-06-01T17:44:01.072Z",
+          },
+          {
+            id: 4,
+            name: "Ishita School Premier Cricket League",
+            sport: "cricket",
+            status: "active",
+            licenseStatus: "active",
+            city: "Varanasi",
+            venue: "Sigra Stadium",
+            auctionDate: "2027-09-25",
+            createdAt: "2026-05-20T17:38:13.602Z",
+          },
+        ],
+      };
+    }
+  }
+
   try {
     const r = await apiFetch("/auth/organizer-account/me");
     // 401/403 = cookie invalid/expired → truly logged out

@@ -73,6 +73,8 @@ export const tournamentsTable = pgTable("tournaments", {
   resetCount: integer("reset_count").notNull().default(0),
   lastResetAt: timestamp("last_reset_at", { withTimezone: true }),
   lastResetBy: text("last_reset_by"),
+  /** Timestamp when organizer officially activates the tournament for live production. Irreversible. */
+  officialActivatedAt: timestamp("official_activated_at", { withTimezone: true }),
   minimumSquadSize: integer("minimum_squad_size").notNull().default(0),
   maximumSquadSize: integer("maximum_squad_size").notNull().default(0),
   audioEnabled: boolean("audio_enabled").notNull().default(true),

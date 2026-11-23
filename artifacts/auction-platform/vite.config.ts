@@ -73,9 +73,8 @@ export default defineConfig({
       name: 'subdomain-proxy',
       configureServer(server) {
         server.middlewares.use((req, res, next) => {
-          console.log('Request Host:', req.headers.host);
-          if (req.headers.host === 'fan.localhost:24755') {
-            console.log('Proxying to Fan Platform');
+          const host = req.headers.host ?? '';
+          if (host.startsWith('fan.localhost')) {
             return proxy.web(req, res, { target: 'http://localhost:5180', changeOrigin: true });
           }
           next();

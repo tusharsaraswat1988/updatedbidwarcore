@@ -207,8 +207,6 @@ export async function seedCommunicationDefaults(): Promise<void> {
   }
 
   logger.info("Communication Center defaults seeded");
-  await migratePlayerSelectedToPlayerSold();
-  await archiveUnusedStubTemplates();
 }
 
 /** Automatically archive unused stub templates so they don't clutter the admin panel. */

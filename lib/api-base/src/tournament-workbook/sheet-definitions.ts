@@ -53,7 +53,7 @@ export const BMW_SHEETS: WorkbookSheetDefinition[] = [
     fields: [
       { key: "name", label: "Tournament Name", type: "string", editability: "editable", required: true, entity: "tournament", column: "name" },
       { key: "sport", label: "Sport", type: "string", editability: "editable", required: true, entity: "tournament", column: "sport", description: "Cricket, Badminton, Football, Volleyball, Kabaddi, Tennis, Table Tennis, etc." },
-      { key: "season", label: "Season", type: "string", editability: "editable" },
+      { key: "season", label: "Season", type: "string", editability: "editable", entity: "tournament", column: "season" },
       { key: "logo", label: "Logo", type: "photo_url", editability: "editable", entity: "tournament", column: "logoUrl" },
       { key: "banner", label: "Banner", type: "photo_url", editability: "editable", entity: "tournament", column: "mainBannerUrl" },
       { key: "venue", label: "Venue", type: "string", editability: "editable", entity: "tournament", column: "venue" },

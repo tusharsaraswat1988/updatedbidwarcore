@@ -97,7 +97,7 @@ async function streamLivePlayers(tournamentId: number, write: (line: string) => 
      FROM auction_player_events ape
      JOIN tournaments tor ON tor.id = ape.tournament_id
      LEFT JOIN categories c ON c.id = ape.category_id
-     WHERE ape.tournament_id = $1
+     WHERE ape.tournament_id = $1 AND ape.is_superseded = false
      ORDER BY ape.timestamp ASC`,
     [tournamentId],
   );

@@ -20,6 +20,7 @@ vi.mock("../homepage-data.js", () => ({
 }));
 
 vi.mock("../page-meta.js", () => ({
+  DEFAULT_OG_IMAGE_URL: "https://bidwar.in/bidwar-og-card.png",
   getPageMeta: () => ({
     title: "BidWar",
     description: "Test",

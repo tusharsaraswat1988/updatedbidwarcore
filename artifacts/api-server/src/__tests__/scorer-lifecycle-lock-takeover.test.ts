@@ -43,7 +43,7 @@ describe("Scorer Lifecycle, Delete Invalidation, PIN Sync & Lock Takeover", () =
     const src = await readFile(scorerLockUrl, "utf8");
     const fnIdx = src.indexOf("export async function acquireMatchLock");
     expect(fnIdx).toBeGreaterThan(-1);
-    const slice = src.slice(fnIdx, fnIdx + 3000);
+    const slice = src.slice(fnIdx, fnIdx + 5000);
     expect(slice).toContain("forceTakeover");
     expect(slice).toContain("lock_force_takeover");
   });

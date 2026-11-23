@@ -152,12 +152,21 @@ export async function ensureBadmintonTournament(tournamentId: number): Promise<v
     .select({
       id: tournamentsTable.id,
       sport: tournamentsTable.sport,
+      status: tournamentsTable.status,
       auctionEnabled: tournamentsTable.auctionEnabled,
       scoringEnabled: tournamentsTable.scoringEnabled,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
     .limit(1);
+
+  if (tournament && tournament.status === "completed") {
+    throw new BadmintonServiceError(
+      "TOURNAMENT_COMPLETED",
+      "Tournament is completed. Badminton match operations are closed.",
+      409,
+    );
+  }
 
   try {
     assertSportModule(tournament, BADMINTON_SPORT);

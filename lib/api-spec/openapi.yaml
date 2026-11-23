@@ -2269,6 +2269,9 @@ components:
         auctionCode:
           type: ["string", "null"]
           description: "Auto-generated 8-char code e.g. RC732504"
+        season:
+          type: ["string", "null"]
+          description: "Tournament season, edition or year e.g. Season 2026-27"
         venue:
           type: ["string", "null"]
         city:
@@ -2482,6 +2485,10 @@ components:
       properties:
         name:
           type: string
+        season:
+          type: string
+          nullable: true
+          description: "Tournament season, edition or year"
         sport:
           type: string
         venue:
@@ -2569,6 +2576,10 @@ components:
       properties:
         name:
           type: string
+        season:
+          type: string
+          nullable: true
+          description: "Tournament season, edition or year"
         sport:
           type: string
         venue:

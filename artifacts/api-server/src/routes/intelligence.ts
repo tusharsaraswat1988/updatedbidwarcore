@@ -1,9 +1,9 @@
-import { Router } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import { pool } from "@workspace/db";
 import { tournamentsTable } from "@workspace/db";
 import { db } from "@workspace/db";
 import { heavyLimiter } from "../lib/rate-limiters";
-import { requireAdmin } from "../middleware/require-admin";
+import { requireTournamentOrganizer } from "../middleware/require-organizer";
 import {
   getCachedIntel,
   intelCacheKey,
@@ -12,13 +12,44 @@ import {
 } from "../lib/intelligence-cache";
 import { buildIntelligenceBriefing, type ObservationNote } from "../lib/intelligence-briefing";
 import { writeIntelligenceCsv, type ExportDataset } from "../lib/intelligence-export";
+import {
+  computePostMortemReport,
+  generatePostMortemCsv,
+  streamPostMortemPdf,
+} from "../lib/post-mortem-service";
 import { intelligenceArchivesTable } from "@workspace/db";
-import { desc, eq as drizzleEq } from "drizzle-orm";
+import { desc, eq as drizzleEq, inArray, or } from "drizzle-orm";
 
 const router = Router();
-/** Scoped so requireAdmin does not intercept unrelated /api routes mounted later on the main router. */
+
+/**
+ * Scoped intelligence auth guard.
+ * Allows global platform admins and authenticated tournament organizers to proceed.
+ * Specific tournament access is further verified at the endpoint level.
+ */
+export function requireIntelAuth(req: Request, res: Response, next: NextFunction): void {
+  const u = req.jwtUser;
+  const isAuth = Boolean(
+    u && (
+      u.isAdmin ||
+      u.organizerAccountId != null ||
+      Object.entries(u.organizer ?? {}).some(([_k, v]) => Boolean(v))
+    )
+  );
+  if (!isAuth) {
+    res.status(401).json({
+      error: "Not authorised",
+      middleware: "requireIntelAuth",
+      hint: "Login required as platform admin or tournament organizer to access intelligence.",
+    });
+    return;
+  }
+  next();
+}
+
+/** Scoped so requireIntelAuth does not intercept unrelated /api routes mounted later on the main router. */
 const adminIntel = Router();
-adminIntel.use(requireAdmin);
+adminIntel.use(requireIntelAuth);
 
 function bidEventFilters(filters: IntelFilterParams, paramStart: number): { sql: string; params: unknown[] } {
   const clauses: string[] = [];
@@ -33,6 +64,7 @@ function bidEventFilters(filters: IntelFilterParams, paramStart: number): { sql:
       SELECT 1 FROM auction_player_events ape_f
       WHERE ape_f.player_id = abe.player_id AND ape_f.tournament_id = abe.tournament_id
         AND ape_f.category_id = $${idx++}
+        AND ape_f.is_superseded = false
     )`);
     params.push(filters.categoryId);
   }
@@ -40,20 +72,25 @@ function bidEventFilters(filters: IntelFilterParams, paramStart: number): { sql:
   return { sql, params };
 }
 
-function playerEventFilters(filters: IntelFilterParams, paramStart: number): { sql: string; params: unknown[] } {
+function playerEventFilters(filters: IntelFilterParams, paramStart: number, tableAlias = "auction_player_events"): { sql: string; params: unknown[] } {
   const clauses: string[] = [];
   const params: unknown[] = [];
   let idx = paramStart;
+  const colPrefix = tableAlias ? `${tableAlias}.` : "";
   if (filters.categoryId != null) {
-    clauses.push(`category_id = $${idx++}`);
+    clauses.push(`${colPrefix}category_id = $${idx++}`);
     params.push(filters.categoryId);
   }
   if (filters.teamId != null) {
-    clauses.push(`EXISTS (
-      SELECT 1 FROM auction_bid_events abe_f
-      WHERE abe_f.player_id = auction_player_events.player_id
-        AND abe_f.tournament_id = auction_player_events.tournament_id
-        AND abe_f.team_id = $${idx++}
+    const tParam = idx++;
+    clauses.push(`(
+      ${colPrefix}sold_to_team_id = $${tParam}
+      OR EXISTS (
+        SELECT 1 FROM auction_bid_events abe_f
+        WHERE abe_f.player_id = ${colPrefix}player_id
+          AND abe_f.tournament_id = ${colPrefix}tournament_id
+          AND abe_f.team_id = $${tParam}
+      )
     )`);
     params.push(filters.teamId);
   }
@@ -63,14 +100,56 @@ function playerEventFilters(filters: IntelFilterParams, paramStart: number): { s
 
 // ─── Tournament list ──────────────────────────────────────────────────────────
 
-adminIntel.get("/tournaments", async (_req, res) => {
-  const rows = await db.select({
-    id: tournamentsTable.id,
-    name: tournamentsTable.name,
-    sport: tournamentsTable.sport,
-    status: tournamentsTable.status,
-  }).from(tournamentsTable).orderBy(tournamentsTable.id);
-  res.json(rows);
+adminIntel.get("/tournaments", async (req, res) => {
+  if (req.jwtUser?.isAdmin) {
+    const rows = await db.select({
+      id: tournamentsTable.id,
+      name: tournamentsTable.name,
+      sport: tournamentsTable.sport,
+      status: tournamentsTable.status,
+    }).from(tournamentsTable).orderBy(tournamentsTable.id);
+    return res.json(rows);
+  }
+
+  const orgId = req.jwtUser?.organizerAccountId;
+  const tokenIds = Object.entries(req.jwtUser?.organizer ?? {})
+    .filter(([_k, v]) => Boolean(v))
+    .map(([k]) => Number(k))
+    .filter(Number.isFinite);
+
+  if (orgId != null && tokenIds.length > 0) {
+    const rows = await db.select({
+      id: tournamentsTable.id,
+      name: tournamentsTable.name,
+      sport: tournamentsTable.sport,
+      status: tournamentsTable.status,
+    }).from(tournamentsTable)
+      .where(or(drizzleEq(tournamentsTable.organizerId, orgId), inArray(tournamentsTable.id, tokenIds)))
+      .orderBy(tournamentsTable.id);
+    return res.json(rows);
+  } else if (orgId != null) {
+    const rows = await db.select({
+      id: tournamentsTable.id,
+      name: tournamentsTable.name,
+      sport: tournamentsTable.sport,
+      status: tournamentsTable.status,
+    }).from(tournamentsTable)
+      .where(drizzleEq(tournamentsTable.organizerId, orgId))
+      .orderBy(tournamentsTable.id);
+    return res.json(rows);
+  } else if (tokenIds.length > 0) {
+    const rows = await db.select({
+      id: tournamentsTable.id,
+      name: tournamentsTable.name,
+      sport: tournamentsTable.sport,
+      status: tournamentsTable.status,
+    }).from(tournamentsTable)
+      .where(inArray(tournamentsTable.id, tokenIds))
+      .orderBy(tournamentsTable.id);
+    return res.json(rows);
+  }
+
+  return res.json([]);
 });
 
 // ─── Tournament Overview ──────────────────────────────────────────────────────
@@ -78,6 +157,7 @@ adminIntel.get("/tournaments", async (_req, res) => {
 adminIntel.get("/tournament/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const filters = parseIntelFilters(req.query as Record<string, unknown>);
 
   const payload = await getCachedIntel(intelCacheKey("overview", tid, filters), async () => {
@@ -99,7 +179,7 @@ adminIntel.get("/tournament/:tournamentId", async (req, res) => {
            FROM auction_bid_events abe
            LEFT JOIN auction_player_events ape
              ON abe.player_id = ape.player_id AND abe.tournament_id = ape.tournament_id
-            AND ape.outcome != 'in_progress'
+            AND ape.outcome != 'in_progress' AND ape.is_superseded = false
            WHERE abe.tournament_id = $1${bidF.sql}
            GROUP BY abe.player_id ORDER BY bid_count DESC LIMIT 1`,
           [tid, ...bidF.params],
@@ -119,7 +199,7 @@ adminIntel.get("/tournament/:tournamentId", async (req, res) => {
                   ROUND((final_amount::numeric / NULLIF(base_price,0) - 1) * 100)::int AS inflation_pct,
                   sold_to_team_name
            FROM auction_player_events
-           WHERE tournament_id = $1 AND outcome = 'sold'
+           WHERE tournament_id = $1 AND outcome = 'sold' AND is_superseded = false
              AND final_amount IS NOT NULL AND base_price IS NOT NULL AND base_price > 0${playerF.sql}
            ORDER BY (final_amount::numeric / NULLIF(base_price,0)) DESC LIMIT 1`,
           [tid, ...playerF.params],
@@ -127,7 +207,7 @@ adminIntel.get("/tournament/:tournamentId", async (req, res) => {
         pool.query(
           `SELECT outcome, COUNT(*)::int AS cnt
            FROM auction_player_events
-           WHERE tournament_id = $1 AND outcome != 'in_progress'${playerF.sql}
+           WHERE tournament_id = $1 AND outcome != 'in_progress' AND is_superseded = false${playerF.sql}
            GROUP BY outcome`,
           [tid, ...playerF.params],
         ),
@@ -159,6 +239,7 @@ adminIntel.get("/tournament/:tournamentId", async (req, res) => {
 adminIntel.get("/replay/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const limit = Math.min(parseInt((req.query.limit as string) ?? "400", 10) || 400, 600);
   const afterRaw = typeof req.query.after === "string" && req.query.after.length > 0
     ? req.query.after
@@ -191,90 +272,92 @@ adminIntel.get("/replay/:tournamentId", async (req, res) => {
             milliseconds_since_last_bid, outcome, category_name,
             timer_type, timer_seconds, triggered_by, sort_priority
      FROM (
-       SELECT
-         'bid'                              AS event_type,
-         abe.timestamp,
-         abe.player_id,
-         COALESCE(ape.player_name, '?')    AS player_name,
-         abe.team_id,
-         t.name                            AS team_name,
-         t.color                           AS team_color,
-         t.short_code,
-         abe.bid_amount,
-         abe.bid_sequence_number,
-         abe.milliseconds_since_last_bid,
-         NULL::text                        AS outcome,
-         NULL::text                        AS category_name,
-         NULL::text                        AS timer_type,
-         NULL::int                         AS timer_seconds,
-         NULL::text                        AS triggered_by,
-         2                                 AS sort_priority
-       FROM auction_bid_events abe
-       JOIN teams t ON t.id = abe.team_id
-       LEFT JOIN (
-         SELECT DISTINCT ON (player_id, tournament_id) player_id, tournament_id, player_name
-         FROM auction_player_events
-         ORDER BY player_id, tournament_id, id ASC
-       ) ape ON ape.player_id = abe.player_id AND ape.tournament_id = abe.tournament_id
-       WHERE abe.tournament_id = $1
+        SELECT
+          'bid'                              AS event_type,
+          abe.timestamp,
+          abe.player_id,
+          COALESCE(ape.player_name, '?')    AS player_name,
+          abe.team_id,
+          t.name                            AS team_name,
+          t.color                           AS team_color,
+          t.short_code,
+          abe.bid_amount,
+          abe.bid_sequence_number,
+          abe.milliseconds_since_last_bid,
+          NULL::text                        AS outcome,
+          NULL::text                        AS category_name,
+          NULL::text                        AS timer_type,
+          NULL::int                         AS timer_seconds,
+          NULL::text                        AS triggered_by,
+          2                                 AS sort_priority
+        FROM auction_bid_events abe
+        JOIN teams t ON t.id = abe.team_id
+        LEFT JOIN (
+          SELECT DISTINCT ON (player_id, tournament_id) player_id, tournament_id, player_name
+          FROM auction_player_events
+          WHERE is_superseded = false
+          ORDER BY player_id, tournament_id, id ASC
+        ) ape ON ape.player_id = abe.player_id AND ape.tournament_id = abe.tournament_id
+        WHERE abe.tournament_id = $1
 
-       UNION ALL
+        UNION ALL
 
-       SELECT
-         CASE WHEN ape.outcome = 'in_progress' THEN 'player_start'
-              ELSE 'player_' || ape.outcome
-         END                               AS event_type,
-         ape.timestamp,
-         ape.player_id,
-         ape.player_name,
-         ape.sold_to_team_id              AS team_id,
-         ape.sold_to_team_name            AS team_name,
-         NULL::text                       AS team_color,
-         NULL::text                       AS short_code,
-         ape.final_amount                 AS bid_amount,
-         NULL::int                        AS bid_sequence_number,
-         NULL::int                        AS milliseconds_since_last_bid,
-         ape.outcome,
-         c.name                           AS category_name,
-         NULL::text                       AS timer_type,
-         NULL::int                         AS timer_seconds,
-         NULL::text                       AS triggered_by,
-         CASE WHEN ape.outcome = 'in_progress' THEN 1 ELSE 4 END AS sort_priority
-       FROM auction_player_events ape
-       LEFT JOIN categories c ON c.id = ape.category_id
-       WHERE ape.tournament_id = $1
+        SELECT
+          CASE WHEN ape.outcome = 'in_progress' THEN 'player_start'
+               ELSE 'player_' || ape.outcome
+          END                               AS event_type,
+          ape.timestamp,
+          ape.player_id,
+          ape.player_name,
+          ape.sold_to_team_id              AS team_id,
+          ape.sold_to_team_name            AS team_name,
+          NULL::text                       AS team_color,
+          NULL::text                       AS short_code,
+          ape.final_amount                 AS bid_amount,
+          NULL::int                        AS bid_sequence_number,
+          NULL::int                        AS milliseconds_since_last_bid,
+          ape.outcome,
+          c.name                           AS category_name,
+          NULL::text                       AS timer_type,
+          NULL::int                         AS timer_seconds,
+          NULL::text                       AS triggered_by,
+          CASE WHEN ape.outcome = 'in_progress' THEN 1 ELSE 4 END AS sort_priority
+        FROM auction_player_events ape
+        LEFT JOIN categories c ON c.id = ape.category_id
+        WHERE ape.tournament_id = $1 AND ape.is_superseded = false
 
-       UNION ALL
+        UNION ALL
 
-       SELECT
-         'timer_' || ate.action           AS event_type,
-         ate.timestamp,
-         ate.player_id,
-         COALESCE(ape.player_name, '?')   AS player_name,
-         NULL::int                        AS team_id,
-         NULL::text                       AS team_name,
-         NULL::text                       AS team_color,
-         NULL::text                       AS short_code,
-         NULL::int                        AS bid_amount,
-         NULL::int                        AS bid_sequence_number,
-         NULL::int                        AS milliseconds_since_last_bid,
-         NULL::text                       AS outcome,
-         NULL::text                       AS category_name,
-         ate.timer_type,
-         ate.timer_seconds,
-         ate.triggered_by,
-         3                                AS sort_priority
-       FROM auction_timer_events ate
-       LEFT JOIN (
-         SELECT DISTINCT ON (player_id, tournament_id) player_id, tournament_id, player_name
-         FROM auction_player_events
-         ORDER BY player_id, tournament_id, id ASC
-       ) ape ON ape.player_id = ate.player_id AND ape.tournament_id = ate.tournament_id
-       WHERE ate.tournament_id = $1
-     ) ev
-     ${afterClause}
-     ORDER BY timestamp ASC, sort_priority ASC, event_type ASC
-     LIMIT $${params.length}`,
+        SELECT
+          'timer_' || ate.action           AS event_type,
+          ate.timestamp,
+          ate.player_id,
+          COALESCE(ape.player_name, '?')   AS player_name,
+          NULL::int                        AS team_id,
+          NULL::text                       AS team_name,
+          NULL::text                       AS team_color,
+          NULL::text                       AS short_code,
+          NULL::int                        AS bid_amount,
+          NULL::int                        AS bid_sequence_number,
+          NULL::int                        AS milliseconds_since_last_bid,
+          NULL::text                       AS outcome,
+          NULL::text                       AS category_name,
+          ate.timer_type,
+          ate.timer_seconds,
+          ate.triggered_by,
+          3                                AS sort_priority
+        FROM auction_timer_events ate
+        LEFT JOIN (
+          SELECT DISTINCT ON (player_id, tournament_id) player_id, tournament_id, player_name
+          FROM auction_player_events
+          WHERE is_superseded = false
+          ORDER BY player_id, tournament_id, id ASC
+        ) ape ON ape.player_id = ate.player_id AND ape.tournament_id = ate.tournament_id
+        WHERE ate.tournament_id = $1
+      ) ev
+      ${afterClause}
+      ORDER BY timestamp ASC, sort_priority ASC, event_type ASC
+      LIMIT $${params.length}`,
     params,
   );
 
@@ -297,6 +380,7 @@ adminIntel.get("/replay/:tournamentId", async (req, res) => {
 adminIntel.get("/demand/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const filters = parseIntelFilters(req.query as Record<string, unknown>);
   const playerF = playerEventFilters(filters, 2);
 
@@ -305,23 +389,35 @@ adminIntel.get("/demand/:tournamentId", async (req, res) => {
       `SELECT
          player_id, player_name, player_role, base_price, final_amount, outcome,
          COALESCE(total_bids_received, 0)::int                              AS total_bids,
-         COALESCE(interested_teams_count, 0)::int                           AS competition_score,
+         GREATEST(
+           COALESCE(interested_teams_count, 0),
+           CASE WHEN sold_to_team_id IS NOT NULL THEN 1 ELSE 0 END
+         )::int                                                             AS competition_score,
+         GREATEST(
+           COALESCE(interested_teams_count, 0),
+           CASE WHEN sold_to_team_id IS NOT NULL THEN 1 ELSE 0 END
+         )::int                                                             AS interested_teams,
          COALESCE(auction_duration_seconds, 0)::int                         AS duration_secs,
          COALESCE(average_secs_between_bids, 0)::int                        AS avg_secs_between,
          CASE WHEN base_price > 0 AND final_amount IS NOT NULL
-              THEN ROUND((final_amount::numeric / base_price - 1) * 100)::int
+              THEN ROUND((final_amount::numeric / NULLIF(base_price, 0) - 1) * 100)::int
               ELSE NULL
          END AS inflation_pct,
          ROUND((
            COALESCE(total_bids_received, 0)::numeric         * 0.40 +
-           COALESCE(interested_teams_count, 0)::numeric       * 3.00 +
+           GREATEST(
+             COALESCE(interested_teams_count, 0),
+             CASE WHEN sold_to_team_id IS NOT NULL THEN 1 ELSE 0 END
+           )::numeric                                         * 3.00 +
            CASE WHEN base_price > 0 AND final_amount IS NOT NULL
-                THEN LEAST((final_amount::numeric / base_price) * 5, 50)
+                THEN LEAST((final_amount::numeric / NULLIF(base_price, 0)) * 5, 50)
+                WHEN (base_price IS NULL OR base_price <= 0) AND final_amount > 0
+                THEN 15.0
                 ELSE 0
            END
          )::numeric, 1) AS demand_score
        FROM auction_player_events
-       WHERE tournament_id = $1 AND outcome IN ('sold','unsold','deferred')${playerF.sql}
+       WHERE tournament_id = $1 AND outcome IN ('sold','unsold','deferred') AND is_superseded = false${playerF.sql}
        ORDER BY demand_score DESC
        LIMIT 60`,
       [tid, ...playerF.params],
@@ -337,6 +433,7 @@ adminIntel.get("/demand/:tournamentId", async (req, res) => {
 adminIntel.get("/behavior/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const filters = parseIntelFilters(req.query as Record<string, unknown>);
 
   const profiles = await getCachedIntel(intelCacheKey("behavior", tid, filters), async () => {
@@ -369,9 +466,9 @@ adminIntel.get("/behavior/:tournamentId", async (req, res) => {
          FROM auction_bid_events abe
          LEFT JOIN (
            SELECT DISTINCT ON (player_id, tournament_id) player_id, tournament_id, category_id
-           FROM auction_player_events WHERE outcome != 'in_progress'
+           FROM auction_player_events WHERE tournament_id = $1 AND outcome != 'in_progress' AND is_superseded = false
            ORDER BY player_id, tournament_id, id DESC
-         ) ape ON ape.player_id = abe.player_id AND abe.tournament_id = $1
+         ) ape ON ape.player_id = abe.player_id AND ape.tournament_id = abe.tournament_id
          LEFT JOIN categories c ON c.id = ape.category_id
          WHERE abe.tournament_id = $1 AND c.name IS NOT NULL${bidF.sql}
          GROUP BY abe.team_id, c.name, c.color_code
@@ -431,6 +528,7 @@ adminIntel.get("/behavior/:tournamentId", async (req, res) => {
 adminIntel.get("/observations/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const filters = parseIntelFilters(req.query as Record<string, unknown>);
 
   const notes = await getCachedIntel(intelCacheKey("observations", tid, filters), async () => {
@@ -452,6 +550,7 @@ adminIntel.get("/observations/:tournamentId", async (req, res) => {
          FROM auction_player_events ape
          LEFT JOIN categories c ON c.id = ape.category_id
          WHERE ape.tournament_id = $1 AND ape.outcome IN ('sold','unsold','deferred')
+           AND ape.is_superseded = false
            AND c.name IS NOT NULL
          GROUP BY c.name ORDER BY avg_bids DESC`, [tid],
       ),
@@ -460,6 +559,7 @@ adminIntel.get("/observations/:tournamentId", async (req, res) => {
                 COUNT(*)::int AS count
          FROM auction_player_events
          WHERE tournament_id = $1 AND outcome IN ('sold','unsold','deferred')
+           AND is_superseded = false
            AND player_role IS NOT NULL AND total_bids_received IS NOT NULL
          GROUP BY player_role ORDER BY avg_bids DESC LIMIT 3`, [tid],
       ),
@@ -475,18 +575,18 @@ adminIntel.get("/observations/:tournamentId", async (req, res) => {
       ),
       pool.query(
         `SELECT
-           COUNT(*) FILTER (WHERE final_amount > base_price * 3 AND outcome = 'sold')::int AS high_inflation,
+           COUNT(*) FILTER (WHERE base_price > 0 AND final_amount > base_price * 3 AND outcome = 'sold')::int AS high_inflation,
            COUNT(*) FILTER (WHERE outcome = 'sold')::int AS total_sold,
            MAX(final_amount) AS max_sold,
            AVG(final_amount) FILTER (WHERE outcome = 'sold')::int AS avg_sold
          FROM auction_player_events
-         WHERE tournament_id = $1 AND base_price > 0`, [tid],
+         WHERE tournament_id = $1 AND is_superseded = false`, [tid],
       ),
       pool.query(
         `SELECT player_role, COUNT(*)::int AS unsold_count,
                 COUNT(*) FILTER (WHERE outcome = 'sold')::int AS sold_count
          FROM auction_player_events
-         WHERE tournament_id = $1 AND player_role IS NOT NULL
+         WHERE tournament_id = $1 AND player_role IS NOT NULL AND is_superseded = false
          GROUP BY player_role
          HAVING COUNT(*) FILTER (WHERE outcome = 'unsold') > 0
          ORDER BY unsold_count DESC LIMIT 1`, [tid],
@@ -515,7 +615,7 @@ adminIntel.get("/observations/:tournamentId", async (req, res) => {
                 COUNT(*) FILTER (WHERE ape.outcome = 'sold')::int AS sold_count
          FROM auction_player_events ape
          LEFT JOIN categories c ON c.id = ape.category_id
-         WHERE ape.tournament_id = $1 AND c.name IS NOT NULL
+         WHERE ape.tournament_id = $1 AND c.name IS NOT NULL AND ape.is_superseded = false
          GROUP BY c.name
          HAVING COUNT(*) FILTER (WHERE ape.outcome = 'sold') >= 2
          ORDER BY avg_sold DESC NULLS LAST`, [tid],
@@ -684,6 +784,12 @@ adminIntel.get("/observations/:tournamentId", async (req, res) => {
 
 adminIntel.get("/events", async (req, res) => {
   const tournamentId = req.query.tournamentId ? parseInt(req.query.tournamentId as string) : null;
+  if (tournamentId && !isNaN(tournamentId)) {
+    if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+  } else if (!req.jwtUser?.isAdmin) {
+    res.status(403).json({ error: "Tournament ID required for organizer access" });
+    return;
+  }
   const teamId = req.query.teamId ? parseInt(req.query.teamId as string) : null;
   const playerId = req.query.playerId ? parseInt(req.query.playerId as string) : null;
   const eventType = (req.query.eventType as string) || null; // 'bid' | 'player'
@@ -705,6 +811,7 @@ adminIntel.get("/events", async (req, res) => {
   }
   if (teamId) {
     bidConds.push(`team_id = $${bidIdx++}`); bidParams.push(teamId);
+    playerConds.push(`sold_to_team_id = $${playerIdx++}`); playerParams.push(teamId);
   }
   if (playerId) {
     bidConds.push(`player_id = $${bidIdx++}`); bidParams.push(playerId);
@@ -740,7 +847,9 @@ adminIntel.get("/events", async (req, res) => {
       LEFT JOIN teams t ON t.id = abe.team_id
       LEFT JOIN (
         SELECT DISTINCT ON (player_id, tournament_id) player_id, tournament_id, player_name
-        FROM auction_player_events ORDER BY player_id, tournament_id, id ASC
+        FROM auction_player_events
+        WHERE is_superseded = false
+        ORDER BY player_id, tournament_id, id ASC
       ) ape ON ape.player_id = abe.player_id AND ape.tournament_id = abe.tournament_id
       ${bidWhere}
     `);
@@ -750,7 +859,7 @@ adminIntel.get("/events", async (req, res) => {
   if (includePlayer) {
     const offset2 = mergedParams.length;
     const reindexedConds = playerConds.map((c, i) => c.replace(`$${i + 1}`, `$${offset2 + i + 1}`));
-    const reindexedWhere = reindexedConds.length ? `WHERE ${reindexedConds.join(" AND ")} AND outcome != 'in_progress'` : "WHERE outcome != 'in_progress'";
+    const reindexedWhere = reindexedConds.length ? `WHERE ${reindexedConds.join(" AND ")} AND outcome != 'in_progress' AND is_superseded = false` : "WHERE outcome != 'in_progress' AND is_superseded = false";
     parts.push(`
       SELECT
         'player_' || outcome                     AS event_type,
@@ -802,6 +911,13 @@ adminIntel.get("/players/search", heavyLimiter, async (req, res) => {
   const q = `%${(req.query.q as string) ?? ""}%`;
   const tournamentId = req.query.tournamentId ? parseInt(req.query.tournamentId as string) : null;
 
+  if (tournamentId && !isNaN(tournamentId)) {
+    if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+  } else if (!req.jwtUser?.isAdmin) {
+    res.status(403).json({ error: "Tournament ID required for organizer access" });
+    return;
+  }
+
   const tournamentFilter = tournamentId && !isNaN(tournamentId) ? "AND tournament_id = $2" : "";
   const params: unknown[] = [q];
   if (tournamentId && !isNaN(tournamentId)) params.push(tournamentId);
@@ -821,7 +937,7 @@ adminIntel.get("/players/search", heavyLimiter, async (req, res) => {
        AVG(total_bids_received) FILTER (WHERE outcome IN ('sold','unsold'))::int AS avg_bids_per_auction,
        COUNT(DISTINCT tournament_id)::int AS tournament_count
      FROM auction_player_events
-     WHERE player_name ILIKE $1 ${tournamentFilter}
+     WHERE player_name ILIKE $1 AND is_superseded = false ${tournamentFilter}
      GROUP BY COALESCE(global_player_id, 'local:' || player_id::text)
      ORDER BY total_auctions DESC, avg_sold_value DESC NULLS LAST
      LIMIT 30`,
@@ -844,9 +960,38 @@ adminIntel.get("/players/detail", async (req, res) => {
 
   const useGlobal = !!globalPlayerId;
   const param = globalPlayerId ?? playerId;
+
+  if (!req.jwtUser?.isAdmin) {
+    const tokenIds = Object.entries(req.jwtUser?.organizer ?? {})
+      .filter(([_k, v]) => Boolean(v))
+      .map(([k]) => Number(k))
+      .filter(Number.isFinite);
+    const authCheck = await pool.query(
+      `SELECT 1 FROM auction_player_events ape
+       JOIN tournaments t ON t.id = ape.tournament_id
+       WHERE (${useGlobal ? "ape.global_player_id = $1" : "ape.player_id = $1"})
+         AND (t.organizer_id = $2 OR t.id = ANY($3::int[]))
+       UNION ALL
+       SELECT 1 FROM players p
+       JOIN tournaments t ON t.id = p.tournament_id
+       WHERE (${useGlobal ? "p.global_player_id = $1" : "p.id = $1"})
+         AND (t.organizer_id = $2 OR t.id = ANY($3::int[]))
+       LIMIT 1`,
+      [
+        param,
+        req.jwtUser?.organizerAccountId ?? -1,
+        tokenIds,
+      ],
+    );
+    if (!authCheck.rows.length) {
+      res.status(403).json({ error: "Authentication required" });
+      return;
+    }
+  }
+
   const apeWhere = useGlobal
-    ? "ape.global_player_id = $1 AND ape.outcome != 'in_progress'"
-    : "ape.player_id = $1 AND ape.global_player_id IS NULL AND ape.outcome != 'in_progress'";
+    ? "ape.global_player_id = $1 AND ape.outcome != 'in_progress' AND ape.is_superseded = false"
+    : "ape.player_id = $1 AND ape.global_player_id IS NULL AND ape.outcome != 'in_progress' AND ape.is_superseded = false";
   const abeWhere = useGlobal
     ? "abe.global_player_id = $1"
     : "abe.player_id = $1 AND abe.global_player_id IS NULL";
@@ -899,9 +1044,40 @@ adminIntel.get("/players/:playerId", async (req, res) => {
   const pid = parseInt(req.params.playerId);
   if (isNaN(pid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
+  if (!req.jwtUser?.isAdmin) {
+    const tokenIds = Object.entries(req.jwtUser?.organizer ?? {})
+      .filter(([_k, v]) => Boolean(v))
+      .map(([k]) => Number(k))
+      .filter(Number.isFinite);
+    const authCheck = await pool.query(
+      `SELECT 1 FROM auction_player_events ape
+       JOIN tournaments t ON t.id = ape.tournament_id
+       WHERE ape.player_id = $1
+         AND (t.organizer_id = $2 OR t.id = ANY($3::int[]))
+       UNION ALL
+       SELECT 1 FROM players p
+       JOIN tournaments t ON t.id = p.tournament_id
+       WHERE p.id = $1
+         AND (t.organizer_id = $2 OR t.id = ANY($3::int[]))
+       LIMIT 1`,
+      [
+        pid,
+        req.jwtUser?.organizerAccountId ?? -1,
+        tokenIds,
+      ],
+    );
+    if (!authCheck.rows.length) {
+      res.status(403).json({ error: "Authentication required" });
+      return;
+    }
+  }
+
   const linked = await pool.query(
     `SELECT global_player_id FROM auction_player_events
-     WHERE player_id = $1 AND global_player_id IS NOT NULL
+     WHERE player_id = $1 AND global_player_id IS NOT NULL AND is_superseded = false
+     UNION ALL
+     SELECT global_player_id FROM players
+     WHERE id = $1 AND global_player_id IS NOT NULL
      LIMIT 1`,
     [pid],
   );
@@ -910,8 +1086,8 @@ adminIntel.get("/players/:playerId", async (req, res) => {
   const useGlobal = !!globalPlayerId;
   const param = globalPlayerId ?? pid;
   const apeWhere = useGlobal
-    ? "ape.global_player_id = $1 AND ape.outcome != 'in_progress'"
-    : "ape.player_id = $1 AND ape.global_player_id IS NULL AND ape.outcome != 'in_progress'";
+    ? "ape.global_player_id = $1 AND ape.outcome != 'in_progress' AND ape.is_superseded = false"
+    : "ape.player_id = $1 AND ape.global_player_id IS NULL AND ape.outcome != 'in_progress' AND ape.is_superseded = false";
   const abeWhere = useGlobal
     ? "abe.global_player_id = $1"
     : "abe.player_id = $1 AND abe.global_player_id IS NULL";
@@ -964,6 +1140,7 @@ adminIntel.get("/teams", async (req, res) => {
   const tournamentId = req.query.tournamentId ? parseInt(req.query.tournamentId as string) : null;
 
   if (tournamentId && !isNaN(tournamentId)) {
+    if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
     const { rows } = await pool.query(
       `SELECT abe.team_id, t.name AS team_name, t.color AS team_color,
               t.short_code, t.owner_name,
@@ -979,6 +1156,10 @@ adminIntel.get("/teams", async (req, res) => {
     );
     res.json(rows);
   } else {
+    if (!req.jwtUser?.isAdmin) {
+      res.status(403).json({ error: "Tournament ID required for organizer access" });
+      return;
+    }
     const { rows } = await pool.query(
       `SELECT abe.team_id, t.name AS team_name, t.color AS team_color, t.short_code,
               COUNT(*)::int AS total_bids, COUNT(DISTINCT abe.tournament_id)::int AS tournaments_participated
@@ -995,7 +1176,20 @@ adminIntel.get("/teams", async (req, res) => {
 adminIntel.get("/team/:teamId", async (req, res) => {
   const teamId = parseInt(req.params.teamId);
   if (isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const tournamentId = req.query.tournamentId ? parseInt(req.query.tournamentId as string) : null;
+  let tournamentId = req.query.tournamentId ? parseInt(req.query.tournamentId as string) : null;
+  if (!tournamentId || isNaN(tournamentId)) {
+    const tCheck = await pool.query("SELECT tournament_id FROM teams WHERE id = $1", [teamId]);
+    if (tCheck.rows[0]?.tournament_id) {
+      tournamentId = tCheck.rows[0].tournament_id;
+    }
+  }
+
+  if (tournamentId && !isNaN(tournamentId)) {
+    if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+  } else if (!req.jwtUser?.isAdmin) {
+    res.status(403).json({ error: "Authentication required" });
+    return;
+  }
   const hasTid = tournamentId && !isNaN(tournamentId);
   const tidParam = hasTid ? [teamId, tournamentId] : [teamId];
   const tidClause = hasTid ? "AND abe.tournament_id = $2" : "";
@@ -1016,7 +1210,7 @@ adminIntel.get("/team/:teamId", async (req, res) => {
        FROM auction_bid_events abe
        LEFT JOIN auction_player_events ape
          ON abe.player_id = ape.player_id AND abe.tournament_id = ape.tournament_id
-        AND ape.outcome != 'in_progress'
+        AND ape.outcome != 'in_progress' AND ape.is_superseded = false
        LEFT JOIN categories c ON c.id = ape.category_id
        WHERE abe.team_id = $1 ${tidClause} AND ape.category_id IS NOT NULL
        GROUP BY ape.category_id, c.name, c.color_code
@@ -1033,10 +1227,12 @@ adminIntel.get("/team/:teamId", async (req, res) => {
                 COUNT(*)::int AS total_bids
          FROM auction_bid_events abe
          LEFT JOIN (
-           SELECT DISTINCT ON (player_id) player_id, player_name
-           FROM auction_player_events ORDER BY player_id, id ASC
-         ) ape ON ape.player_id = abe.player_id
-         WHERE TRUE ${tidClause.replace("abe.tournament_id", "abe.tournament_id")}
+           SELECT DISTINCT ON (player_id, tournament_id) player_id, tournament_id, player_name
+           FROM auction_player_events
+           WHERE is_superseded = false
+           ORDER BY player_id, tournament_id, id ASC
+          ) ape ON ape.player_id = abe.player_id AND ape.tournament_id = abe.tournament_id
+          WHERE TRUE ${tidClause}
          GROUP BY abe.player_id
        ) agg
        WHERE agg.team_bids > 0
@@ -1050,7 +1246,7 @@ adminIntel.get("/team/:teamId", async (req, res) => {
        FROM auction_bid_events abe
        LEFT JOIN (
          SELECT DISTINCT ON (player_id, tournament_id) player_id, tournament_id, player_name, outcome
-         FROM auction_player_events WHERE outcome != 'in_progress'
+         FROM auction_player_events WHERE outcome != 'in_progress' AND is_superseded = false
          ORDER BY player_id, tournament_id, id DESC
        ) ape ON ape.player_id = abe.player_id AND ape.tournament_id = abe.tournament_id
        LEFT JOIN tournaments tor ON tor.id = abe.tournament_id
@@ -1073,6 +1269,7 @@ adminIntel.get("/team/:teamId", async (req, res) => {
 adminIntel.get("/filters/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const [categories, teams, tournament] = await Promise.all([
     pool.query(
@@ -1101,6 +1298,7 @@ adminIntel.get("/filters/:tournamentId", async (req, res) => {
 adminIntel.get("/intensity/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const filters = parseIntelFilters(req.query as Record<string, unknown>);
 
   const payload = await getCachedIntel(intelCacheKey("intensity", tid, filters), async () => {
@@ -1131,7 +1329,7 @@ adminIntel.get("/intensity/:tournamentId", async (req, res) => {
          SELECT DISTINCT ON (player_id, tournament_id) player_id, tournament_id,
                 player_name, base_price, final_amount, outcome
          FROM auction_player_events
-         WHERE outcome != 'in_progress'
+         WHERE outcome != 'in_progress' AND is_superseded = false
          ORDER BY player_id, tournament_id, id DESC
        ) ape ON ape.player_id = abe.player_id AND ape.tournament_id = abe.tournament_id
        WHERE abe.tournament_id = $1${bidF.sql}
@@ -1208,7 +1406,7 @@ adminIntel.get("/intensity/:tournamentId", async (req, res) => {
       return (b.escalation_pct / bDur) - (a.escalation_pct / aDur);
     });
     const bySurprise = [...players]
-      .filter((p) => p.outcome === "sold" && p.base_price && p.final_amount)
+      .filter((p) => p.outcome === "sold" && p.base_price != null && p.base_price > 0 && p.final_amount != null)
       .sort((a, b) => {
         const aInf = (a.final_amount! / a.base_price!) - 1;
         const bInf = (b.final_amount! / b.base_price!) - 1;
@@ -1234,6 +1432,7 @@ adminIntel.get("/intensity/:tournamentId", async (req, res) => {
 adminIntel.get("/live/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const [
     boundsResult,
@@ -1286,7 +1485,9 @@ adminIntel.get("/live/:tournamentId", async (req, res) => {
        JOIN teams t ON t.id = abe.team_id
        LEFT JOIN (
          SELECT DISTINCT ON (player_id, tournament_id) player_id, tournament_id, player_name
-         FROM auction_player_events ORDER BY player_id, tournament_id, id ASC
+         FROM auction_player_events
+         WHERE is_superseded = false
+         ORDER BY player_id, tournament_id, id ASC
        ) ape ON ape.player_id = abe.player_id AND ape.tournament_id = abe.tournament_id
        WHERE abe.tournament_id = $1
        ORDER BY abe.timestamp DESC LIMIT 1`,
@@ -1301,7 +1502,9 @@ adminIntel.get("/live/:tournamentId", async (req, res) => {
        FROM auction_bid_events abe, bounds b
        LEFT JOIN (
          SELECT DISTINCT ON (player_id, tournament_id) player_id, tournament_id, player_name
-         FROM auction_player_events ORDER BY player_id, tournament_id, id ASC
+         FROM auction_player_events
+         WHERE is_superseded = false
+         ORDER BY player_id, tournament_id, id ASC
        ) ape ON ape.player_id = abe.player_id AND ape.tournament_id = abe.tournament_id
        WHERE abe.tournament_id = $1
          AND b.latest IS NOT NULL
@@ -1338,7 +1541,11 @@ adminIntel.get("/live/:tournamentId", async (req, res) => {
 
 // ─── Intelligence Archives ────────────────────────────────────────────────────
 
-adminIntel.get("/archives", async (_req, res) => {
+adminIntel.get("/archives", async (req, res) => {
+  if (!req.jwtUser?.isAdmin) {
+    res.status(403).json({ error: "Admin access required" });
+    return;
+  }
   const rows = await db
     .select()
     .from(intelligenceArchivesTable)
@@ -1347,6 +1554,10 @@ adminIntel.get("/archives", async (_req, res) => {
 });
 
 adminIntel.get("/archives/:archiveId", async (req, res) => {
+  if (!req.jwtUser?.isAdmin) {
+    res.status(403).json({ error: "Admin access required" });
+    return;
+  }
   const archiveId = parseInt(req.params.archiveId);
   if (isNaN(archiveId)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
@@ -1382,7 +1593,11 @@ adminIntel.get("/archives/:archiveId", async (req, res) => {
 
 // ─── Cross-Sport Intelligence ─────────────────────────────────────────────────
 
-adminIntel.get("/cross-sport", async (_req, res) => {
+adminIntel.get("/cross-sport", async (req, res) => {
+  if (!req.jwtUser?.isAdmin) {
+    res.status(403).json({ error: "Admin access required" });
+    return;
+  }
   const payload = await getCachedIntel("cross-sport:platform", async () => {
     const [liveBids, archiveBids, livePlayers, archivePlayers, archivesBySport] = await Promise.all([
       pool.query(
@@ -1413,7 +1628,7 @@ adminIntel.get("/cross-sport", async (_req, res) => {
                   FILTER (WHERE ape.outcome IN ('sold','unsold','deferred'))::numeric(6,1) AS avg_bids_per_player
          FROM auction_player_events ape
          JOIN tournaments tor ON tor.id = ape.tournament_id
-         WHERE ape.outcome != 'in_progress'
+         WHERE ape.outcome != 'in_progress' AND ape.is_superseded = false
          GROUP BY 1`,
       ),
       pool.query(
@@ -1508,6 +1723,7 @@ adminIntel.get("/cross-sport", async (_req, res) => {
 adminIntel.get("/briefing/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const [tournament] = await db
     .select({ name: tournamentsTable.name, sport: tournamentsTable.sport })
@@ -1558,13 +1774,13 @@ async function fetchObservationsForTournament(tid: number): Promise<ObservationN
       `SELECT c.name, AVG(ape.total_bids_received)::numeric(6,1) AS avg_bids, COUNT(*)::int AS player_count
        FROM auction_player_events ape
        LEFT JOIN categories c ON c.id = ape.category_id
-       WHERE ape.tournament_id = $1 AND ape.outcome IN ('sold','unsold','deferred') AND c.name IS NOT NULL
+       WHERE ape.tournament_id = $1 AND ape.outcome IN ('sold','unsold','deferred') AND c.name IS NOT NULL AND ape.is_superseded = false
        GROUP BY c.name ORDER BY avg_bids DESC`, [tid],
     ),
     pool.query(
       `SELECT player_role, AVG(total_bids_received)::numeric(6,1) AS avg_bids, COUNT(*)::int AS count
        FROM auction_player_events
-       WHERE tournament_id = $1 AND outcome IN ('sold','unsold','deferred')
+       WHERE tournament_id = $1 AND outcome IN ('sold','unsold','deferred') AND is_superseded = false
          AND player_role IS NOT NULL AND total_bids_received IS NOT NULL
        GROUP BY player_role ORDER BY avg_bids DESC LIMIT 3`, [tid],
     ),
@@ -1576,14 +1792,14 @@ async function fetchObservationsForTournament(tid: number): Promise<ObservationN
        WHERE tournament_id = $1 AND milliseconds_since_last_bid IS NOT NULL`, [tid],
     ),
     pool.query(
-      `SELECT COUNT(*) FILTER (WHERE final_amount > base_price * 3 AND outcome = 'sold')::int AS high_inflation,
+      `SELECT COUNT(*) FILTER (WHERE base_price > 0 AND final_amount > base_price * 3 AND outcome = 'sold')::int AS high_inflation,
               COUNT(*) FILTER (WHERE outcome = 'sold')::int AS total_sold,
               AVG(final_amount) FILTER (WHERE outcome = 'sold')::int AS avg_sold
-       FROM auction_player_events WHERE tournament_id = $1 AND base_price > 0`, [tid],
+       FROM auction_player_events WHERE tournament_id = $1 AND is_superseded = false`, [tid],
     ),
     pool.query(
       `SELECT player_role, COUNT(*) FILTER (WHERE outcome = 'unsold')::int AS unsold_count
-       FROM auction_player_events WHERE tournament_id = $1 AND player_role IS NOT NULL
+       FROM auction_player_events WHERE tournament_id = $1 AND player_role IS NOT NULL AND is_superseded = false
        GROUP BY player_role HAVING COUNT(*) FILTER (WHERE outcome = 'unsold') > 0
        ORDER BY unsold_count DESC LIMIT 1`, [tid],
     ),
@@ -1602,7 +1818,7 @@ async function fetchObservationsForTournament(tid: number): Promise<ObservationN
     pool.query(
       `SELECT c.name, AVG(ape.final_amount) FILTER (WHERE ape.outcome = 'sold')::int AS avg_sold
        FROM auction_player_events ape LEFT JOIN categories c ON c.id = ape.category_id
-       WHERE ape.tournament_id = $1 AND c.name IS NOT NULL
+       WHERE ape.tournament_id = $1 AND c.name IS NOT NULL AND ape.is_superseded = false
        GROUP BY c.name HAVING COUNT(*) FILTER (WHERE ape.outcome = 'sold') >= 2
        ORDER BY avg_sold DESC NULLS LAST`, [tid],
     ),
@@ -1734,6 +1950,7 @@ async function fetchObservationsForTournament(tid: number): Promise<ObservationN
 adminIntel.get("/export/live/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const dataset = (req.query.dataset as ExportDataset) || "all";
   if (!["bids", "players", "timers", "all"].includes(dataset)) {
     res.status(400).json({ error: "Invalid dataset" }); return;
@@ -1755,6 +1972,10 @@ adminIntel.get("/export/live/:tournamentId", async (req, res) => {
 });
 
 adminIntel.get("/export/archive/:archiveId", async (req, res) => {
+  if (!req.jwtUser?.isAdmin) {
+    res.status(403).json({ error: "Admin access required" });
+    return;
+  }
   const archiveId = parseInt(req.params.archiveId);
   if (isNaN(archiveId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const dataset = (req.query.dataset as ExportDataset) || "all";
@@ -1777,6 +1998,453 @@ adminIntel.get("/export/archive/:archiveId", async (req, res) => {
   });
 });
 
+// ─── Stage Prompter & Tactical Scarcity Radar (P2) ───────────────────────────
+
+function formatIntelCurrency(amount: number): string {
+  if (amount >= 10_000_000) {
+    return `₹${(amount / 10_000_000).toFixed(2).replace(/\.00$/, "")}Cr`;
+  }
+  if (amount >= 100_000) {
+    return `₹${(amount / 100_000).toFixed(1).replace(/\.0$/, "")}L`;
+  }
+  if (amount >= 1000) {
+    return `₹${(amount / 1000).toFixed(0)}k`;
+  }
+  return `₹${amount}`;
+}
+
+export async function handleStagePrompter(req: Request, res: Response): Promise<void> {
+  const rawTid = Array.isArray(req.params.tournamentId) ? req.params.tournamentId[0] : req.params.tournamentId;
+  const tid = parseInt(rawTid, 10);
+  if (isNaN(tid)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  // Optional ?playerId= param, otherwise fetch currentPlayerId from auction_sessions
+  let playerId: number | null = null;
+  if (typeof req.query.playerId === "string" && req.query.playerId.trim().length > 0) {
+    const pid = parseInt(req.query.playerId, 10);
+    if (!isNaN(pid) && pid > 0) {
+      playerId = pid;
+    }
+  }
+
+  let sessionCurrentBid: number | null = null;
+  const sessionRes = await pool.query(
+    `SELECT current_player_id, current_bid FROM auction_sessions WHERE tournament_id = $1 LIMIT 1`,
+    [tid],
+  );
+  if (sessionRes.rows.length > 0) {
+    const activePlayerId = sessionRes.rows[0].current_player_id ?? null;
+    const activeBid = sessionRes.rows[0].current_bid ?? null;
+    if (!playerId) {
+      playerId = activePlayerId;
+      sessionCurrentBid = activeBid;
+    } else if (activePlayerId === playerId) {
+      sessionCurrentBid = activeBid;
+    }
+  }
+
+  // Fetch tournament config (min squad size, min bid, base purse)
+  const tConfigRes = await pool.query(
+    `SELECT minimum_squad_size, maximum_squad_size, min_bid, base_purse FROM tournaments WHERE id = $1 LIMIT 1`,
+    [tid],
+  );
+  const tConfig = tConfigRes.rows[0] ?? {
+    minimum_squad_size: 0,
+    maximum_squad_size: 0,
+    min_bid: 100000,
+    base_purse: 10000000,
+  };
+  const minSquad = tConfig.minimum_squad_size ?? 0;
+  const minBasePrice = (tConfig.min_bid && tConfig.min_bid > 0) ? tConfig.min_bid : 100000;
+
+  // Fetch active teams and purse details
+  const teamsRes = await pool.query(
+    `SELECT t.id, t.name, t.short_code, t.color, t.purse, COALESCE(t.purse_used, 0)::int AS purse_used,
+            COALESCE(pb.booster_total, 0)::int AS booster_total
+     FROM teams t
+     LEFT JOIN (
+       SELECT team_id, SUM(amount)::int AS booster_total
+       FROM purse_boosters
+       WHERE tournament_id = $1
+       GROUP BY team_id
+     ) pb ON pb.team_id = t.id
+     WHERE t.tournament_id = $1
+     ORDER BY t.id ASC`,
+    [tid],
+  );
+  const teams = teamsRes.rows;
+
+  // Fetch player counts per team (squad total, per category, and per role)
+  const squadCountsRes = await pool.query(
+    `SELECT team_id, category_id, role, COUNT(*)::int AS cnt
+     FROM players
+     WHERE tournament_id = $1 AND status IN ('sold', 'retained') AND is_non_playing_member = false AND team_id IS NOT NULL
+     GROUP BY team_id, category_id, role`,
+    [tid],
+  );
+
+  const teamTotalSquad = new Map<number, number>();
+  const teamCategoryCounts = new Map<string, number>();
+  const teamRoleCounts = new Map<string, number>();
+  for (const r of squadCountsRes.rows) {
+    const prevTotal = teamTotalSquad.get(r.team_id) ?? 0;
+    teamTotalSquad.set(r.team_id, prevTotal + r.cnt);
+    if (r.category_id != null) {
+      const prevCat = teamCategoryCounts.get(`${r.team_id}_${r.category_id}`) ?? 0;
+      teamCategoryCounts.set(`${r.team_id}_${r.category_id}`, prevCat + r.cnt);
+    }
+    if (r.role != null && r.role.trim().length > 0) {
+      const roleKey = `${r.team_id}_${r.role.trim().toLowerCase()}`;
+      const prevRole = teamRoleCounts.get(roleKey) ?? 0;
+      teamRoleCounts.set(roleKey, prevRole + r.cnt);
+    }
+  }
+
+  // 4. Room Liquidity Ratio
+  let totalPurseRemaining = 0;
+  let totalUnfilledMandatorySlots = 0;
+
+  // 5. Team Distress Alert
+  const teamDistressAlerts: Array<{
+    teamId: number;
+    teamName: string;
+    teamColor: string | null;
+    purseSpentPct: number;
+    purseRemaining: number;
+    mandatorySlotsRemaining: number;
+    message: string;
+  }> = [];
+
+  for (const t of teams) {
+    const effectivePurse = (t.purse ?? 0) + (t.booster_total ?? 0);
+    const purseRemaining = Math.max(0, effectivePurse - t.purse_used);
+    totalPurseRemaining += purseRemaining;
+
+    const currentSquad = teamTotalSquad.get(t.id) ?? 0;
+    const mandatorySlotsRemaining = Math.max(0, minSquad - currentSquad);
+    totalUnfilledMandatorySlots += mandatorySlotsRemaining;
+
+    const spentRatio = effectivePurse > 0 ? (t.purse_used / effectivePurse) : 1.0;
+    const spentPct = Math.round(spentRatio * 100);
+
+    if (spentRatio >= 0.80 && mandatorySlotsRemaining >= 3) {
+      teamDistressAlerts.push({
+        teamId: t.id,
+        teamName: t.name,
+        teamColor: t.color,
+        purseSpentPct: spentPct,
+        purseRemaining,
+        mandatorySlotsRemaining,
+        message: `${t.name} has spent ${spentPct}% of purse with ${mandatorySlotsRemaining} mandatory slots left.`,
+      });
+    }
+  }
+
+  // Sort distress alerts by highest spent percentage first
+  teamDistressAlerts.sort((a, b) => b.purseSpentPct - a.purseSpentPct);
+
+  let roomLiquidityRatio: number | null = null;
+  let roomLiquidityDeficit = false;
+  let roomLiquidityMessage = "";
+  if (totalUnfilledMandatorySlots === 0) {
+    roomLiquidityRatio = null;
+    roomLiquidityDeficit = false;
+    roomLiquidityMessage = "All teams have fulfilled minimum squad quota.";
+  } else {
+    const requiredPurse = totalUnfilledMandatorySlots * minBasePrice;
+    roomLiquidityRatio = Math.round((totalPurseRemaining / requiredPurse) * 100) / 100;
+    roomLiquidityDeficit = roomLiquidityRatio < 1.0;
+    roomLiquidityMessage = roomLiquidityDeficit
+      ? `Room liquidity deficit: Total purse (${formatIntelCurrency(totalPurseRemaining)}) is below required reserve (${formatIntelCurrency(requiredPurse)}) for ${totalUnfilledMandatorySlots} unfilled slots.`
+      : `Room liquidity healthy at ${roomLiquidityRatio.toFixed(2)}x minimum reserve.`;
+  }
+
+  // If no player is on the block, return room metrics
+  if (!playerId) {
+    res.json({
+      tournamentId: tid,
+      currentPlayer: null,
+      rivalryBulletins: [],
+      categoryInflation: null,
+      categoryScarcity: null,
+      roomLiquidity: {
+        totalPurseRemaining,
+        totalUnfilledMandatorySlots,
+        minBasePrice,
+        ratio: roomLiquidityRatio,
+        isDeficit: roomLiquidityDeficit,
+        message: roomLiquidityMessage,
+      },
+      teamDistressAlerts,
+    });
+    return;
+  }
+
+  // Fetch player details
+  const playerRes = await pool.query(
+    `SELECT p.id, p.name, p.role, p.category_id, p.base_price, p.status,
+            c.name AS category_name, c.max_players AS category_max_players
+     FROM players p
+     LEFT JOIN categories c ON c.id = p.category_id
+     WHERE p.tournament_id = $1 AND p.id = $2
+     LIMIT 1`,
+    [tid, playerId],
+  );
+
+  if (playerRes.rows.length === 0) {
+    res.json({
+      tournamentId: tid,
+      currentPlayer: null,
+      rivalryBulletins: [],
+      categoryInflation: null,
+      categoryScarcity: null,
+      roomLiquidity: {
+        totalPurseRemaining,
+        totalUnfilledMandatorySlots,
+        minBasePrice,
+        ratio: roomLiquidityRatio,
+        isDeficit: roomLiquidityDeficit,
+        message: roomLiquidityMessage,
+      },
+      teamDistressAlerts,
+    });
+    return;
+  }
+
+  const pRow = playerRes.rows[0];
+  const playerCategoryId = pRow.category_id;
+  const categoryName = pRow.category_name || pRow.role || "players in this role";
+  const pluralCategory =
+    !pRow.category_name && !pRow.role
+      ? "players in this role"
+      : categoryName.endsWith("s") || categoryName.endsWith("S")
+        ? categoryName
+        : `${categoryName}s`;
+  const categoryMaxPlayers = pRow.category_max_players;
+  const currentBidOrBase = sessionCurrentBid ?? pRow.base_price ?? minBasePrice;
+
+  // 1. Rivalry & Tension Bulletins
+  const rivalryTeams: Array<{ id: number; name: string; shortCode: string; purseRemaining: number }> = [];
+  for (const t of teams) {
+    const effectivePurse = (t.purse ?? 0) + (t.booster_total ?? 0);
+    const purseRemaining = Math.max(0, effectivePurse - t.purse_used);
+    let catCount = 0;
+    if (playerCategoryId != null) {
+      catCount = teamCategoryCounts.get(`${t.id}_${playerCategoryId}`) ?? 0;
+    } else if (pRow.role) {
+      catCount = teamRoleCounts.get(`${t.id}_${pRow.role.trim().toLowerCase()}`) ?? 0;
+    }
+    if (catCount === 0 && purseRemaining >= currentBidOrBase) {
+      rivalryTeams.push({
+        id: t.id,
+        name: t.name,
+        shortCode: t.short_code,
+        purseRemaining,
+      });
+    }
+  }
+
+  const rivalryBulletins: Array<{
+    teams: Array<{ id: number; name: string; shortCode: string; purseRemaining: number }>;
+    message: string;
+  }> = [];
+
+  if (rivalryTeams.length >= 2) {
+    rivalryTeams.sort((a, b) => b.purseRemaining - a.purseRemaining);
+    const t1 = rivalryTeams[0];
+    const t2 = rivalryTeams[1];
+    const thresholdPurse = formatIntelCurrency(Math.min(t1.purseRemaining, t2.purseRemaining));
+    rivalryBulletins.push({
+      teams: rivalryTeams,
+      message: `${t1.name} and ${t2.name} both have 0 ${pluralCategory} with > ${thresholdPurse} purse. Expect a bidding duel.`,
+    });
+  } else if (rivalryTeams.length === 1) {
+    const t1 = rivalryTeams[0];
+    rivalryBulletins.push({
+      teams: rivalryTeams,
+      message: `${t1.name} has 0 ${pluralCategory} and ${formatIntelCurrency(t1.purseRemaining)} purse to bid.`,
+    });
+  }
+
+  // 2. Category Inflation Metric
+  let categoryInflation: { multiplier: number | null; soldCount: number; message: string } | null = null;
+  if (playerCategoryId != null || (pRow.role && pRow.role.trim().length > 0)) {
+    const inflFilter = playerCategoryId != null ? "category_id = $2" : "player_role = $2";
+    const inflParam = playerCategoryId != null ? playerCategoryId : pRow.role.trim();
+    const inflRes = await pool.query(
+      `SELECT AVG(final_amount::numeric / NULLIF(base_price, 0))::numeric(5,2) AS multiplier,
+              COUNT(*)::int AS sold_count
+       FROM auction_player_events
+       WHERE tournament_id = $1 AND ${inflFilter} AND outcome = 'sold' AND is_superseded = false
+         AND final_amount IS NOT NULL AND base_price IS NOT NULL AND base_price > 0`,
+      [tid, inflParam],
+    );
+    const inflRow = inflRes.rows[0];
+    const soldCount = inflRow?.sold_count ?? 0;
+    if (soldCount > 0 && inflRow?.multiplier != null) {
+      const mult = parseFloat(inflRow.multiplier);
+      categoryInflation = {
+        multiplier: mult,
+        soldCount,
+        message: `${pluralCategory} are trading at ${mult.toFixed(1)}x base price today.`,
+      };
+    } else {
+      categoryInflation = {
+        multiplier: null,
+        soldCount: 0,
+        message: `No prior sales in ${categoryName} today.`,
+      };
+    }
+  }
+
+  // 3. Category Scarcity & Supply Deficit
+  let categoryScarcity: {
+    categoryId: number | null;
+    categoryName: string;
+    availableCategoryPlayers: number;
+    unfilledCategorySlots: number;
+    isCriticalSqueeze: boolean;
+    deficit: number;
+    message: string;
+  } | null = null;
+
+  if (playerCategoryId != null || (pRow.role && pRow.role.trim().length > 0)) {
+    const availFilter = playerCategoryId != null ? "category_id = $2" : "role = $2";
+    const availParam = playerCategoryId != null ? playerCategoryId : pRow.role.trim();
+    const availRes = await pool.query(
+      `SELECT COUNT(*)::int AS avail_count
+       FROM players
+       WHERE tournament_id = $1 AND ${availFilter} AND status = 'available'`,
+      [tid, availParam],
+    );
+    const availableCategoryPlayers = availRes.rows[0]?.avail_count ?? 0;
+
+    let unfilledCategorySlots = 0;
+    if (categoryMaxPlayers != null && categoryMaxPlayers > 0) {
+      for (const t of teams) {
+        const catCount = playerCategoryId != null
+          ? (teamCategoryCounts.get(`${t.id}_${playerCategoryId}`) ?? 0)
+          : (teamRoleCounts.get(`${t.id}_${pRow.role.trim().toLowerCase()}`) ?? 0);
+        unfilledCategorySlots += Math.max(0, categoryMaxPlayers - catCount);
+      }
+    } else {
+      for (const t of teams) {
+        const catCount = playerCategoryId != null
+          ? (teamCategoryCounts.get(`${t.id}_${playerCategoryId}`) ?? 0)
+          : (teamRoleCounts.get(`${t.id}_${pRow.role.trim().toLowerCase()}`) ?? 0);
+        if (catCount === 0) unfilledCategorySlots += 1;
+      }
+    }
+
+    const isCriticalSqueeze = availableCategoryPlayers <= unfilledCategorySlots;
+    const deficit = Math.max(0, unfilledCategorySlots - availableCategoryPlayers);
+    const message = isCriticalSqueeze
+      ? `Critical squeeze: ${availableCategoryPlayers} ${pluralCategory} available for ${unfilledCategorySlots} unfilled slots (Deficit: ${deficit}).`
+      : `Supply healthy: ${availableCategoryPlayers} ${pluralCategory} available for ${unfilledCategorySlots} slots.`;
+
+    categoryScarcity = {
+      categoryId: playerCategoryId,
+      categoryName,
+      availableCategoryPlayers,
+      unfilledCategorySlots,
+      isCriticalSqueeze,
+      deficit,
+      message,
+    };
+  }
+
+  res.json({
+    tournamentId: tid,
+    currentPlayer: {
+      id: pRow.id,
+      name: pRow.name,
+      role: pRow.role,
+      categoryId: pRow.category_id,
+      categoryName: pRow.category_name,
+      basePrice: pRow.base_price,
+      currentBid: sessionCurrentBid ?? pRow.base_price,
+    },
+    rivalryBulletins,
+    categoryInflation,
+    categoryScarcity,
+    roomLiquidity: {
+      totalPurseRemaining,
+      totalUnfilledMandatorySlots,
+      minBasePrice,
+      ratio: roomLiquidityRatio,
+      isDeficit: roomLiquidityDeficit,
+      message: roomLiquidityMessage,
+    },
+    teamDistressAlerts,
+  });
+}
+
+adminIntel.get("/stage-prompter/:tournamentId", handleStagePrompter);
+adminIntel.get("/tournament/:tournamentId/stage-prompter", handleStagePrompter);
+
+export async function handlePostMortem(req: Request, res: Response): Promise<void> {
+  const rawTid = Array.isArray(req.params.tournamentId) ? req.params.tournamentId[0] : req.params.tournamentId;
+  const tid = parseInt(rawTid, 10);
+  if (isNaN(tid)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  try {
+    const report = await computePostMortemReport(tid);
+    res.json(report);
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to generate post-mortem report", details: err?.message });
+  }
+}
+
+export async function handlePostMortemExport(req: Request, res: Response): Promise<void> {
+  const rawTid = Array.isArray(req.params.tournamentId) ? req.params.tournamentId[0] : req.params.tournamentId;
+  const tid = parseInt(rawTid, 10);
+  if (isNaN(tid)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  try {
+    const report = await computePostMortemReport(tid);
+    const format = String(req.query.format || "csv").toLowerCase();
+
+    if (format === "json") {
+      res.json({ success: true, postMortem: report });
+      return;
+    }
+
+    if (format === "pdf") {
+      await streamPostMortemPdf(report, res);
+      return;
+    }
+
+    // Default format: CSV
+    const csv = generatePostMortemCsv(report);
+    const filename = `post-mortem-${tid}-${Date.now()}.csv`;
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(csv);
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to export post-mortem report", details: err?.message });
+  }
+}
+
+adminIntel.get("/post-mortem/:tournamentId", handlePostMortem);
+adminIntel.get("/post-mortem/:tournamentId/export", handlePostMortemExport);
+adminIntel.get("/tournament/:tournamentId/post-mortem", handlePostMortem);
+adminIntel.get("/tournament/:tournamentId/post-mortem/export", handlePostMortemExport);
+
 router.use("/intelligence", adminIntel);
+router.get("/tournaments/:tournamentId/intelligence/stage-prompter", requireIntelAuth, handleStagePrompter);
+router.get("/tournaments/:tournamentId/intelligence/post-mortem", requireIntelAuth, handlePostMortem);
+router.get("/tournaments/:tournamentId/intelligence/post-mortem/export", requireIntelAuth, handlePostMortemExport);
 
 export default router;

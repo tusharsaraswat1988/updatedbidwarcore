@@ -130,15 +130,33 @@ export async function ensureBootstrapScorerAccount(): Promise<void> {
  * Startup repair for legacy roster deletes: accounts with no tournament
  * assignment are orphaned identities and must not retain login access.
  * Also clears any sessions/locks left behind by the old delete flow.
+ * Note: Never delete the active bootstrap scorer account if one is configured.
  */
 export async function cleanupOrphanScorerAccounts(): Promise<number> {
+  const bootstrapMobileRaw =
+    process.env.SCORER_BOOTSTRAP_MOBILE?.trim() ||
+    (process.env.BIDWAR_ENV === "production" ? "" : "9999999999");
+  let bootstrapMobile: string | null = null;
+  if (bootstrapMobileRaw) {
+    try {
+      bootstrapMobile = normalizeMobile(bootstrapMobileRaw);
+    } catch {
+      // ignore invalid mobile format
+    }
+  }
+
   const orphaned = await db
     .select({ id: scorerAccountsTable.id, mobile: scorerAccountsTable.mobile, name: scorerAccountsTable.name })
     .from(scorerAccountsTable)
-    .where(sql`NOT EXISTS (
-      SELECT 1 FROM scorer_tournament_assignments sta
-      WHERE sta.scorer_id = ${scorerAccountsTable.id}
-    )`);
+    .where(
+      and(
+        sql`NOT EXISTS (
+          SELECT 1 FROM scorer_tournament_assignments sta
+          WHERE sta.scorer_id = ${scorerAccountsTable.id}
+        )`,
+        bootstrapMobile ? ne(scorerAccountsTable.mobile, bootstrapMobile) : sql`true`,
+      ),
+    );
   for (const account of orphaned) {
     await db.update(scorerSessionsTable).set({ revokedAt: new Date() }).where(eq(scorerSessionsTable.scorerId, account.id));
     await db.delete(scorerMatchLocksTable).where(eq(scorerMatchLocksTable.scorerId, account.id));

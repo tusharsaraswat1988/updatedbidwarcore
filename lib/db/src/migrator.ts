@@ -478,6 +478,10 @@ WHERE NOT EXISTS (SELECT 1 FROM sports LIMIT 1);
     CREATE INDEX IF NOT EXISTS "ix_comm_logs_direction" ON "comm_logs" ("direction");
     UPDATE "comm_logs" SET "direction" = 'inbound' WHERE "blast_id" LIKE 'inbound_%';
   `,
+  "0044_tournament_official_activation.sql": `
+    ALTER TABLE "tournaments" ADD COLUMN IF NOT EXISTS "official_activated_at" timestamptz;
+    CREATE INDEX IF NOT EXISTS "ix_tournaments_official_activated_at" ON "tournaments" ("official_activated_at") WHERE "official_activated_at" IS NOT NULL;
+  `,
 };
 
 function resolveMigrationsDirectory(explicit?: string): string | null {

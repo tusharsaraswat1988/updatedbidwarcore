@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy, User, LogOut,
   AlertTriangle, Coffee, RefreshCw, X, XCircle, Radar, ShieldUser, Sparkles,
-  Info, ChevronRight, Wallet,
+  Info, ChevronRight, Wallet, Users,
 } from "lucide-react";
 import { useLiveBidLayout, type DeviceTier } from "@/hooks/useLiveBidLayout";
 import { useCountdown } from "@/hooks/useCountdown";
@@ -26,7 +26,7 @@ import { isPlayerOnAuctionStage } from "@/lib/auction-stage";
 import { resolvePlayerSpecifications } from "@workspace/api-base/player-spec-export";
 import { formatPlayerGender } from "@workspace/api-base/player-gender";
 import { useRoleSpecGroups } from "@/hooks/useRoleSpecGroups";
-import { getListPlayersQueryKey, useListPlayers } from "@workspace/api-client-react";
+import { getListPlayersQueryKey, useListPlayers, useGetTeamPurses, getGetTeamPursesQueryKey } from "@workspace/api-client-react";
 import { useBreakCountdownFromState } from "@/lib/break-countdown";
 import { getPlayerTagTheme } from "@/lib/player-tag-theme";
 import { OwnerPlayerAuctionHistory } from "@/components/OwnerPlayerAuctionHistory";
@@ -41,6 +41,7 @@ interface AuctionState {
   currentPlayer?: {
     id?: number;
     serialNo?: number | null;
+    categoryId?: number | null;
     name?: string;
     role?: string | null;
     photoUrl?: string | null;
@@ -397,6 +398,7 @@ function PlayerCard({
   tier,
   tournamentId,
   features,
+  squadRoleCount,
   onOpenBio,
 }: {
   player: NonNullable<AuctionState["currentPlayer"]>;
@@ -407,6 +409,7 @@ function PlayerCard({
   tier: DeviceTier;
   tournamentId?: number;
   features?: any;
+  squadRoleCount?: number | null;
   onOpenBio?: () => void;
 }) {
   const specGroupLabels = useRoleSpecGroups(sport ?? undefined, player.role).map((g) => g.groupName);
@@ -475,6 +478,19 @@ function PlayerCard({
                 Base <span className="text-emerald-400 font-extrabold">{formatIndianRupee(player.basePrice, unit)}</span>
               </span>
             ) : null}
+            {(player.role || categoryName) && squadRoleCount !== undefined && squadRoleCount !== null && (
+              squadRoleCount === 0 ? (
+                <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                  <Sparkles className="w-2.5 h-2.5 text-rose-400" />
+                  High Priority: 0 {player.role || categoryName} on roster
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                  <Users className="w-2.5 h-2.5 text-indigo-400" />
+                  Surplus: Already hold {squadRoleCount} {player.role || categoryName}
+                </span>
+              )
+            )}
           </div>
 
           {(keySpecs || player.jerseyNumber) && (
@@ -539,6 +555,19 @@ function PlayerCard({
           <span className="font-mono text-sm text-[#a8a0c4] shrink-0">#{player.serialNo ?? player.id}</span>
           <h2 className={`font-display font-black leading-tight text-white truncate ${nameClass}`}>{player.name}</h2>
           {player.playerTag ? <PlayerTagBadge tagKey={player.playerTag} size="md" className="shrink-0" /> : null}
+          {(player.role || categoryName) && squadRoleCount !== undefined && squadRoleCount !== null && (
+            squadRoleCount === 0 ? (
+              <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                <Sparkles className="w-3.5 h-3.5 text-rose-400" />
+                High Priority: 0 {player.role || categoryName} on roster
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                <Users className="w-3.5 h-3.5 text-indigo-400" />
+                Surplus: Already hold {squadRoleCount} {player.role || categoryName}
+              </span>
+            )
+          )}
         </div>
 
         {metaItems.length > 0 && (
@@ -1366,6 +1395,112 @@ function AuctionPauseBanner({
     <div className="flex-shrink-0 mx-4 mt-2 px-4 py-3 rounded-xl bg-amber-500/15 border border-amber-500/35 text-center">
       <p className="text-sm font-bold text-amber-300 uppercase tracking-wide">Auction Paused</p>
       <p className="text-xs text-amber-200/80 mt-0.5">Auction paused by operator. Bidding is disabled.</p>
+    </div>
+  );
+}
+
+// ── Tactical AI Intelligence Components (P2) ──────────────────────────────────
+
+interface TacticalWarRoomProps {
+  walkAwayPrice: number;
+  marginStatus: "safe" | "tight" | "limit";
+  rivalOutbidCount: number;
+  unit: ReturnType<typeof resolveAuctionUnit>;
+  tier: DeviceTier;
+}
+
+function TacticalWarRoomStrip({
+  walkAwayPrice,
+  marginStatus,
+  rivalOutbidCount,
+  unit,
+  tier,
+}: TacticalWarRoomProps) {
+  const marginConfig = {
+    safe: {
+      label: "Safe Margin",
+      badgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+      dotClass: "bg-emerald-400",
+      ringClass: "ring-emerald-500/30",
+    },
+    tight: {
+      label: "Tight Margin",
+      badgeClass: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+      dotClass: "bg-amber-400",
+      ringClass: "ring-amber-500/30",
+    },
+    limit: {
+      label: "Quota Limit Reached",
+      badgeClass: "bg-rose-500/20 text-rose-300 border-rose-500/40",
+      dotClass: "bg-rose-400",
+      ringClass: "ring-rose-500/30",
+    },
+  }[marginStatus];
+
+  const isMobile = tier === "mobile";
+
+  return (
+    <div className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-2xl bg-[#1b1542] border border-[#4a4478] shadow-xs select-none">
+      {/* Walk-Away Price Pill with Ring Indicator */}
+      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+        <div className={`w-2.5 h-2.5 rounded-full ${marginConfig.dotClass} animate-pulse shrink-0 ring-4 ${marginConfig.ringClass}`} />
+        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-wrap">
+          <span className="text-[10px] uppercase font-bold tracking-wider text-[#a8a0c4] shrink-0">
+            Walk-Away:
+          </span>
+          <span className="font-mono font-black text-white text-xs sm:text-sm shrink-0">
+            {formatIndianRupee(walkAwayPrice, unit)}
+          </span>
+          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${marginConfig.badgeClass} shrink-0`}>
+            {marginConfig.label}
+          </span>
+        </div>
+      </div>
+
+      {/* Rival Outbid Capacity Radar */}
+      <div className="flex items-center gap-1 shrink-0 bg-[#241c56] border border-[#4a4478] px-2 py-0.5 rounded-xl text-[10px]">
+        <Radar className="w-3 h-3 text-sky-400 shrink-0" />
+        <span className="font-semibold text-[#a8a0c4] whitespace-nowrap">
+          <strong className="text-white font-mono font-bold mr-0.5">{rivalOutbidCount}</strong>
+          {isMobile ? "outbid" : rivalOutbidCount === 1 ? "rival can outbid" : "rivals can outbid"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+interface LivePursePreservationSimulatorProps {
+  nextBidAmount: number;
+  postBidPurse: number;
+  futureSlots: number;
+  avgPerPlayer: number;
+  unit: ReturnType<typeof resolveAuctionUnit>;
+  tier: DeviceTier;
+}
+
+function LivePursePreservationSimulator({
+  nextBidAmount,
+  postBidPurse,
+  futureSlots,
+  avgPerPlayer,
+  unit,
+  tier,
+}: LivePursePreservationSimulatorProps) {
+  const isMobile = tier === "mobile";
+  return (
+    <div className="w-full flex items-center justify-center text-center px-2 py-1 rounded-xl bg-black/40 border border-white/10 select-none">
+      <p className={`font-mono font-medium ${isMobile ? "text-[10px]" : "text-xs"} text-[#d4d4d8] leading-tight`}>
+        If you bid <span className="font-bold text-amber-300">{formatIndianRupee(nextBidAmount, unit)}</span>:{" "}
+        <span className="font-bold text-emerald-400">{formatIndianRupee(postBidPurse, unit)}</span> left
+        {futureSlots > 0 ? (
+          <>
+            {" "}for <span className="font-bold text-white">{futureSlots}</span> slot{futureSlots > 1 ? "s" : ""}{" "}
+            <span className="text-[#a8a0c4]">(Must average <strong className="text-amber-300 font-bold">{formatIndianRupee(avgPerPlayer, unit)}</strong>/player)</span>
+          </>
+        ) : (
+          <span className="text-emerald-300 font-semibold"> (Quota fulfilled)</span>
+        )}
+      </p>
     </div>
   );
 }
@@ -2349,6 +2484,92 @@ export function LiveBid({
     !maxSquadReached && !categoryLimitReached &&
     !isTrialRestricted;
 
+  // ── Tactical AI Intelligence (P2) ──────────────────────────────────────────
+  const purseRemaining = teamPurse?.purseRemaining ?? Math.max(0, team.purse - (team.purseUsed || 0));
+  const minSquad = teamPurse?.minimumSquadSize ?? 0;
+  const minBasePrice =
+    teamPurse?.lowestBasePrice && teamPurse.lowestBasePrice > 0
+      ? teamPurse.lowestBasePrice
+      : ((tournament as any)?.minBid && (tournament as any).minBid > 0 ? (tournament as any).minBid : 100000);
+  const remainingMandatorySlots = Math.max(0, minSquad - playersBought);
+  const futureMandatoryReserve = Math.max(0, remainingMandatorySlots - 1) * minBasePrice;
+  const rawWalkAway = Math.max(0, purseRemaining - futureMandatoryReserve);
+  const walkAwayPrice =
+    teamPurse?.maxAllowedBid !== undefined
+      ? Math.min(rawWalkAway, teamPurse.maxAllowedBid)
+      : rawWalkAway;
+
+  const marginStatus: "safe" | "tight" | "limit" = useMemo(() => {
+    if (walkAwayPrice <= 0 || nextBidAmount > walkAwayPrice) return "limit";
+    if (nextBidAmount >= walkAwayPrice * 0.75) return "tight";
+    return "safe";
+  }, [walkAwayPrice, nextBidAmount]);
+
+  const postBidPurse = Math.max(0, purseRemaining - nextBidAmount);
+  const futureMandatorySlots = Math.max(0, remainingMandatorySlots - 1);
+  const avgPerPlayerNeeded = futureMandatorySlots > 0 ? Math.round(postBidPurse / futureMandatorySlots) : 0;
+
+  const { data: allTeamPurses } = useGetTeamPurses(tournamentId, {
+    query: {
+      queryKey: getGetTeamPursesQueryKey(tournamentId),
+      enabled: Boolean(tournamentId),
+      refetchInterval: 5000,
+    },
+  });
+
+  const rivalOutbidCount = useMemo(() => {
+    const purseList = allTeamPurses ?? (state as any)?.teamPurses;
+    if (!purseList || !Array.isArray(purseList)) return 0;
+    const catMax = state?.currentCategoryMaxPlayers;
+    const catCounts = state?.teamCategoryPlayerCounts;
+
+    return purseList.filter((tp: TeamPurse) => {
+      if (tp.teamId === teamId) return false;
+      if (tp.maximumSquadSize != null && tp.maximumSquadSize > 0 && (tp.playersBought ?? 0) >= tp.maximumSquadSize) return false;
+      const rivalMaxBid = tp.maxAllowedBid ?? tp.spendablePurse ?? tp.purseRemaining ?? 0;
+      if (rivalMaxBid < nextBidAmount) return false;
+
+      if (catMax != null && catMax > 0 && catCounts) {
+        const rivalCatCount = catCounts[String(tp.teamId)] ?? 0;
+        if (rivalCatCount >= catMax) return false;
+      }
+      return true;
+    }).length;
+  }, [allTeamPurses, (state as any)?.teamPurses, teamId, nextBidAmount, state?.currentCategoryMaxPlayers, state?.teamCategoryPlayerCounts]);
+
+  const { data: allPlayersData } = useListPlayers(tournamentId, {
+    query: {
+      queryKey: getListPlayersQueryKey(tournamentId),
+      enabled: Boolean(tournamentId),
+    },
+  });
+
+  const mySquadRoleCount = useMemo(() => {
+    const role = state?.currentPlayer?.role;
+    const catId = state?.currentPlayer?.categoryId;
+
+    if (role && allPlayersData) {
+      const targetRole = role.trim().toLowerCase();
+      const mySoldOrRetained = allPlayersData.filter(
+        (p) => p.teamId === teamId && (p.status === "sold" || p.status === "retained") && !p.isNonPlayingMember,
+      );
+      return mySoldOrRetained.filter((p) => p.role && p.role.trim().toLowerCase() === targetRole).length;
+    }
+
+    const catCounts = state?.teamCategoryPlayerCounts as Record<string, number> | null | undefined;
+    if (catCounts && catCounts[String(teamId)] !== undefined) {
+      return catCounts[String(teamId)] ?? 0;
+    }
+
+    if (catId != null && allPlayersData) {
+      return allPlayersData.filter(
+        (p) => p.teamId === teamId && (p as any).categoryId === catId && (p.status === "sold" || p.status === "retained") && !p.isNonPlayingMember,
+      ).length;
+    }
+
+    return null;
+  }, [allPlayersData, teamId, state?.currentPlayer?.role, state?.currentPlayer?.categoryId, state?.teamCategoryPlayerCounts]);
+
   // ── Sync failure detection ──────────────────────────────────────────────────
   useEffect(() => {
     if (!syncAttempted.current || syncing) return undefined;
@@ -2627,6 +2848,7 @@ export function LiveBid({
                 tier={tier}
                 tournamentId={tournamentId}
                 features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
+                squadRoleCount={mySquadRoleCount}
                 onOpenBio={() => setShowPlayerBioDrawer(true)}
               />
             ) : showUnsoldResult ? (
@@ -2699,6 +2921,17 @@ export function LiveBid({
             collapseSignal={collapseSignal}
           />
 
+          {/* Tactical War Room AI Strip: Walk-Away Price & Rival Outbid Capacity Radar (P2) */}
+          {hasPlayer && state?.currentPlayer && (
+            <TacticalWarRoomStrip
+              walkAwayPrice={walkAwayPrice}
+              marginStatus={marginStatus}
+              rivalOutbidCount={rivalOutbidCount}
+              unit={unit}
+              tier={tier}
+            />
+          )}
+
           {bidDisabledHint && <BidDisabledMessage hint={bidDisabledHint} compact={tier === "mobile"} />}
 
           <AnimatePresence mode="wait">
@@ -2730,6 +2963,18 @@ export function LiveBid({
               dock
             />
           </AnimatePresence>
+
+          {/* Live Purse Preservation Simulator (P2) */}
+          {hasPlayer && state?.currentPlayer && (
+            <LivePursePreservationSimulator
+              nextBidAmount={nextBidAmount}
+              postBidPurse={postBidPurse}
+              futureSlots={futureMandatorySlots}
+              avgPerPlayer={avgPerPlayerNeeded}
+              unit={unit}
+              tier={tier}
+            />
+          )}
 
           {bidFeedback === "error" && (
             <p className="text-center text-red-400 text-sm font-semibold">{bidErrorMsg || "Bid failed. Please try again."}</p>
@@ -2908,6 +3153,7 @@ export function LiveBid({
                 tier={tier}
                 tournamentId={tournamentId}
                 features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
+                squadRoleCount={mySquadRoleCount}
                 onOpenBio={() => setShowPlayerBioDrawer(true)}
               />
             ) : showUnsoldResult ? (
@@ -2979,6 +3225,17 @@ export function LiveBid({
 
       {/* Right: bid controls — 40% panel */}
       <div className="w-[40%] flex flex-col px-3 sm:px-4 py-3 sm:py-4 gap-2 sm:gap-3 flex-shrink-0 min-w-[180px]">
+        {/* Tactical War Room AI Strip: Walk-Away Price & Rival Outbid Capacity Radar (P2) */}
+        {hasPlayer && state?.currentPlayer && (
+          <TacticalWarRoomStrip
+            walkAwayPrice={walkAwayPrice}
+            marginStatus={marginStatus}
+            rivalOutbidCount={rivalOutbidCount}
+            unit={unit}
+            tier={tier}
+          />
+        )}
+
         <div className={`flex-1 flex flex-col ${tier === "mobile" ? "min-h-[42vh]" : tier === "tablet" ? "min-h-[44vh]" : "min-h-[40vh]"}`}>
           <AnimatePresence mode="wait">
             {hasPlayer || isOnBreak ? (
@@ -3023,6 +3280,20 @@ export function LiveBid({
               />
             )}
           </AnimatePresence>
+
+          {/* Live Purse Preservation Simulator (P2) */}
+          {hasPlayer && state?.currentPlayer && (
+            <div className="mt-2">
+              <LivePursePreservationSimulator
+                nextBidAmount={nextBidAmount}
+                postBidPurse={postBidPurse}
+                futureSlots={futureMandatorySlots}
+                avgPerPlayer={avgPerPlayerNeeded}
+                unit={unit}
+                tier={tier}
+              />
+            </div>
+          )}
         </div>
 
         {bidFeedback === "error" && (

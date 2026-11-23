@@ -77,7 +77,9 @@ import {
   logPlayerAuctionStart,
   logPlayerAuctionEnd,
   logTimerEvent,
+  logManualSellBoundaryEvents,
 } from "../lib/auction-logger";
+import { computeInferredContenderCount } from "../lib/auction-contenders";
 import { validateBidAmount } from "@workspace/api-base/auction-bid";
 import { TRIAL_AUCTION_ELIGIBLE_TEAM_LIMIT, isAuctionLicenseActive } from "@workspace/api-base";
 import { assertTeamAllowedInTrialAuction } from "../lib/auction-trial";
@@ -300,6 +302,7 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
         .set({
           status: "completed",
           currentPlayerId: null,
+          currentPlayerStartedAt: null,
           currentBid: null,
           currentBidTeamId: null,
           timerEndsAt: null,
@@ -337,6 +340,7 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
       .set({
         status: "active",
         currentPlayerId: null,
+        currentPlayerStartedAt: null,
         currentBid: null,
         currentBidTeamId: null,
         timerEndsAt: null,
@@ -357,6 +361,7 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
       .set({
         status: "completed",
         currentPlayerId: null,
+        currentPlayerStartedAt: null,
         currentBid: null,
         currentBidTeamId: null,
         timerEndsAt: null,
@@ -1391,6 +1396,11 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
   if (!requireAuctionModule(res, tournament)) return;
   const session = await getOrCreateSession(tid);
 
+  if (tournament?.status === "completed" || session.status === "completed") {
+    res.status(409).json({ error: "Tournament or auction is completed and cannot be started or resumed." });
+    return;
+  }
+
   // Block if admin-locked, UNLESS a super-admin reset happened AFTER the lock was applied.
   // A reset (lastResetAt > adminLockedAt) explicitly supersedes the lock and restores the
   // tournament to a runnable state — treating the stale adminLocked flag as a hard block
@@ -1503,6 +1513,11 @@ router.post("/tournaments/:tournamentId/auction/pause", async (req, res) => {
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!requireAuctionModule(res, tournament)) return;
   const session = await getOrCreateSession(tid);
+
+  if (tournament?.status === "completed" || session.status === "completed") {
+    res.status(409).json({ error: "Tournament or auction is completed and cannot be paused." });
+    return;
+  }
 
   // Idempotency: if already paused, do not re-evaluate pausedTimeRemaining (which would wipe it to null)
   if (session.status === "paused") {
@@ -1652,6 +1667,7 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
     .set({
       status: "active",
       currentPlayerId: selectedPlayerId,
+      currentPlayerStartedAt: new Date(),
       currentBid: openingBid,
       currentBidTeamId: null,
       timerSeconds: timerSecs,
@@ -2067,6 +2083,9 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
   const teamId = session.currentBidTeamId;
   const soldAmount = session.currentBid ?? 0;
   const expectedRevision = sellConfirmation.expectedRevision ?? (session.revision ?? 0);
+  const auctionStartedAt = session.currentPlayerStartedAt
+    ? new Date(session.currentPlayerStartedAt)
+    : null;
 
   class SellTransactionAbortError extends Error {
     constructor(public reason: "stale_sell" | "player_not_available") {
@@ -2091,6 +2110,7 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
         .update(auctionSessionsTable)
         .set({
           currentPlayerId: null,
+          currentPlayerStartedAt: null,
           currentBid: null,
           currentBidTeamId: null,
           timerEndsAt: null,
@@ -2272,6 +2292,7 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     finalAmount: soldAmount,
     soldToTeamId: teamId,
     soldToTeamName: team?.name,
+    auctionStartedAt,
   });
 
   if (soldPlayer && team) {
@@ -2312,6 +2333,18 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
   const [playerBefore] = await db.select().from(playersTable).where(eq(playersTable.id, playerId));
   const teamBefore = await requireTeamInTournament(res, tid, teamId);
   if (!teamBefore) return;
+
+  const playerStartedAt = session.currentPlayerStartedAt
+    ? new Date(session.currentPlayerStartedAt)
+    : null;
+  const now = new Date();
+  const effectiveStartedAt = playerStartedAt ?? now;
+
+  // Inferred Contender Matrix (ICM) pre-sale evaluation
+  const interestedTeamsCount = await computeInferredContenderCount(tid, {
+    categoryId: playerBefore?.categoryId,
+    finalAmount: amount,
+  });
 
   // ── Conflict of Interest Controls (P0-C) ───────────────────────────────────
   const rawOrgDigits = tournament?.organizerMobile ? tournament.organizerMobile.replace(/\D/g, "").slice(-10) : "";
@@ -2471,6 +2504,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
         .update(auctionSessionsTable)
         .set({
           currentPlayerId: null,
+          currentPlayerStartedAt: null,
           currentBid: null,
           currentBidTeamId: null,
           timerEndsAt: null,
@@ -2543,6 +2577,19 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
     tournamentId: tid,
   });
 
+  // Synthetic Boundary Bid Logging in manual sell (P0)
+  await logManualSellBoundaryEvents({
+    tournamentId: tid,
+    playerId,
+    globalPlayerId: (soldPlayer as any)?.globalPlayerId ?? null,
+    winnerTeamId: teamId,
+    sport: manualTournament?.sport ?? "cricket",
+    basePrice: soldPlayer?.basePrice ?? 0,
+    finalAmount: amount,
+    playerStartedAt: effectiveStartedAt,
+    now,
+  });
+
   // Log player auction end for manual sell (fire-and-forget)
   logPlayerAuctionEnd({
     tournamentId: tid,
@@ -2560,6 +2607,8 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
     finalAmount: amount,
     soldToTeamId: teamId,
     soldToTeamName: team?.name,
+    auctionStartedAt: effectiveStartedAt,
+    interestedTeamsCount,
   });
 
   auditLog(req, {
@@ -2628,6 +2677,10 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
   if (rejectIfAuctionPaused(session, res)) return;
   if (!session.currentPlayerId) { res.status(400).json({ error: "No current player" }); return; }
 
+  const unsoldStartedAt = session.currentPlayerStartedAt
+    ? new Date(session.currentPlayerStartedAt)
+    : null;
+
   if (session.currentBid !== null) {
     res.status(409).json({
       error: "Cannot mark player unsold: an active bid has been placed.",
@@ -2693,6 +2746,7 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
         .update(auctionSessionsTable)
         .set({
           currentPlayerId: null,
+          currentPlayerStartedAt: null,
           currentBid: null,
           currentBidTeamId: null,
           timerEndsAt: null,
@@ -2780,6 +2834,7 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
     finalAmount: null,
     soldToTeamId: null,
     soldToTeamName: null,
+    auctionStartedAt: unsoldStartedAt,
   });
 
   afterPlayerDataChanged(tid, req.log);
@@ -2831,9 +2886,21 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
   const timerSecs = reTournament?.timerSeconds ?? 30;
   const returnToLive = liveAuctionSessionWrite(session.obsContextJson);
 
-  // Atomic: purse reversal + bid deletion + player reset + session update.
+  // Atomic: purse reversal + bid deletion + player reset + session update + mark superseded.
   await db.transaction(async (tx) => {
     await lockAuctionMutation(tx, tid);
+
+    // Mark previous auction player events as superseded
+    await tx
+      .update(auctionPlayerEventsTable)
+      .set({ isSuperseded: true })
+      .where(
+        and(
+          eq(auctionPlayerEventsTable.tournamentId, tid),
+          eq(auctionPlayerEventsTable.playerId, playerId),
+        ),
+      );
+
     // If player was sold, reverse purse usage (Phase 6: atomic decrement, clamped at 0)
     if (player.status === "sold" && player.teamId && player.soldPrice) {
       await tx
@@ -2855,6 +2922,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
       .set({
         status: "active",
         currentPlayerId: playerId,
+        currentPlayerStartedAt: new Date(),
         currentBid: startingBid,
         currentBidTeamId: null,
         timerSeconds: timerSecs,
@@ -2869,6 +2937,20 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
       .where(eq(auctionSessionsTable.tournamentId, tid));
   });
   rememberLedOverlayPatch(tid, returnToLive);
+
+  logPlayerAuctionStart({
+    tournamentId: tid,
+    playerId: player.id,
+    globalPlayerId: (player as any).globalPlayerId ?? null,
+    categoryId: player.categoryId,
+    sport: reTournament?.sport ?? "cricket",
+    playerName: player.name,
+    playerRole: player.role,
+    playerAge: player.age,
+    playerCity: player.city,
+    basePrice: startingBid,
+    playerSnapshotJson: JSON.stringify(player),
+  });
 
   const [playerAfter] = await db.select().from(playersTable).where(eq(playersTable.id, playerId));
   auditLog(req, {
@@ -2941,9 +3023,23 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
     return;
   }
 
-  // Atomic: all player resets and session update succeed together.
+  // Atomic: all player resets, mark superseded, and session update succeed together.
   await db.transaction(async (tx) => {
     await lockAuctionMutation(tx, tid);
+
+    const unsoldIds = unsoldPlayers.map((p) => p.id);
+    if (unsoldIds.length > 0) {
+      await tx
+        .update(auctionPlayerEventsTable)
+        .set({ isSuperseded: true })
+        .where(
+          and(
+            eq(auctionPlayerEventsTable.tournamentId, tid),
+            inArray(auctionPlayerEventsTable.playerId, unsoldIds),
+          ),
+        );
+    }
+
     for (const p of unsoldPlayers) {
       await tx
         .update(playersTable)
@@ -3141,6 +3237,14 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
   if (!requireAuctionModule(res, tournament)) return;
 
+  if (tournament.officialActivatedAt) {
+    res.status(403).json({
+      error: "Tournament is officially activated for live production. Reset is permanently locked.",
+      code: "RESET_AFTER_ACTIVATION_LOCKED",
+    });
+    return;
+  }
+
   if (resetContext === "organizer" && tournament.status === "completed") {
     res.status(403).json({
       error: "This tournament is completed. Auction reset is no longer available from the organizer panel.",
@@ -3337,6 +3441,7 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
       .set({
         status: "idle",
         currentPlayerId: null,
+        currentPlayerStartedAt: null,
         currentBid: null,
         currentBidTeamId: null,
         timerEndsAt: null,
@@ -3417,6 +3522,9 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
   }
 
   const deferredId = session.currentPlayerId;
+  const deferredStartedAt = session.currentPlayerStartedAt
+    ? new Date(session.currentPlayerStartedAt)
+    : null;
 
   const [deferredPlayer] = await db
     .select({
@@ -3439,6 +3547,7 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
     .set({
       status: "active",
       currentPlayerId: null,
+      currentPlayerStartedAt: null,
       currentBid: null,
       currentBidTeamId: null,
       timerSeconds: timerSecs,
@@ -3474,6 +3583,7 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
     finalAmount: null,
     soldToTeamId: null,
     soldToTeamName: null,
+    auctionStartedAt: deferredStartedAt,
   });
 
   res.json(await broadcastState(tid, ["players"]));
@@ -3511,9 +3621,20 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
     const purseUsedBefore = teamBefore?.purseUsed ?? 0;
     const purseUsedAfter = Math.max(0, purseUsedBefore - bid.amount); // kept for audit metadata
 
-    // Atomic: player reset + purse reversal + bid deletion + session update.
+    // Atomic: player reset + purse reversal + bid deletion + session update + mark superseded.
     const { player, teamAfter } = await db.transaction(async (tx) => {
     await lockAuctionMutation(tx, tid);
+      // Mark undone player events as superseded so phantom sales do not corrupt intelligence analytics
+      await tx
+        .update(auctionPlayerEventsTable)
+        .set({ isSuperseded: true })
+        .where(
+          and(
+            eq(auctionPlayerEventsTable.tournamentId, tid),
+            eq(auctionPlayerEventsTable.playerId, bid.playerId),
+          ),
+        );
+
       await tx
         .update(playersTable)
         .set({ status: "available", teamId: null, soldPrice: null })
@@ -3946,6 +4067,7 @@ router.post("/tournaments/:tournamentId/auction/conclude", async (req, res) => {
       .set({
         status: "completed",
         currentPlayerId: null,
+        currentPlayerStartedAt: null,
         currentBid: null,
         currentBidTeamId: null,
         timerEndsAt: null,

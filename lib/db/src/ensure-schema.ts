@@ -50,6 +50,7 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
 }
 
 async function runEnsureCoreSchemaWithClient(pool: pg.Pool): Promise<void> {
+  const startedAt = Date.now();
   const databaseUrl = resolveDatabaseUrl();
   const environment = resolveEnvironment();
   assertEnvironmentDatabaseIsolation(environment, databaseUrl);
@@ -71,13 +72,18 @@ async function runEnsureCoreSchemaWithClient(pool: pg.Pool): Promise<void> {
     `[schema] timed out acquiring a DB connection after ${connectTimeoutMs}ms. Refusing to start HTTP server.`,
   );
 
+  let success = false;
+  let errorMessage: string | undefined;
+  let executedQueryCount = 0;
+
   try {
     await client.query(`SET lock_timeout = '15s'`);
     await client.query(`SET statement_timeout = '30s'`);
 
     // Canonical versioned migrations: execute pending versioned migrations across all environments (including production)
+    let migResult = { appliedCount: 0, alreadyAppliedCount: 0, appliedFiles: [] as string[] };
     try {
-      const migResult = await runVersionedMigrations(client, {
+      migResult = await runVersionedMigrations(client, {
         log: (msg) => console.info(`[schema] ${msg}`),
       });
       console.info("[schema] versioned migrations result:", {
@@ -85,24 +91,46 @@ async function runEnsureCoreSchemaWithClient(pool: pg.Pool): Promise<void> {
         alreadyApplied: migResult.alreadyAppliedCount,
         files: migResult.appliedFiles,
       });
+      executedQueryCount += migResult.appliedCount;
     } catch (migErr) {
       console.error("[schema] versioned migrations execution error:", migErr);
     }
 
     // Idempotent safe additive bootstrap: ensures all IF NOT EXISTS tables and columns are created (local/staging only)
-    if (autoHeal) {
+    // Only run if legacy bootstrap is explicitly requested or on fresh DB with no applied migrations
+    const forceLegacyBootstrap = process.env.ENABLE_LEGACY_BOOTSTRAP_DDL === "true";
+    if (autoHeal && (forceLegacyBootstrap || migResult.alreadyAppliedCount === 0)) {
       await runLegacyBootstrapDdl(client);
     }
 
-    await runSchemaGovernance(client, {
-      autoHeal,
-      environment,
-      databaseUrl,
-      log: (msg, extra) => {
-        if (extra) console.info(msg, extra);
-        else console.info(msg);
-      },
-    });
+    // Fast-path for warm boots: if all versioned migrations are already applied and no new migrations ran,
+    // skip expensive information_schema live introspection (tables/columns/indexes) unless forced.
+    const forceIntrospection = process.env.FORCE_SCHEMA_INTROSPECTION === "true";
+    const isWarmBoot = migResult.alreadyAppliedCount > 0 && migResult.appliedCount === 0 && !forceIntrospection && !autoHeal;
+
+    if (isWarmBoot) {
+      console.info("[schema-governance] schema OK (warm boot: all " + migResult.alreadyAppliedCount + " versioned migrations verified, skipping live introspection)", {
+        environment,
+        databaseRole: classifyDatabaseRole(databaseUrl),
+        migrationsVerified: migResult.alreadyAppliedCount,
+      });
+    } else {
+      executedQueryCount += 3;
+      await runSchemaGovernance(client, {
+        autoHeal,
+        environment,
+        databaseUrl,
+        log: (msg, extra) => {
+          if (extra) console.info(msg, extra);
+          else console.info(msg);
+        },
+      });
+    }
+
+    success = true;
+  } catch (err) {
+    errorMessage = err instanceof Error ? err.message : String(err);
+    throw err;
   } finally {
     try {
       await client.query("RESET lock_timeout");
@@ -111,6 +139,14 @@ async function runEnsureCoreSchemaWithClient(pool: pg.Pool): Promise<void> {
       // ignore — connection may already be broken
     }
     client.release();
+
+    recordSystemDMetrics({
+      executionTimeMs: Date.now() - startedAt,
+      queryCount: executedQueryCount,
+      success,
+      failure: !success,
+      errorMessage,
+    });
   }
 }
 
@@ -194,6 +230,8 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS last_led_toast_json TEXT;
     ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS last_outcome TEXT;
     ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS current_player_started_at TIMESTAMPTZ;
+    ALTER TABLE auction_player_events ADD COLUMN IF NOT EXISTS is_superseded BOOLEAN NOT NULL DEFAULT false;
   `);
 
   await q(`
@@ -439,6 +477,7 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS main_banner_public_id text;
     -- P0 2026-07-13: Drizzle maps tournaments.city; missing column breaks SELECT * / Google login.
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS city text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS season text;
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS photo_public_id text;
     ALTER TABLE global_players ADD COLUMN IF NOT EXISTS photo_public_id text;
     ALTER TABLE badminton_players ADD COLUMN IF NOT EXISTS photo_public_id text;
@@ -1272,14 +1311,5 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
   } catch (err) {
     errorMessage = err instanceof Error ? err.message : String(err);
     throw err;
-  } finally {
-    // Non-blocking: summary prints once when System C has also settled.
-    recordSystemDMetrics({
-      executionTimeMs: Date.now() - startedAt,
-      queryCount,
-      success,
-      failure: !success,
-      errorMessage,
-    });
   }
 }

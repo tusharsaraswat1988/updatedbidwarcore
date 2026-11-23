@@ -84,8 +84,18 @@ setInterval(() => {
  * ============================================================================
  */
 
-/** Same SQL and error handling as pool.query — metrics wrapper only. */
-function systemCQuery(sql: string) {
+/**
+ * System C runtime DDL is retired.
+ * All tables, columns, and indexes are now managed by canonical versioned
+ * migrations in lib/db/migrations/.
+ * Set ENABLE_SYSTEM_C_DDL=true only if a legacy unmigrated database requires it.
+ */
+const isSystemCEnabled = process.env.ENABLE_SYSTEM_C_DDL === "true";
+
+function systemCQuery(sql: string): Promise<unknown> {
+  if (!isSystemCEnabled) {
+    return Promise.resolve();
+  }
   return observeSystemCQuery(sql, () => pool.query(sql));
 }
 

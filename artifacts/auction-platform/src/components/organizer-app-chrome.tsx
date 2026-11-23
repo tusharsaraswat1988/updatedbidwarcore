@@ -107,19 +107,19 @@ export function BidwarOrganizerBrandMark({
   );
 }
 
-function getSectionLabel(location?: string): string | null {
+function getSectionLabel(location?: string, tournament?: { status?: string | null } | null): string | null {
   if (!location) return null;
   if (location.endsWith("/auction-overview") || location.endsWith("/overview")) return "Overview";
   if (location.endsWith("/teams")) return "Teams";
   if (location.endsWith("/players")) return "Players";
   if (location.endsWith("/categories")) return "Categories";
   if (location.endsWith("/settings")) return "Settings";
-  if (location.endsWith("/reports")) return "Reports";
+  if (location.endsWith("/reports")) return tournament?.status === "setup" ? "Pre-Auction Report" : "Reports";
   if (location.endsWith("/links")) return "Links";
   if (location.endsWith("/fortune-wheel")) return "Fortune Wheel";
   if (location.endsWith("/break-timer")) return "Break Timer";
   if (location.endsWith("/local-mode")) return "Local Mode";
-  if (location.endsWith("/reset")) return "Reset Trial Data";
+  if (location.endsWith("/reset")) return "Reset Data";
   if (location.includes("/mission-control")) return "Mission Control";
   if (location.includes("/fixtures")) return "Fixtures";
   if (location.includes("/rules")) return "Rules";
@@ -163,7 +163,7 @@ export function OrganizerDesktopBrandBar({
 
   const auctionActive = isAuctionEnabled(tournament);
   const scoringActive = isScoringEnabled(tournament);
-  const sectionLabel = getSectionLabel(location);
+  const sectionLabel = getSectionLabel(location, tournament);
   const tournamentLandingHref =
     tournamentId && tournament
       ? resolveTournamentOrganizerLandingPath(tournamentId, tournament)

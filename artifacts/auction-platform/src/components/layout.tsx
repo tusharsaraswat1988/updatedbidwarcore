@@ -107,6 +107,8 @@ function SidebarNav({
   const active = (path: string) => isNavActive(path, location, tournamentId);
   const auctionActive = isAuctionEnabled(tournament);
   const scoringActive = isScoringEnabled(tournament);
+  const isPreAuction = tournament?.status === "setup";
+  const reportsTitle = isPreAuction ? "Pre-Auction Report" : "Reports";
   const tournamentLandingHref =
     tournamentId && tournament
       ? resolveTournamentOrganizerLandingPath(tournamentId, tournament)
@@ -205,9 +207,9 @@ function SidebarNav({
             </SidebarLink>
             {auctionActive && (
               <>
-                <SidebarLink href={`/tournament/${tournamentId}/reports`} title="Reports" className={cls(`/tournament/${tournamentId}/reports`)} active={active(`/tournament/${tournamentId}/reports`)} showAccent={expanded}>
+                <SidebarLink href={`/tournament/${tournamentId}/reports`} title={reportsTitle} className={cls(`/tournament/${tournamentId}/reports`)} active={active(`/tournament/${tournamentId}/reports`)} showAccent={expanded}>
                   <BarChart3 className="w-5 h-5 flex-shrink-0" />
-                  {expanded && <span className="font-medium">Reports</span>}
+                  {expanded && <span className="font-medium">{reportsTitle}</span>}
                 </SidebarLink>
               </>
             )}
@@ -237,18 +239,24 @@ function SidebarNav({
                   <Link2 className="w-5 h-5 flex-shrink-0" />
                   {expanded && <span>Links</span>}
                 </SidebarLink>
-                {expanded && tournament?.licenseStatus === "trial" && (
+                {expanded && (
                   <SidebarLink
                     href={auctionResetPath(tournamentId, location)}
-                    title="Clear practice auction data before going live"
+                    title={
+                      (tournament as any)?.officialActivatedAt
+                        ? "Official live mode (Reset Data locked)"
+                        : "Reset practice operational data or activate live"
+                    }
                     className={`relative flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-                      location === `/tournament/${tournamentId}/reset` ? "bg-red-500/10 text-red-600 font-semibold" : "text-muted-foreground hover:bg-red-500/10 hover:text-red-600"
+                      location === `/tournament/${tournamentId}/reset`
+                        ? "bg-red-500/10 text-red-600 font-semibold"
+                        : "text-muted-foreground hover:bg-red-500/10 hover:text-red-600"
                     }`}
                     active={location === `/tournament/${tournamentId}/reset`}
                     showAccent={false}
                   >
                     <RefreshCw className="w-5 h-5 flex-shrink-0" />
-                    <span>Clear Trial Data</span>
+                    <span>Reset Data</span>
                   </SidebarLink>
                 )}
                 {tournament?.localModeEnabled && !localVenue ? (

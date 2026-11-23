@@ -24,7 +24,6 @@ async function start() {
   await ensureCoreSchema(pool);
   await ensureBootstrapScorerAccount();
   await cleanupOrphanScorerAccounts();
-  await brandingService.migrateLegacyBrandingAssets();
   await brandingService.refreshPlatformBrandingCache();
   await refreshBrandingIconCache();
   await seedCommunicationDefaults();

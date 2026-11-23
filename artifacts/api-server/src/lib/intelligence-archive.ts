@@ -1,4 +1,4 @@
-import { count, eq, sql } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import {
   auctionBidEventsTable,
   auctionPlayerEventsTable,
@@ -31,7 +31,7 @@ export async function archiveIntelligenceBeforeDelete(
 
   const [[bidRow], [playerRow], [timerRow]] = await Promise.all([
     tx.select({ value: count() }).from(auctionBidEventsTable).where(eq(auctionBidEventsTable.tournamentId, tid)),
-    tx.select({ value: count() }).from(auctionPlayerEventsTable).where(eq(auctionPlayerEventsTable.tournamentId, tid)),
+    tx.select({ value: count() }).from(auctionPlayerEventsTable).where(and(eq(auctionPlayerEventsTable.tournamentId, tid), eq(auctionPlayerEventsTable.isSuperseded, false))),
     tx.select({ value: count() }).from(auctionTimerEventsTable).where(eq(auctionTimerEventsTable.tournamentId, tid)),
   ]);
 
@@ -101,7 +101,7 @@ export async function archiveIntelligenceBeforeDelete(
       ape.average_secs_between_bids, ape.timestamp
     FROM auction_player_events ape
     LEFT JOIN categories c ON c.id = ape.category_id
-    WHERE ape.tournament_id = ${tid}
+    WHERE ape.tournament_id = ${tid} AND ape.is_superseded = false
   `);
 
   await tx.execute(sql`

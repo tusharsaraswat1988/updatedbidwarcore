@@ -152,6 +152,11 @@ export interface Tournament {
    * @nullable
    */
   auctionCode?: string | null;
+  /**
+   * Tournament season, edition or year e.g. Season 2026-27
+   * @nullable
+   */
+  season?: string | null;
   /** @nullable */
   venue?: string | null;
   /**
@@ -331,6 +336,8 @@ export const TournamentInputMainBannerFit = {
 
 export interface TournamentInput {
   name: string;
+  /** Tournament season, edition or year */
+  season?: string | null;
   sport: string;
   venue?: string;
   /** City where the tournament is held (required on create) */
@@ -456,6 +463,8 @@ export const TournamentUpdateScoringPhase = {
 
 export interface TournamentUpdate {
   name?: string;
+  /** Tournament season, edition or year */
+  season?: string | null;
   sport?: string;
   venue?: string;
   /** City where the tournament is held */
@@ -537,7 +546,6 @@ export interface TournamentUpdate {
   scoringPin?: string | null;
   /** Mandatory audit reason when changing auction rules or critical tournament config (min 10 characters) */
   reason?: string;
-  features?: Record<string, unknown>;
 }
 
 export interface Team {

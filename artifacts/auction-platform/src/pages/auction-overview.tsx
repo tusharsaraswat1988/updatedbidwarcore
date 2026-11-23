@@ -4,7 +4,7 @@
  * Activated only when an organizer explicitly enters the Auction Workspace.
  * Hosts auction readiness checklist, team purses, spend statistics, and auction insights feed.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import {
   useGetTournament,
@@ -25,9 +25,10 @@ import {
   CheckCircle2, Circle, AlertCircle, ArrowRight,
   Timer, Clock, Shuffle, Gavel, Calendar, Layers,
   Copy, MessageCircle, Tv, Flame, UserPlus, MapPin,
-  FileText, Trophy,
+  FileText, Trophy, Download, Loader2, BarChart3,
 } from "lucide-react";
 import { resolveScoringEntryPath, auctionRoomPath, openAuctionRoom } from "@/lib/tournament-navigation";
+import { downloadAuctionRulesPdf } from "@/lib/auction-rules-download";
 import { playerRegistrationPublicUrl, playerRegistrationShareUrl } from "@workspace/api-base/registration-url";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ import {
 } from "@workspace/api-base/auction-readiness";
 import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { TournamentInsightsSection } from "@/components/tournament-insights-section";
+import { PostMortemDebrief } from "@/components/reports/post-mortem-debrief";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { useTournamentInsightsFeed } from "@/hooks/use-tournament-insights";
 import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
@@ -165,6 +167,36 @@ export default function AuctionOverview() {
       `🏏 Player Registrations are open for ${tournament.name}!\n\nRegister now using the link below:\n${url}`,
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+  };
+
+  const [downloadingRules, setDownloadingRules] = useState(false);
+
+  const handleDownloadAuctionRules = async () => {
+    if (!tournament) return;
+    setDownloadingRules(true);
+    try {
+      const result = await downloadAuctionRulesPdf(tournament);
+      if (!result.success) {
+        toast({
+          title: "Auction rules incomplete",
+          description: result.error || "Complete Auction Rules in Settings first.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Download complete",
+          description: "Auction rules PDF downloaded successfully.",
+        });
+      }
+    } catch (e) {
+      toast({
+        title: "Download failed",
+        description: e instanceof Error ? e.message : "Couldn't download rules PDF.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingRules(false);
+    }
   };
 
   const readinessInput = tournament && summary && Array.isArray(teamPurses)
@@ -344,6 +376,29 @@ export default function AuctionOverview() {
         <div className="flex items-center gap-2 flex-wrap">
           {isSetupPhase ? (
             <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5 border-border/60 hover:bg-white/[0.06]"
+                onClick={() => navigate(`/tournament/${tournamentId}/reports`)}
+              >
+                <FileText className="w-3.5 h-3.5 text-blue-500" />
+                Pre-Auction Report
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5 border-border/60 hover:bg-white/[0.06]"
+                disabled={downloadingRules}
+                onClick={handleDownloadAuctionRules}
+              >
+                {downloadingRules ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-primary" />
+                )}
+                Download Rules PDF
+              </Button>
               {tournament?.auctionCode && (
                 <Button
                   variant="outline"
@@ -399,6 +454,15 @@ export default function AuctionOverview() {
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs gap-1.5 border-border/60 hover:bg-white/[0.06]"
+                onClick={() => navigate(`/tournament/${tournamentId}/reports`)}
+              >
+                <BarChart3 className="w-3.5 h-3.5 text-primary" />
+                Reports
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5 border-border/60 hover:bg-white/[0.06]"
                 onClick={() => window.open(`/tournament/${tournamentId}/display`, "_blank")}
               >
                 <Tv className="w-3.5 h-3.5 text-blue-400" />
@@ -420,10 +484,19 @@ export default function AuctionOverview() {
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs gap-1.5 border-border/60 hover:bg-white/[0.06]"
+                onClick={() => navigate(`/tournament/${tournamentId}/reports?tab=moneyball`)}
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                Post-Auction Debrief &amp; Moneyball
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5 border-border/60 hover:bg-white/[0.06]"
                 onClick={() => navigate(`/tournament/${tournamentId}/reports`)}
               >
                 <FileText className="w-3.5 h-3.5 text-primary" />
-                View Full Reports
+                Reports
               </Button>
               <Button
                 variant="outline"
@@ -571,6 +644,11 @@ export default function AuctionOverview() {
           isLoading={loadingInsights && !insightsPayload}
         />
 
+        {/* P3: AI Post-Auction Debrief & Moneyball Index when completed */}
+        {tournament?.status === "completed" && (
+          <PostMortemDebrief tournamentId={tournamentId} />
+        )}
+
         {/* Auction Rules & Default Timers */}
         <PlatformSurface className="space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-border/40 flex-wrap gap-2">
@@ -581,14 +659,30 @@ export default function AuctionOverview() {
                 <p className="text-[11px] text-muted-foreground">Standard rules &amp; defaults applied during live bidding</p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1"
-              onClick={() => navigate(`/tournament/${tournamentId}/settings?tab=auction`)}
-            >
-              {tournament?.status === "completed" ? "View Applied Rules →" : "Configure Rules →"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                disabled={downloadingRules}
+                onClick={handleDownloadAuctionRules}
+              >
+                {downloadingRules ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-primary" />
+                )}
+                Download Rules PDF
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => navigate(`/tournament/${tournamentId}/settings?tab=auction`)}
+              >
+                {tournament?.status === "completed" ? "View Applied Rules →" : "Configure Rules →"}
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

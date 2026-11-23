@@ -17,7 +17,7 @@ import {
   auctionPlayerEventsTable,
   auctionTimerEventsTable,
 } from "@workspace/db";
-import { eq, and, count, max } from "drizzle-orm";
+import { eq, and, count, max, desc, gte } from "drizzle-orm";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bid Event
@@ -41,7 +41,7 @@ export function logBidEvent(payload: BidEventPayload): void {
       const now = Date.now();
 
       // Bid sequence number: count existing bid events for this player in this tournament
-      const [{ value: existingCount }] = await db
+      const countRows = await db
         .select({ value: count() })
         .from(auctionBidEventsTable)
         .where(
@@ -50,6 +50,7 @@ export function logBidEvent(payload: BidEventPayload): void {
             eq(auctionBidEventsTable.playerId, payload.playerId),
           ),
         );
+      const existingCount = countRows[0]?.value ?? 0;
       const bidSequenceNumber = Number(existingCount) + 1;
 
       // Milliseconds since last bid — query the most recent bid event timestamp
@@ -145,6 +146,69 @@ export function logPlayerAuctionStart(payload: PlayerAuctionStartPayload): void 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Manual Sell Boundary Bid Events (Synthetic Boundary Logging)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ManualSellBoundaryEventsPayload {
+  tournamentId: number;
+  playerId: number;
+  globalPlayerId?: string | null;
+  winnerTeamId: number;
+  sport: string;
+  basePrice: number;
+  finalAmount: number;
+  playerStartedAt?: Date | null;
+  now?: Date;
+}
+
+export async function logManualSellBoundaryEvents(payload: ManualSellBoundaryEventsPayload): Promise<void> {
+  const now = payload.now ?? new Date();
+  const playerStartedAt = payload.playerStartedAt ?? now;
+  const basePrice = Math.max(0, payload.basePrice ?? 0);
+  const finalAmount = payload.finalAmount;
+  const bidIncrement = finalAmount - basePrice;
+
+  try {
+    await db.insert(auctionBidEventsTable).values([
+      {
+        tournamentId: payload.tournamentId,
+        playerId: payload.playerId,
+        globalPlayerId: payload.globalPlayerId ?? null,
+        teamId: payload.winnerTeamId,
+        sport: payload.sport,
+        bidAmount: basePrice,
+        previousBidAmount: null,
+        bidIncrement: basePrice,
+        bidSequenceNumber: 1,
+        millisecondsSinceLastBid: null,
+        timerRemainingSeconds: null,
+        isManualBid: true,
+        becameLeader: false,
+        timestamp: playerStartedAt,
+      },
+      {
+        tournamentId: payload.tournamentId,
+        playerId: payload.playerId,
+        globalPlayerId: payload.globalPlayerId ?? null,
+        teamId: payload.winnerTeamId,
+        sport: payload.sport,
+        bidAmount: finalAmount,
+        previousBidAmount: basePrice,
+        bidIncrement,
+        bidSequenceNumber: 2,
+        millisecondsSinceLastBid: Math.max(0, now.getTime() - playerStartedAt.getTime()),
+        timerRemainingSeconds: null,
+        isManualBid: true,
+        becameLeader: true,
+        timestamp: now,
+      },
+    ]);
+  } catch {
+    // Analytics logging must not interrupt auction flow
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Player Auction End Event
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -165,6 +229,7 @@ export interface PlayerAuctionEndPayload {
   soldToTeamId?: number | null;
   soldToTeamName?: string | null;
   auctionStartedAt?: Date | null;  // if known
+  interestedTeamsCount?: number | null;
 }
 
 export function logPlayerAuctionEnd(payload: PlayerAuctionEndPayload): void {
@@ -172,36 +237,65 @@ export function logPlayerAuctionEnd(payload: PlayerAuctionEndPayload): void {
     try {
       const endedAt = new Date();
 
-      // Gather aggregate stats from bid events for this player
-      const [{ value: totalBids }] = await db
+      // Duration: use passed auctionStartedAt or query auctionPlayerEventsTable for the in_progress start time
+      let auctionStartedAt: Date | null = payload.auctionStartedAt ?? null;
+      if (!auctionStartedAt) {
+        const [startRow] = await db
+          .select({ startedAt: auctionPlayerEventsTable.auctionStartedAt })
+          .from(auctionPlayerEventsTable)
+          .where(
+            and(
+              eq(auctionPlayerEventsTable.tournamentId, payload.tournamentId),
+              eq(auctionPlayerEventsTable.playerId, payload.playerId),
+              eq(auctionPlayerEventsTable.outcome, "in_progress"),
+              eq(auctionPlayerEventsTable.isSuperseded, false),
+            ),
+          )
+          .orderBy(desc(auctionPlayerEventsTable.id))
+          .limit(1);
+        if (startRow?.startedAt) {
+          auctionStartedAt = new Date(startRow.startedAt);
+        }
+      }
+
+      // Gather aggregate stats from bid events for this player in the current auction cycle
+      const countConditions = [
+        eq(auctionBidEventsTable.tournamentId, payload.tournamentId),
+        eq(auctionBidEventsTable.playerId, payload.playerId),
+      ];
+      if (auctionStartedAt) {
+        countConditions.push(gte(auctionBidEventsTable.timestamp, auctionStartedAt));
+      }
+
+      const countRows = await db
         .select({ value: count() })
         .from(auctionBidEventsTable)
-        .where(
-          and(
-            eq(auctionBidEventsTable.tournamentId, payload.tournamentId),
-            eq(auctionBidEventsTable.playerId, payload.playerId),
-          ),
-        );
+        .where(and(...countConditions));
+      const totalBids = countRows[0]?.value ?? 0;
 
-      // Count distinct teams that bid (approximate via groupBy)
-      const teamRows = await db
-        .selectDistinct({ teamId: auctionBidEventsTable.teamId })
-        .from(auctionBidEventsTable)
-        .where(
-          and(
-            eq(auctionBidEventsTable.tournamentId, payload.tournamentId),
-            eq(auctionBidEventsTable.playerId, payload.playerId),
-          ),
-        );
-      const interestedTeamsCount = teamRows.length;
+      // Interested teams: use explicitly passed value (e.g. ICM) or query distinct teams that bid in this cycle
+      let interestedTeamsCount: number | null = payload.interestedTeamsCount ?? null;
+      if (interestedTeamsCount == null) {
+        const teamConditions = [
+          eq(auctionBidEventsTable.tournamentId, payload.tournamentId),
+          eq(auctionBidEventsTable.playerId, payload.playerId),
+        ];
+        if (auctionStartedAt) {
+          teamConditions.push(gte(auctionBidEventsTable.timestamp, auctionStartedAt));
+        }
+        const teamRows = await db
+          .selectDistinct({ teamId: auctionBidEventsTable.teamId })
+          .from(auctionBidEventsTable)
+          .where(and(...teamConditions));
+        interestedTeamsCount = teamRows.length;
+      }
 
-      // Duration
       let auctionDurationSeconds: number | null = null;
       let averageSecsBetweenBids: number | null = null;
-      if (payload.auctionStartedAt) {
-        auctionDurationSeconds = Math.round(
-          (endedAt.getTime() - payload.auctionStartedAt.getTime()) / 1000,
-        );
+      if (auctionStartedAt) {
+        auctionDurationSeconds = Math.max(0, Math.round(
+          (endedAt.getTime() - auctionStartedAt.getTime()) / 1000,
+        ));
         const totalBidsNum = Number(totalBids);
         if (totalBidsNum > 1) {
           averageSecsBetweenBids = Math.round(auctionDurationSeconds / (totalBidsNum - 1));
@@ -221,7 +315,7 @@ export function logPlayerAuctionEnd(payload: PlayerAuctionEndPayload): void {
         basePrice: payload.basePrice,
         playerSnapshotJson: payload.playerSnapshotJson,
         outcome: payload.outcome,
-        auctionStartedAt: payload.auctionStartedAt ?? endedAt,
+        auctionStartedAt: auctionStartedAt ?? endedAt,
         auctionEndedAt: endedAt,
         finalAmount: payload.finalAmount ?? null,
         soldToTeamId: payload.soldToTeamId ?? null,
@@ -230,6 +324,7 @@ export function logPlayerAuctionEnd(payload: PlayerAuctionEndPayload): void {
         interestedTeamsCount,
         auctionDurationSeconds,
         averageSecsBetweenBids,
+        isSuperseded: false,
       });
     } catch {
       // Logging must not interrupt auction flow
