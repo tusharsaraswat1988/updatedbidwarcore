@@ -355,7 +355,7 @@ function CategoryFixturesPanel({
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-white/3 transition-colors"
+        className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-muted/50 transition-colors"
       >
         <div className="flex items-center gap-4 min-w-0">
           {category.colorCode ? (
@@ -365,19 +365,19 @@ function CategoryFixturesPanel({
             />
           ) : null}
           <div className="min-w-0">
-            <h3 className="text-white font-bold text-lg truncate">{category.name}</h3>
-            <p className="text-white/40 text-sm mt-0.5">
+            <h3 className="text-foreground font-bold text-lg truncate">{category.name}</h3>
+            <p className="text-muted-foreground text-sm mt-0.5">
               {collections.length} collection{collections.length !== 1 ? "s" : ""}
               {" · "}
               {fixtures.length} match{fixtures.length !== 1 ? "es" : ""} in draw
             </p>
           </div>
         </div>
-        <span className="text-white/30 text-sm flex-none">{expanded ? "Hide" : "Open"}</span>
+        <span className="text-muted-foreground text-sm flex-none font-medium">{expanded ? "Hide" : "Open"}</span>
       </button>
 
       {expanded ? (
-        <div className="border-t border-white/8 p-5 space-y-6">
+        <div className="border-t border-border p-5 space-y-6">
           {isLeague ? (
             <LeagueGroupsPanel tournamentId={tournamentId} categoryId={category.id} />
           ) : null}
@@ -398,7 +398,7 @@ function CategoryFixturesPanel({
                 setConfirmGenerate(true);
               }}
               disabled={generating || (!isLeague && acceptedCount < 2)}
-              className="min-h-11 px-4 rounded-lg bg-purple-500/25 hover:bg-purple-500/35 disabled:opacity-40 text-purple-200 text-sm font-bold transition-colors"
+              className="min-h-11 px-4 rounded-lg bg-purple-600/15 hover:bg-purple-600/25 border border-purple-500/30 disabled:opacity-40 text-purple-700 dark:text-purple-300 text-sm font-bold transition-colors cursor-pointer"
               title={
                 isLeague
                   ? "Generate pair-vs-pair league fixtures from groups"
@@ -420,7 +420,7 @@ function CategoryFixturesPanel({
                 setShowManual(true);
               }}
               disabled={acceptedCount < 1}
-              className="min-h-11 px-4 rounded-lg bg-white/8 hover:bg-white/12 disabled:opacity-40 text-white/80 text-xs font-semibold transition-colors"
+              className="min-h-11 px-4 rounded-lg bg-card border border-border hover:bg-muted/80 disabled:opacity-40 text-foreground text-xs font-semibold transition-colors cursor-pointer shadow-xs"
             >
               Create Fixtures Manually
             </button>
@@ -428,7 +428,7 @@ function CategoryFixturesPanel({
               type="button"
               disabled
               title="Import is not available in this release"
-              className="min-h-11 px-4 rounded-lg bg-white/5 text-white/35 text-xs font-semibold cursor-not-allowed"
+              className="min-h-11 px-4 rounded-lg bg-muted text-muted-foreground/60 text-xs font-semibold cursor-not-allowed"
             >
               Import Existing Draw (coming soon)
             </button>
@@ -437,9 +437,9 @@ function CategoryFixturesPanel({
           {error ? <FormError message={error} /> : null}
 
           {collections.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-5 text-center space-y-2">
-              <p className="text-white/70 text-sm font-semibold">No draw yet</p>
-              <p className="text-white/40 text-xs max-w-md mx-auto">
+            <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-5 text-center space-y-2">
+              <p className="text-foreground text-sm font-semibold">No draw yet</p>
+              <p className="text-muted-foreground text-xs max-w-md mx-auto">
                 Generate a draw for this event, or create pairings manually. Then open Schedule to assign courts and times.
               </p>
             </div>
@@ -451,17 +451,17 @@ function CategoryFixturesPanel({
               return (
                 <section key={collection.id} className="space-y-3">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="text-white font-semibold">{collection.roundName}</h4>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/10 text-white/50">
+                    <h4 className="text-foreground font-semibold">{collection.roundName}</h4>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-muted border border-border/70 text-muted-foreground">
                       {collectionKindLabel(collection.drawKind)}
                     </span>
-                    <span className="text-white/30 text-xs">
+                    <span className="text-muted-foreground text-xs">
                       {collectionFixtures.length} fixture
                       {collectionFixtures.length !== 1 ? "s" : ""}
                     </span>
                   </div>
                   {collectionFixtures.length === 0 ? (
-                    <p className="text-white/30 text-sm">No fixtures in this collection.</p>
+                    <p className="text-muted-foreground text-sm">No fixtures in this collection.</p>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {collectionFixtures.map((fixture) => (
@@ -651,7 +651,7 @@ function ManualFixturesModal({
                 ]}
               />
             </FormField>
-            <span className="text-white/30 text-xs pb-3 text-center hidden sm:block">vs</span>
+            <span className="text-muted-foreground text-xs pb-3 text-center hidden sm:block font-bold">vs</span>
             <FormField label={`Side B · Fixture ${index + 1}`}>
               <DarkSelect
                 value={pair.registrationBId || "none"}
@@ -668,7 +668,7 @@ function ManualFixturesModal({
               type="button"
               disabled={pairs.length <= 1}
               onClick={() => setPairs((prev) => prev.filter((_, i) => i !== index))}
-              className="h-11 px-3 rounded-xl text-xs text-white/40 hover:text-red-400 disabled:opacity-30"
+              className="h-11 px-3 rounded-xl text-xs text-muted-foreground hover:text-destructive disabled:opacity-30 cursor-pointer"
             >
               Remove
             </button>
@@ -810,20 +810,20 @@ function LeagueGroupsPanel({
   }
 
   return (
-    <section className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 space-y-4">
+    <section className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-4 space-y-4">
       <div>
-        <h4 className="text-white font-semibold">League Groups</h4>
-        <p className="text-white/40 text-xs mt-1">
+        <h4 className="text-foreground font-semibold">League Groups</h4>
+        <p className="text-muted-foreground text-xs mt-1">
           Assign franchise teams to each group. Pairs are matched by slot (Rubber 1 vs Rubber 1, etc.).
         </p>
       </div>
 
       {isLoading ? (
-        <p className="text-white/40 text-sm">Loading groups…</p>
+        <p className="text-muted-foreground text-sm">Loading groups…</p>
       ) : (
         <div className="space-y-4">
           {draftGroups.map((group, groupIndex) => (
-            <div key={groupIndex} className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+            <div key={groupIndex} className="rounded-lg border border-border bg-card p-3 space-y-2 shadow-xs">
               <input
                 value={group.name}
                 onChange={(e) =>
@@ -849,10 +849,10 @@ function LeagueGroupsPanel({
                       disabled={usedElsewhere && !selected}
                       onClick={() => toggleTeam(groupIndex, team.auctionTeamId)}
                       className={cn(
-                        "px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+                        "px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer",
                         selected
-                          ? "bg-cyan-500/30 text-cyan-100 border border-cyan-400/40"
-                          : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/10",
+                          ? "bg-cyan-600 text-white dark:bg-cyan-500/30 dark:text-cyan-100 border border-cyan-600"
+                          : "bg-muted text-foreground border border-border hover:bg-muted/80",
                         usedElsewhere && !selected && "opacity-40 cursor-not-allowed",
                       )}
                     >
@@ -871,7 +871,7 @@ function LeagueGroupsPanel({
                 { name: `Group ${prev.length + 1}`, teamIds: [] },
               ])
             }
-            className="text-xs font-semibold text-cyan-300 hover:underline"
+            className="text-xs font-semibold text-primary hover:underline cursor-pointer"
           >
             + Add group
           </button>
@@ -906,35 +906,35 @@ function LeagueGroupsPanel({
           ).map((board) =>
             board.rows.length === 0 ? null : (
               <div key={board.key} className="overflow-x-auto">
-                <h5 className="text-white/70 text-xs font-bold uppercase tracking-wider mb-2">
+                <h5 className="text-foreground text-xs font-bold uppercase tracking-wider mb-2">
                   {board.title}
-                  <span className="normal-case font-normal text-white/35 ml-2">
+                  <span className="normal-case font-normal text-muted-foreground ml-2">
                     (wins → point difference)
                   </span>
                 </h5>
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-white/40 text-left">
-                      <th className="py-1 pr-2">#</th>
-                      <th className="py-1 pr-2">Pair</th>
-                      <th className="py-1 pr-2">P</th>
-                      <th className="py-1 pr-2">W</th>
-                      <th className="py-1 pr-2">L</th>
-                      <th className="py-1">Diff</th>
+                    <tr className="text-muted-foreground border-b border-border/60 text-left">
+                      <th className="py-1.5 pr-2">#</th>
+                      <th className="py-1.5 pr-2">Pair</th>
+                      <th className="py-1.5 pr-2">P</th>
+                      <th className="py-1.5 pr-2">W</th>
+                      <th className="py-1.5 pr-2">L</th>
+                      <th className="py-1.5">Diff</th>
                     </tr>
                   </thead>
                   <tbody>
                     {board.rows.map((row) => (
                       <tr
                         key={`${board.key}-${row.registrationId ?? row.rank}-${row.label}`}
-                        className="border-t border-white/5 text-white/80"
+                        className="border-b border-border/40 text-foreground"
                       >
-                        <td className="py-1.5 pr-2">{row.rank}</td>
-                        <td className="py-1.5 pr-2">{row.label}</td>
-                        <td className="py-1.5 pr-2">{row.played}</td>
-                        <td className="py-1.5 pr-2">{row.won}</td>
-                        <td className="py-1.5 pr-2">{row.lost}</td>
-                        <td className="py-1.5 font-bold text-cyan-200">{row.marginPoints}</td>
+                        <td className="py-2 pr-2 font-mono">{row.rank}</td>
+                        <td className="py-2 pr-2 font-medium">{row.label}</td>
+                        <td className="py-2 pr-2 tabular-nums">{row.played}</td>
+                        <td className="py-2 pr-2 tabular-nums text-emerald-600 dark:text-emerald-400 font-semibold">{row.won}</td>
+                        <td className="py-2 pr-2 tabular-nums text-muted-foreground">{row.lost}</td>
+                        <td className="py-2 font-bold tabular-nums text-primary">{row.marginPoints}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -942,7 +942,7 @@ function LeagueGroupsPanel({
               </div>
             ),
           )}
-          <p className="text-[10px] text-white/35">
+          <p className="text-[10px] text-muted-foreground">
             Ranked by wins, then point difference on won matches. Male: top 4 per
             group → QF. Female: top 4 overall → SF.
           </p>
@@ -969,19 +969,19 @@ function FixturePlanCard({
     : { playerName: "BYE" };
 
   return (
-    <div className="rounded-xl bg-white/5 border border-white/8 p-4">
+    <div className="rounded-xl bg-card border border-border p-4 shadow-xs">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-white/30 text-xs font-bold">
+        <span className="text-muted-foreground text-xs font-bold">
           Match {fixture.slotNumber ?? "—"}
         </span>
         <span
           className={cn(
-            "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+            "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border",
             fixture.status === "scheduled"
-              ? "bg-blue-500/15 text-blue-400"
+              ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/25"
               : fixture.status === "walkover"
-                ? "bg-amber-500/15 text-amber-400"
-                : "bg-white/10 text-white/50",
+                ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/25"
+                : "bg-muted text-muted-foreground border-border/70",
           )}
         >
           {fixture.status}
@@ -991,14 +991,14 @@ function FixturePlanCard({
       {fixture.scoringMatchId ? (
         <a
           href={`/tournament/${tournamentId}/badminton/matches/${fixture.scoringMatchId}/control`}
-          className="mt-3 block text-center text-amber-300 text-xs font-semibold hover:underline min-h-11 leading-[2.75rem]"
+          className="mt-3 block text-center text-primary text-xs font-semibold hover:underline min-h-11 leading-[2.75rem]"
         >
           Match Control →
         </a>
       ) : (
         <Link
           href={`/tournament/${tournamentId}/badminton/schedule?fixture=${fixture.id}`}
-          className="mt-3 block text-center text-[#4fc3f7] text-xs font-semibold hover:underline min-h-11 leading-[2.75rem]"
+          className="mt-3 block text-center text-primary text-xs font-semibold hover:underline min-h-11 leading-[2.75rem]"
         >
           Open Scheduling →
         </Link>

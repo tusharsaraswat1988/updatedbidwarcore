@@ -11,8 +11,8 @@
  */
 
 export function isOrganizerRoute(pathname?: string): boolean {
-  if (typeof window === "undefined") return false;
-  let p = pathname ?? window.location.pathname;
+  let p = pathname ?? (typeof window !== "undefined" ? window.location.pathname : "");
+  if (!p) return false;
   if (p.startsWith("/scoring-app")) {
     p = p.slice("/scoring-app".length) || "/";
   }
@@ -51,7 +51,9 @@ export function isOrganizerRoute(pathname?: string): boolean {
     p === "/login" ||
     p === "/scoring-app/login" ||
     p.includes("/scorer") ||
+    /\/score(\/|$)/.test(p) ||
     (p.includes("/score/") && p.includes("/live")) ||
+    p.includes("/owner") ||
     p.includes("/overlay") ||
     p === "/admin" ||
     p.startsWith("/admin/")
@@ -81,8 +83,8 @@ export function isOrganizerRoute(pathname?: string): boolean {
 }
 
 export function isAdminRoute(pathname?: string): boolean {
-  if (typeof window === "undefined") return false;
-  let p = pathname ?? window.location.pathname;
+  let p = pathname ?? (typeof window !== "undefined" ? window.location.pathname : "");
+  if (!p) return false;
   if (p === "/admin/login") return false; // Admin Login is isolated luxury canvas
   return p === "/admin" || p.startsWith("/admin/");
 }

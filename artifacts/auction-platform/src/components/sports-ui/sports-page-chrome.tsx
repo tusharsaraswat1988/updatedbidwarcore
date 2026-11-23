@@ -74,7 +74,7 @@ export function FormModal({
 }
 
 export const inputClass =
-  "w-full h-11 px-3.5 rounded-lg bg-card border border-border text-foreground text-sm placeholder:text-muted-foreground shadow-xs transition-colors focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-50 disabled:cursor-not-allowed";
+  "w-full h-11 px-3.5 rounded-lg bg-card border border-border text-foreground text-sm placeholder:text-muted-foreground shadow-xs transition-colors focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed";
 
 export const labelClass =
   "block text-foreground text-xs font-semibold mb-2 uppercase tracking-wider";
@@ -122,7 +122,7 @@ import {
 } from "@/components/ui/select";
 
 export const selectTriggerClass =
-  "h-11 w-full rounded-lg border border-border bg-card text-foreground text-sm shadow-xs focus:ring-2 focus:ring-primary/30 focus:border-primary data-[placeholder]:text-muted-foreground";
+  "h-11 w-full rounded-lg border border-border bg-card text-foreground text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background data-[placeholder]:text-muted-foreground";
 
 export const selectContentClass =
   "z-[300] max-h-[min(18rem,var(--radix-select-content-available-height))] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg";
@@ -164,7 +164,7 @@ export function DarkSelect({
 export function FormError({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <p className="rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2.5 text-destructive text-sm">
+    <p className="rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2.5 text-destructive text-sm" role="alert">
       {message}
     </p>
   );
@@ -190,7 +190,7 @@ export function FormActions({
       <button
         type="button"
         onClick={onCancel}
-        className="flex-1 h-11 rounded-lg border border-border bg-secondary text-secondary-foreground font-semibold text-sm hover-elevate active-elevate-2 transition-colors cursor-pointer"
+        className="flex-1 h-11 rounded-lg border border-border bg-card text-foreground font-semibold text-sm hover-elevate active-elevate-2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         {cancelLabel}
       </button>
@@ -198,7 +198,7 @@ export function FormActions({
         type="button"
         onClick={onSubmit}
         disabled={saving || disabled}
-        className="flex-1 h-11 rounded-lg bg-primary text-primary-foreground border border-primary-border font-bold text-sm shadow-[var(--shadow-glow)] hover-elevate active-elevate-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+        className="flex-1 h-11 rounded-lg bg-primary text-primary-foreground border border-primary/20 font-bold text-sm shadow-xs hover-elevate active-elevate-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         {saving ? "Saving…" : submitLabel}
       </button>
@@ -224,6 +224,7 @@ export function SearchInput({
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
+        aria-hidden="true"
       >
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
       </svg>
@@ -233,7 +234,7 @@ export function SearchInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className={cn(
-          "w-full h-11 pl-11 pr-4 rounded-lg bg-card border border-border text-foreground text-sm placeholder:text-muted-foreground shadow-xs transition-colors focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30",
+          "w-full h-11 pl-11 pr-4 rounded-lg bg-card border border-border text-foreground text-sm placeholder:text-muted-foreground shadow-xs transition-colors focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
           className,
         )}
       />
@@ -242,10 +243,10 @@ export function SearchInput({
 }
 
 export const btnPrimaryClass =
-  "inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground font-bold text-sm h-11 px-5 shadow-xs hover-elevate active-elevate-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer";
+  "inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground font-bold text-sm h-11 px-5 shadow-xs hover-elevate active-elevate-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 export const btnSecondaryClass =
-  "inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card text-foreground font-semibold text-sm h-11 px-5 hover-elevate active-elevate-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-xs";
+  "inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card text-foreground font-semibold text-sm h-11 px-5 hover-elevate active-elevate-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 export const btnCompactClass = "h-9 px-3.5 text-xs rounded-md";
 

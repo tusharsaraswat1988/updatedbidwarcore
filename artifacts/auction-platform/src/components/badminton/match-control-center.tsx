@@ -180,16 +180,16 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
             : null;
 
   return (
-    <div className="rounded-xl border border-primary/30 bg-card overflow-hidden">
+    <div className="rounded-xl border border-primary/30 bg-card overflow-hidden shadow-xs">
       <div className="px-5 py-4 border-b border-border bg-primary/10">
-        <h2 className="text-white font-black text-lg tracking-wide uppercase">
+        <h2 className="text-foreground font-black text-lg tracking-wide uppercase">
           Match Control Center
         </h2>
-        <p className="text-white/40 text-xs mt-0.5">
+        <p className="text-muted-foreground text-xs mt-0.5">
           Tournament Director — match administration only
         </p>
-        <p className="text-white/75 text-sm font-semibold mt-2">
-          {leftName} <span className="text-white/35 font-normal">vs</span> {rightName}
+        <p className="text-foreground text-sm font-semibold mt-2">
+          {leftName} <span className="text-muted-foreground font-normal">vs</span> {rightName}
         </p>
       </div>
 
@@ -198,7 +198,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
 
         {/* Hold — frees court for another match */}
         <section>
-          <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest mb-3">
+          <h3 className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
             Hold (free court)
           </h3>
           {isOnHold ? (
@@ -220,14 +220,14 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
               Put on Hold
             </BtnPrimary>
           )}
-          <p className="text-white/35 text-xs mt-2">
+          <p className="text-muted-foreground text-xs mt-2">
             Use Hold when toss/start already happened but another match must use this court.
           </p>
         </section>
 
         {/* Pause / Resume */}
         <section>
-          <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest mb-3">
+          <h3 className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
             Pause / Resume
           </h3>
           {isPaused && !isOnHold ? (
@@ -239,7 +239,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
               Resume Match
             </BtnPrimary>
           ) : isOnHold ? (
-            <p className="text-sky-200/80 text-sm">Match is on Hold — use Resume from Hold above.</p>
+            <p className="text-sky-700 dark:text-sky-300 text-sm">Match is on Hold — use Resume from Hold above.</p>
           ) : (
             <div className="space-y-3">
               <FormField label="Pause reason" required>
@@ -279,7 +279,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
             </div>
           )}
           {isPaused && state.pauseReason ? (
-            <p className="text-amber-300/80 text-sm mt-2">
+            <p className="text-amber-700 dark:text-amber-400 text-sm mt-2 font-medium">
               Current: {formatPauseReason(state.pauseReason, state.pauseDetail)}
             </p>
           ) : null}
@@ -287,20 +287,20 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
 
         {/* Incidents */}
         <section>
-          <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest mb-3">
+          <h3 className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
             Match Incident Log
           </h3>
-          <div className="rounded-xl bg-black/30 border border-white/8 max-h-48 overflow-y-auto">
+          <div className="rounded-xl bg-muted/40 border border-border max-h-48 overflow-y-auto">
             {incidents.length === 0 ? (
-              <p className="text-white/30 text-sm p-4 text-center">No incidents yet</p>
+              <p className="text-muted-foreground text-sm p-4 text-center">No incidents yet</p>
             ) : (
-              <ul className="divide-y divide-white/5">
+              <ul className="divide-y divide-border/50">
                 {incidents.map((entry) => (
                   <li key={entry.sequence} className="px-4 py-2.5 flex gap-3 text-sm">
-                    <span className="text-white/30 font-mono tabular-nums shrink-0">
+                    <span className="text-muted-foreground font-mono tabular-nums shrink-0">
                       {formatIncidentTime(entry.timestamp)}
                     </span>
-                    <span className="text-white/80">{entry.label}</span>
+                    <span className="text-foreground font-medium">{entry.label}</span>
                   </li>
                 ))}
               </ul>
@@ -310,7 +310,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
 
         {/* Notes */}
         <section>
-          <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest mb-3">
+          <h3 className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
             Match Notes
           </h3>
           {state.matchNotes.length > 0 ? (
@@ -318,7 +318,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
               {state.matchNotes.map((note) => (
                 <li
                   key={note.sequence}
-                  className="text-white/70 text-sm bg-white/5 rounded-lg px-3 py-2"
+                  className="text-foreground text-sm bg-muted/40 border border-border rounded-lg px-3 py-2"
                 >
                   {note.text}
                 </li>
@@ -349,11 +349,11 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
 
         {/* Force unlock — always available while match can be scored */}
         {!isTerminal ? (
-          <section className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 space-y-2">
-            <h3 className="text-amber-100/80 text-xs font-semibold uppercase tracking-widest">
+          <section className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 space-y-2">
+            <h3 className="text-amber-800 dark:text-amber-300 text-xs font-semibold uppercase tracking-widest">
               Force Unlock Scorer
             </h3>
-            <p className="text-white/40 text-[11px] leading-relaxed">
+            <p className="text-muted-foreground text-xs leading-relaxed">
               Clears a stuck scorer session lock so another device can open this match.
             </p>
             <button
@@ -376,7 +376,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                   })
                   .finally(() => setUnlocking(false));
               }}
-              className="w-full min-h-11 rounded-lg bg-amber-500/25 hover:bg-amber-500/35 border border-amber-500/30 text-amber-50 text-xs font-bold disabled:opacity-40"
+              className="w-full min-h-11 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-900 dark:text-amber-100 text-xs font-bold disabled:opacity-40 cursor-pointer"
             >
               {unlocking ? "Unlocking…" : "Force Unlock"}
             </button>
@@ -385,11 +385,11 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
 
         {/* Terminal actions */}
         {!isTerminal ? (
-          <section className="space-y-4 pt-2 border-t border-white/8">
-            <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest">
+          <section className="space-y-4 pt-2 border-t border-border">
+            <h3 className="text-muted-foreground text-xs font-bold uppercase tracking-widest">
               Match Outcomes
             </h3>
-            <p className="text-white/40 text-[11px] -mt-2">
+            <p className="text-muted-foreground text-xs -mt-2">
               Choose the player or pair by name — not court side.
             </p>
 
@@ -407,15 +407,15 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                   onChange={(e) => setMarginPointsInput(e.target.value)}
                   placeholder="e.g. 21"
                 />
-                <p className="text-white/35 text-[11px] mt-1">
+                <p className="text-muted-foreground text-[11px] mt-1">
                   Required when no games were completed. Positive integer only.
                 </p>
               </FormField>
             ) : null}
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-white/8 p-3 space-y-2">
-                <p className="text-white/50 text-xs font-semibold">Retirement</p>
+              <div className="rounded-xl border border-border bg-card p-3 space-y-2 shadow-xs">
+                <p className="text-foreground text-xs font-semibold">Retirement</p>
                 <DarkSelect
                   value={retireSide}
                   onValueChange={(v) => setRetireSide(v as "left" | "right")}
@@ -437,14 +437,14 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                   type="button"
                   disabled={busy || !isLive || !marginReady}
                   onClick={() => setPendingOutcome({ kind: "retirement" })}
-                  className="w-full min-h-11 rounded-lg bg-destructive/80 hover:bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40"
+                  className="w-full min-h-11 rounded-lg bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40 cursor-pointer shadow-xs"
                 >
                   Declare Retirement
                 </button>
               </div>
 
-              <div className="rounded-xl border border-white/8 p-3 space-y-2">
-                <p className="text-white/50 text-xs font-semibold">Walkover</p>
+              <div className="rounded-xl border border-border bg-card p-3 space-y-2 shadow-xs">
+                <p className="text-foreground text-xs font-semibold">Walkover</p>
                 <DarkSelect
                   value={walkoverSide}
                   onValueChange={(v) => setWalkoverSide(v as "left" | "right")}
@@ -466,14 +466,14 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                   type="button"
                   disabled={busy || !marginReady}
                   onClick={() => setPendingOutcome({ kind: "walkover" })}
-                  className="w-full min-h-11 rounded-lg bg-destructive/80 hover:bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40"
+                  className="w-full min-h-11 rounded-lg bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40 cursor-pointer shadow-xs"
                 >
                   Declare Walkover
                 </button>
               </div>
 
-              <div className="rounded-xl border border-white/8 p-3 space-y-2">
-                <p className="text-white/50 text-xs font-semibold">Disqualification</p>
+              <div className="rounded-xl border border-border bg-card p-3 space-y-2 shadow-xs">
+                <p className="text-foreground text-xs font-semibold">Disqualification</p>
                 <DarkSelect
                   value={dqSide}
                   onValueChange={(v) => setDqSide(v as "left" | "right")}
@@ -496,14 +496,14 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                   type="button"
                   disabled={busy || !dqReason.trim() || !marginReady}
                   onClick={() => setPendingOutcome({ kind: "disqualification" })}
-                  className="w-full min-h-11 rounded-lg bg-destructive/80 hover:bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40"
+                  className="w-full min-h-11 rounded-lg bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40 cursor-pointer shadow-xs"
                 >
                   Declare Disqualification
                 </button>
               </div>
 
-              <div className="rounded-xl border border-white/8 p-3 space-y-2">
-                <p className="text-white/50 text-xs font-semibold">Force End Match</p>
+              <div className="rounded-xl border border-border bg-card p-3 space-y-2 shadow-xs">
+                <p className="text-foreground text-xs font-semibold">Force End Match</p>
                 <FormField label="Reason" required>
                   <input
                     className={inputClass}
@@ -520,7 +520,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                     busy || !forceEndReason.trim() || (!isLive && !isPaused) || !marginReady
                   }
                   onClick={() => setPendingOutcome({ kind: "force_end" })}
-                  className="w-full min-h-11 rounded-lg bg-destructive/80 hover:bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40"
+                  className="w-full min-h-11 rounded-lg bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40 cursor-pointer shadow-xs"
                 >
                   Force End Match
                 </button>
@@ -530,11 +530,11 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
         ) : null}
 
         {isTerminal && needsAssignedMargin ? (
-          <section className="space-y-3 pt-2 border-t border-white/8">
-            <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest">
+          <section className="space-y-3 pt-2 border-t border-border">
+            <h3 className="text-muted-foreground text-xs font-bold uppercase tracking-widest">
               Winner Margin Points
             </h3>
-            <p className="text-white/40 text-[11px]">
+            <p className="text-muted-foreground text-xs">
               No completed games — set or update the standings margin for the winner.
               {state.assignedMarginPoints != null
                 ? ` Current: +${state.assignedMarginPoints}.`
@@ -573,13 +573,13 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
         ) : null}
 
         {/* Export — PDF only */}
-        <section className="pt-2 border-t border-white/8">
-          <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest mb-3">
+        <section className="pt-2 border-t border-border">
+          <h3 className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
             Export Match Report
           </h3>
           <a
             href={`${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}/report?format=pdf`}
-            className="w-full min-h-11 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 text-white/70 text-xs font-semibold flex items-center justify-center"
+            className="w-full min-h-11 rounded-xl bg-card hover:bg-muted border border-border text-foreground text-xs font-semibold flex items-center justify-center cursor-pointer shadow-xs transition-colors"
             download
           >
             Download PDF

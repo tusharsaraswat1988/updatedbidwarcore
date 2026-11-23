@@ -11,7 +11,7 @@
 
 import { useRoute, Link, useLocation } from "wouter";
 import {
-  Users, MapPin, Trophy, Calendar, Radio, CheckCircle2, Target, Activity,
+  Users, MapPin, Trophy, Calendar, Radio, CheckCircle2, Target, Activity, Plus, ArrowRight, ListTree, ShieldCheck,
 } from "lucide-react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { identityFromSideInfo } from "@/lib/team-player-identity";
@@ -168,7 +168,17 @@ export default function BadmintonTournamentHub() {
               : "Operational workspace — manage matches and court control from here"
         }
         badge={isScoringComplete ? "Completed" : isLive ? `${liveCount} Live` : "Ready"}
-        actions={formatLabel ? <ScoringFormatBadge label={formatLabel} /> : undefined}
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            {formatLabel ? <ScoringFormatBadge label={formatLabel} /> : null}
+            <Link href={`/tournament/${tournamentId}/badminton/matches`}>
+              <BtnPrimary className="btn-compact">
+                <Plus className="w-4 h-4" />
+                Create Match
+              </BtnPrimary>
+            </Link>
+          </div>
+        }
       />
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
@@ -222,14 +232,136 @@ export default function BadmintonTournamentHub() {
               </BtnPrimary>
             </Link>
           ) : (
-            <Link href={`/tournament/${tournamentId}/badminton/control`}>
-              <BtnPrimary className="w-full sm:w-auto shrink-0">
-                <Target className="w-4 h-4" />
-                Open Operator Panel
-              </BtnPrimary>
-            </Link>
+            <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto shrink-0">
+              <Link href={`/tournament/${tournamentId}/badminton/control`} className="flex-1 sm:flex-initial">
+                <BtnPrimary className="w-full sm:w-auto">
+                  <Target className="w-4 h-4" />
+                  Operator Panel
+                </BtnPrimary>
+              </Link>
+              <Link href={`/tournament/${tournamentId}/badminton/fixtures`} className="flex-1 sm:flex-initial">
+                <BtnSecondary className="w-full sm:w-auto">
+                  <ListTree className="w-4 h-4" />
+                  Draws
+                </BtnSecondary>
+              </Link>
+            </div>
           )}
         </div>
+
+        {/* Operational Quick-Jump Cards */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-[11px] font-bold tracking-[0.14em] uppercase text-muted-foreground">
+                Court Operations
+              </p>
+              <h3 className="text-base font-bold text-foreground">
+                Badminton Operational Control Hub
+              </h3>
+            </div>
+            <Link
+              href={`/tournament/${tournamentId}/badminton/control`}
+              className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+            >
+              Open Multi-Court Control Center <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Link
+              href={`/tournament/${tournamentId}/badminton/control`}
+              className="group p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all flex flex-col justify-between"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <Target className="w-4 h-4" />
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-foreground">Multi-Court Control</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Live court board, rally scores, and supervisor unlocks
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-border/50 text-[11px] font-semibold text-primary">
+                Open Court Board →
+              </div>
+            </Link>
+
+            <Link
+              href={`/tournament/${tournamentId}/badminton/fixtures`}
+              className="group p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all flex flex-col justify-between"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <ListTree className="w-4 h-4" />
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-foreground">Draws & Brackets</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Knockout trees, round-robin pools & seeding
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-border/50 text-[11px] font-semibold text-primary">
+                View Draws →
+              </div>
+            </Link>
+
+            <Link
+              href={`/tournament/${tournamentId}/badminton/matches`}
+              className="group p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all flex flex-col justify-between"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-foreground">Matches & Scheduling</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Master match list, court assignments & start matches
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-border/50 text-[11px] font-semibold text-primary">
+                Manage Matches →
+              </div>
+            </Link>
+
+            <Link
+              href={`/tournament/${tournamentId}/badminton/results`}
+              className="group p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all flex flex-col justify-between"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <Trophy className="w-4 h-4" />
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-foreground">Results & Champions</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Completed scores, podium standings & summaries
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-border/50 text-[11px] font-semibold text-primary">
+                View Results →
+              </div>
+            </Link>
+          </div>
+        </section>
 
         {d.liveMatches?.length > 0 && (
           <section>

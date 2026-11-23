@@ -27,6 +27,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -1085,278 +1093,284 @@ export default function CricketFixturesPage() {
         )}
 
         {/* Modal: Create Playoff / Custom Match */}
-        {createOpen ? (
-          <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-5 space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-border/60">
-                <h3 className="font-bold text-base">Schedule Playoff / Custom Match</h3>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogContent className="max-w-md p-5 space-y-4">
+            <DialogHeader className="pb-2 border-b border-border/60 text-left">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="font-bold text-base">Schedule Playoff / Custom Match</DialogTitle>
                 <span className="text-xs text-muted-foreground">Custom Overs</span>
               </div>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Set round stage, rule preset, home/away teams, and venue for this fixture.
+              </DialogDescription>
+            </DialogHeader>
 
-              <div className="space-y-3 text-sm">
-                <div className="space-y-1.5">
-                  <Label>Round / Match Stage</Label>
-                  <Input
-                    value={createRoundName}
-                    onChange={(e) => setCreateRoundName(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Rules & Match Format
-                    </Label>
-                    <Link
-                      href={cricketRulesPath(tournamentId)}
-                      className="text-xs text-primary font-medium hover:underline inline-flex items-center gap-1"
-                    >
-                      <Settings className="w-3 h-3" />
-                      Manage Rules
-                    </Link>
-                  </div>
-                  {presets && presets.length > 0 ? (
-                    <Select
-                      value={createPresetId || (defaultPreset ? String(defaultPreset.id) : "")}
-                      onValueChange={handleSelectCreatePreset}
-                    >
-                      <SelectTrigger className="font-semibold text-foreground">
-                        <SelectValue placeholder="Select tournament rule preset" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {presets.map((p) => (
-                          <SelectItem key={p.id} value={String(p.id)}>
-                            {formatCricketRulePresetLabel(p, { isDefault: p.isDefault })}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="p-2.5 rounded-lg border border-border bg-card/40 text-xs text-muted-foreground flex items-center justify-between">
-                      <span>Using tournament default rules</span>
-                      <Link href={cricketRulesPath(tournamentId)} className="text-primary font-medium hover:underline">
-                        Configure Rules
-                      </Link>
-                    </div>
-                  )}
-                  {activeCreatePreset ? (
-                    <div className="p-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground/80 flex flex-wrap gap-2 items-center">
-                      <span className="font-bold text-amber-400">Rules applied:</span>
-                      <span>{resolveCricketRulePresetSummary(activeCreatePreset).overs} Overs</span>
-                      <span>•</span>
-                      <span>{resolveCricketRulePresetSummary(activeCreatePreset).wickets} Wickets</span>
-                      <span>•</span>
-                      <span>{resolveCricketRulePresetSummary(activeCreatePreset).squadSize} Players / Side</span>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Home Team</Label>
-                    <Select value={createHomeId} onValueChange={setCreateHomeId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Team" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {teams.map((t) => (
-                          <SelectItem key={t.id} value={String(t.id)}>
-                            {t.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Away Team</Label>
-                    <Select value={createAwayId} onValueChange={setCreateAwayId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Team" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {teams.map((t) => (
-                          <SelectItem key={t.id} value={String(t.id)}>
-                            {t.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Venue (Optional)</Label>
-                  <Input
-                    value={createVenue}
-                    onChange={(e) => setCreateVenue(e.target.value)}
-                  />
-                </div>
+            <div className="space-y-3 text-sm">
+              <div className="space-y-1.5">
+                <Label>Round / Match Stage</Label>
+                <Input
+                  value={createRoundName}
+                  onChange={(e) => setCreateRoundName(e.target.value)}
+                />
               </div>
 
-              <div className="flex gap-2 pt-2 border-t border-border/40">
-                <Button
-                  className="flex-1 font-bold"
-                  disabled={creating}
-                  onClick={handleCreateCustomMatch}
-                >
-                  {creating ? "Scheduling..." : "Schedule Match"}
-                </Button>
-                <Button variant="outline" onClick={() => setCreateOpen(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Modal: Edit Match Setup */}
-        {editMatch ? (
-          <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-5 space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-border/60">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-base">Edit Match Details</h3>
-                  <Badge variant="outline" className="text-[10px] capitalize font-semibold">
-                    {editMatch.status}
-                  </Badge>
-                </div>
-                <span className="text-xs text-muted-foreground">Match #{editMatch.id}</span>
-              </div>
-
-              {editMatch.status !== "scheduled" && editMatch.status !== "draft" ? (
-                <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-500">
-                  Editing a {editMatch.status} match updates display information and rules across all screens without resetting scored balls or player statistics.
-                </div>
-              ) : null}
-
-              <div className="space-y-3 text-sm">
-                <div className="space-y-1.5">
-                  <Label>Round / Match Stage</Label>
-                  <Input
-                    value={editRoundName}
-                    onChange={(e) => setEditRoundName(e.target.value)}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Home Team</Label>
-                    <Select value={editHomeId} onValueChange={setEditHomeId} disabled={editTeamsLocked}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Team" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {teams.map((t) => (
-                          <SelectItem key={t.id} value={String(t.id)} disabled={editAwayId === String(t.id)}>
-                            {t.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Away Team</Label>
-                    <Select value={editAwayId} onValueChange={setEditAwayId} disabled={editTeamsLocked}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Team" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {teams.map((t) => (
-                          <SelectItem key={t.id} value={String(t.id)} disabled={editHomeId === String(t.id)}>
-                            {t.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                {editTeamsLocked ? (
-                  <p className="text-[11px] text-amber-500">
-                    Teams stay locked after toss or once scoring has started.
-                  </p>
-                ) : null}
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Rules & Match Format
-                    </Label>
-                    {editMatch.startedAt ? (
-                      <span className="text-[10px] text-amber-500 font-semibold">Rules Locked (Scoring started)</span>
-                    ) : null}
-                  </div>
-                  <Select
-                    value={editPresetId}
-                    onValueChange={handleSelectEditPreset}
-                    disabled={Boolean(editMatch.startedAt)}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Rules & Match Format
+                  </Label>
+                  <Link
+                    href={cricketRulesPath(tournamentId)}
+                    className="text-xs text-primary font-medium hover:underline inline-flex items-center gap-1"
                   >
-                    <SelectTrigger className="font-medium text-foreground">
-                      <SelectValue placeholder="Tournament Default Preset" />
+                    <Settings className="w-3 h-3" />
+                    Manage Rules
+                  </Link>
+                </div>
+                {presets && presets.length > 0 ? (
+                  <Select
+                    value={createPresetId || (defaultPreset ? String(defaultPreset.id) : "")}
+                    onValueChange={handleSelectCreatePreset}
+                  >
+                    <SelectTrigger className="font-semibold text-foreground">
+                      <SelectValue placeholder="Select tournament rule preset" />
                     </SelectTrigger>
                     <SelectContent>
-                      {(presets ?? []).map((p) => (
+                      {presets.map((p) => (
                         <SelectItem key={p.id} value={String(p.id)}>
                           {formatCricketRulePresetLabel(p, { isDefault: p.isDefault })}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {activeEditPreset ? (
-                    <div className="p-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground/80 flex flex-wrap gap-2 items-center">
-                      <span className="font-bold text-amber-400">Rules applied:</span>
-                      <span>{resolveCricketRulePresetSummary(activeEditPreset).overs} Overs</span>
-                      <span>•</span>
-                      <span>{resolveCricketRulePresetSummary(activeEditPreset).wickets} Wickets</span>
-                      <span>•</span>
-                      <span>{resolveCricketRulePresetSummary(activeEditPreset).squadSize} Players / Side</span>
-                    </div>
-                  ) : null}
-                </div>
+                ) : (
+                  <div className="p-2.5 rounded-lg border border-border bg-card/40 text-xs text-muted-foreground flex items-center justify-between">
+                    <span>Using tournament default rules</span>
+                    <Link href={cricketRulesPath(tournamentId)} className="text-primary font-medium hover:underline">
+                      Configure Rules
+                    </Link>
+                  </div>
+                )}
+                {activeCreatePreset ? (
+                  <div className="p-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground/80 flex flex-wrap gap-2 items-center">
+                    <span className="font-bold text-amber-400">Rules applied:</span>
+                    <span>{resolveCricketRulePresetSummary(activeCreatePreset).overs} Overs</span>
+                    <span>•</span>
+                    <span>{resolveCricketRulePresetSummary(activeCreatePreset).wickets} Wickets</span>
+                    <span>•</span>
+                    <span>{resolveCricketRulePresetSummary(activeCreatePreset).squadSize} Players / Side</span>
+                  </div>
+                ) : null}
+              </div>
 
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Venue (Optional)</Label>
-                  <Input
-                    value={editVenue}
-                    onChange={(e) => setEditVenue(e.target.value)}
-                  />
+                  <Label>Home Team</Label>
+                  <Select value={createHomeId} onValueChange={setCreateHomeId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Team" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((t) => (
+                        <SelectItem key={t.id} value={String(t.id)}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-
                 <div className="space-y-1.5">
-                  <Label>Result / Display Summary</Label>
-                  <Input
-                    value={editResultSummary}
-                    onChange={(e) => setEditResultSummary(e.target.value)}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Custom text displayed on cards, scorecards, and overlays.
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Match Date & Time <span className="text-muted-foreground font-normal text-[11px]">(optional)</span></Label>
-                  <Input
-                    type="datetime-local"
-                    value={editScheduledAt}
-                    onChange={(e) => setEditScheduledAt(e.target.value)}
-                  />
+                  <Label>Away Team</Label>
+                  <Select value={createAwayId} onValueChange={setCreateAwayId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Team" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((t) => (
+                        <SelectItem key={t.id} value={String(t.id)}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2 border-t border-border/40">
-                <Button
-                  className="flex-1 font-bold"
-                  disabled={savingEdit}
-                  onClick={handleSaveEdit}
-                >
-                  {savingEdit ? "Saving..." : "Save Changes"}
-                </Button>
-                <Button variant="outline" onClick={() => setEditMatch(null)}>
-                  Cancel
-                </Button>
+              <div className="space-y-1.5">
+                <Label>Venue (Optional)</Label>
+                <Input
+                  value={createVenue}
+                  onChange={(e) => setCreateVenue(e.target.value)}
+                />
               </div>
             </div>
-          </div>
-        ) : null}
+
+            <DialogFooter className="flex gap-2 pt-2 border-t border-border/40 sm:justify-end">
+              <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="font-bold"
+                disabled={creating}
+                onClick={handleCreateCustomMatch}
+              >
+                {creating ? "Scheduling..." : "Schedule Match"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal: Edit Match Setup */}
+        <Dialog open={!!editMatch} onOpenChange={(open) => !open && setEditMatch(null)}>
+          <DialogContent className="max-w-md p-5 space-y-4">
+            <DialogHeader className="pb-2 border-b border-border/60 text-left">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <DialogTitle className="font-bold text-base">Edit Match Details</DialogTitle>
+                  <Badge variant="outline" className="text-[10px] capitalize font-semibold">
+                    {editMatch?.status}
+                  </Badge>
+                </div>
+                <span className="text-xs text-muted-foreground">Match #{editMatch?.id}</span>
+              </div>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Update stage, team allocation, preset rules, and scheduling context for this match.
+              </DialogDescription>
+            </DialogHeader>
+
+            {editMatch && editMatch.status !== "scheduled" && editMatch.status !== "draft" ? (
+              <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-500">
+                Editing a {editMatch.status} match updates display information and rules across all screens without resetting scored balls or player statistics.
+              </div>
+            ) : null}
+
+            <div className="space-y-3 text-sm">
+              <div className="space-y-1.5">
+                <Label>Round / Match Stage</Label>
+                <Input
+                  value={editRoundName}
+                  onChange={(e) => setEditRoundName(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Home Team</Label>
+                  <Select value={editHomeId} onValueChange={setEditHomeId} disabled={editTeamsLocked}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Team" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((t) => (
+                        <SelectItem key={t.id} value={String(t.id)} disabled={editAwayId === String(t.id)}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Away Team</Label>
+                  <Select value={editAwayId} onValueChange={setEditAwayId} disabled={editTeamsLocked}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Team" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((t) => (
+                        <SelectItem key={t.id} value={String(t.id)} disabled={editHomeId === String(t.id)}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {editTeamsLocked ? (
+                <p className="text-[11px] text-amber-500">
+                  Teams stay locked after toss or once scoring has started.
+                </p>
+              ) : null}
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Rules & Match Format
+                  </Label>
+                  {editMatch?.startedAt ? (
+                    <span className="text-[10px] text-amber-500 font-semibold">Rules Locked (Scoring started)</span>
+                  ) : null}
+                </div>
+                <Select
+                  value={editPresetId}
+                  onValueChange={handleSelectEditPreset}
+                  disabled={Boolean(editMatch?.startedAt)}
+                >
+                  <SelectTrigger className="font-medium text-foreground">
+                    <SelectValue placeholder="Tournament Default Preset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(presets ?? []).map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {formatCricketRulePresetLabel(p, { isDefault: p.isDefault })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {activeEditPreset ? (
+                  <div className="p-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground/80 flex flex-wrap gap-2 items-center">
+                    <span className="font-bold text-amber-400">Rules applied:</span>
+                    <span>{resolveCricketRulePresetSummary(activeEditPreset).overs} Overs</span>
+                    <span>•</span>
+                    <span>{resolveCricketRulePresetSummary(activeEditPreset).wickets} Wickets</span>
+                    <span>•</span>
+                    <span>{resolveCricketRulePresetSummary(activeEditPreset).squadSize} Players / Side</span>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Venue (Optional)</Label>
+                <Input
+                  value={editVenue}
+                  onChange={(e) => setEditVenue(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Result / Display Summary</Label>
+                <Input
+                  value={editResultSummary}
+                  onChange={(e) => setEditResultSummary(e.target.value)}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Custom text displayed on cards, scorecards, and overlays.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Match Date & Time <span className="text-muted-foreground font-normal text-[11px]">(optional)</span></Label>
+                <Input
+                  type="datetime-local"
+                  value={editScheduledAt}
+                  onChange={(e) => setEditScheduledAt(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="flex gap-2 pt-2 border-t border-border/40 sm:justify-end">
+              <Button variant="outline" onClick={() => setEditMatch(null)}>
+                Cancel
+              </Button>
+              <Button
+                className="font-bold"
+                disabled={savingEdit}
+                onClick={handleSaveEdit}
+              >
+                {savingEdit ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Modal: Confirm Delete Match (Pre-toss only) */}
         <AlertDialog open={!!matchToDelete} onOpenChange={(open) => !open && setMatchToDelete(null)}>

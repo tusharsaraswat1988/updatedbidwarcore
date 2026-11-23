@@ -22,6 +22,7 @@ import {
   hubPanelClass,
 } from "@/components/scoring/cricket-page-chrome";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { StandingsTable } from "@/components/scoring/standings-table";
 import {
   competitionGroupTitle,
@@ -49,12 +50,15 @@ import {
 import { sportsMissionControlPath } from "@workspace/api-base/scoring-urls";
 import {
   AlertTriangle,
+  ArrowRight,
   Award,
   BarChart3,
   Calendar,
   CalendarDays,
   CheckCircle2,
+  Clock,
   LayoutDashboard,
+  Plus,
   Radio,
   ShieldCheck,
   Trophy,
@@ -183,8 +187,12 @@ export default function CricketDashboardPage() {
             <BtnSecondary href={sportsMissionControlPath(tournamentId)} className={btnCompactClass}>
               Setup & Readiness
             </BtnSecondary>
-            <BtnPrimary href={cricketScoreHubPath(tournamentId)} className={btnCompactClass}>
+            <BtnSecondary href={cricketScoreHubPath(tournamentId)} className={btnCompactClass}>
               Open Matches
+            </BtnSecondary>
+            <BtnPrimary href={cricketFixturesPath(tournamentId)} className={btnCompactClass}>
+              <Plus className="w-4 h-4" />
+              Create Match
             </BtnPrimary>
           </div>
         }
@@ -226,11 +234,14 @@ export default function CricketDashboardPage() {
                           href={item.href}
                           className={cn(
                             hubPanelClass,
-                            "flex items-start gap-3 hover:border-primary/30 transition-colors",
+                            "flex items-start gap-3 border-l-4 border-l-amber-500 bg-amber-500/5 hover:border-primary/50 transition-colors p-3.5",
                           )}
                         >
                           <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                          <span className="text-sm text-foreground">{item.message}</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium text-foreground">{item.message}</span>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0 self-center" />
                         </a>
                       </li>
                     ) : (
@@ -239,11 +250,14 @@ export default function CricketDashboardPage() {
                           href={item.href}
                           className={cn(
                             hubPanelClass,
-                            "flex items-start gap-3 hover:border-primary/30 transition-colors",
+                            "flex items-start gap-3 border-l-4 border-l-amber-500 bg-amber-500/5 hover:border-primary/50 transition-colors p-3.5",
                           )}
                         >
                           <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                          <span className="text-sm text-foreground">{item.message}</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium text-foreground">{item.message}</span>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0 self-center" />
                         </Link>
                       </li>
                     ),
@@ -253,32 +267,103 @@ export default function CricketDashboardPage() {
             ) : null}
 
             <section>
-              <HubSectionHeader
-                title="Today's matches"
-                subtitle={todayMatches.length ? undefined : "Nothing scheduled for today"}
-              />
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <HubSectionHeader
+                  title="Today's matches"
+                  subtitle={todayMatches.length ? `${todayMatches.length} match${todayMatches.length === 1 ? "" : "es"} active today` : "Nothing scheduled for today"}
+                />
+                {todayMatches.length > 0 ? (
+                  <Link
+                    href={cricketFixturesPath(tournamentId)}
+                    className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                  >
+                    View All Fixtures <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                ) : null}
+              </div>
               {todayMatches.length === 0 ? (
-                <p className="text-sm text-muted-foreground mt-2">No matches today.</p>
+                <div className="mt-3 p-6 rounded-xl border border-border bg-card text-center space-y-2">
+                  <p className="text-sm text-muted-foreground">No matches scheduled for today.</p>
+                  <Link
+                    href={cricketFixturesPath(tournamentId)}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Schedule a match
+                  </Link>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                   {todayMatches.map((m) => {
                     const home = teamMap.get(m.homeTeamId);
                     const away = teamMap.get(m.awayTeamId);
+                    const isMatchLive = m.status === "live";
+                    const isMatchCompleted = isTerminalCricketMatchStatus(m.status);
                     return (
                       <Link
                         key={m.id}
                         href={`/tournament/${tournamentId}/score/${m.id}`}
-                        className={cn(hubCardClass, "p-4 block hover:border-primary/30")}
+                        className={cn(
+                          hubCardClass,
+                          "p-4 block transition-all group relative hover:border-primary/50 hover:shadow-xs",
+                          isMatchLive && "border-red-500/40 bg-red-500/[0.02]",
+                        )}
                       >
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1 capitalize">
-                          {m.status}
-                        </p>
-                        <p className="font-display font-bold text-foreground">
-                          {home?.shortCode ?? "Home"} vs {away?.shortCode ?? "Away"}
-                        </p>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="text-xs text-muted-foreground font-mono">
+                            Match #{m.tournamentMatchNumber ?? m.id}
+                            {m.roundName ? ` · ${m.roundName}` : ""}
+                          </span>
+                          {isMatchLive ? (
+                            <Badge variant="destructive" className="animate-pulse text-[10px] font-bold tracking-wider uppercase">
+                              ● LIVE
+                            </Badge>
+                          ) : isMatchCompleted ? (
+                            <Badge variant="secondary" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-semibold">
+                              Completed
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] font-semibold text-muted-foreground">
+                              {m.status}
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 py-1">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-display font-bold text-base text-foreground group-hover:text-primary transition-colors truncate">
+                              {home?.name ?? "Home Team"}
+                            </p>
+                            <p className="text-xs text-muted-foreground font-mono font-semibold">
+                              {home?.shortCode ?? "H"}
+                            </p>
+                          </div>
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground shrink-0">
+                            vs
+                          </span>
+                          <div className="flex-1 min-w-0 text-right">
+                            <p className="font-display font-bold text-base text-foreground group-hover:text-primary transition-colors truncate">
+                              {away?.name ?? "Away Team"}
+                            </p>
+                            <p className="text-xs text-muted-foreground font-mono font-semibold">
+                              {away?.shortCode ?? "A"}
+                            </p>
+                          </div>
+                        </div>
+
                         {m.resultSummary ? (
-                          <p className="text-xs text-muted-foreground mt-1">{m.resultSummary}</p>
-                        ) : null}
+                          <div className="mt-2.5 pt-2 border-t border-border/50 text-xs font-medium text-muted-foreground">
+                            {m.resultSummary}
+                          </div>
+                        ) : m.venue ? (
+                          <div className="mt-2.5 pt-2 border-t border-border/50 text-xs text-muted-foreground flex items-center justify-between">
+                            <span>Ground: {m.venue}</span>
+                            <span className="text-[11px] text-primary group-hover:underline">Open Match Center →</span>
+                          </div>
+                        ) : (
+                          <div className="mt-2.5 pt-2 border-t border-border/50 text-xs text-muted-foreground flex items-center justify-end">
+                            <span className="text-[11px] text-primary group-hover:underline">Open Match Center →</span>
+                          </div>
+                        )}
                       </Link>
                     );
                   })}
@@ -287,9 +372,17 @@ export default function CricketDashboardPage() {
             </section>
 
             <section>
-              <HubSectionHeader title="Upcoming" />
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <HubSectionHeader title="Upcoming matches" subtitle="Scheduled timetable" />
+                <Link
+                  href={cricketScheduleOpsPath(tournamentId)}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  Schedule Operations →
+                </Link>
+              </div>
               {upcoming.length === 0 ? (
-                <p className="text-sm text-muted-foreground mt-2">No upcoming matches.</p>
+                <p className="text-sm text-muted-foreground mt-2">No upcoming matches scheduled.</p>
               ) : (
                 <ul className="mt-3 space-y-2">
                   {upcoming.map((m) => {
@@ -299,19 +392,33 @@ export default function CricketDashboardPage() {
                       <li key={m.id}>
                         <Link
                           href={`/tournament/${tournamentId}/score/${m.id}`}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 hover:border-primary/30"
+                          className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:border-primary/50 hover:shadow-xs transition-all group"
                         >
-                          <span className="text-sm font-medium">
-                            {home?.shortCode ?? "Home"} vs {away?.shortCode ?? "Away"}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {m.scheduledAt
-                              ? new Date(m.scheduledAt).toLocaleString(undefined, {
-                                  dateStyle: "short",
-                                  timeStyle: "short",
-                                })
-                              : "Unscheduled"}
-                          </span>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="text-xs font-mono text-muted-foreground shrink-0">
+                              #{m.tournamentMatchNumber ?? m.id}
+                            </span>
+                            <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                              {home?.shortCode ?? "Home"} vs {away?.shortCode ?? "Away"}
+                            </span>
+                            {m.venue ? (
+                              <span className="hidden sm:inline-block text-xs text-muted-foreground truncate">
+                                · {m.venue}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                              {m.scheduledAt
+                                ? new Date(m.scheduledAt).toLocaleString(undefined, {
+                                    dateStyle: "short",
+                                    timeStyle: "short",
+                                  })
+                                : "Unscheduled"}
+                            </span>
+                            <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                          </div>
                         </Link>
                       </li>
                     );

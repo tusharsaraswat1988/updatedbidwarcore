@@ -26,7 +26,20 @@ import { SportsUnavailableView } from "@/components/sports-unavailable-view";
 import { getSportCapabilities } from "@/lib/sport-capabilities";
 import { sportsMissionControlPath } from "@/lib/tournament-navigation";
 import { BtnPrimary, BtnSecondary, btnCompactClass } from "@/components/sports-ui/sports-page-chrome";
-import { ArrowRight, Radio } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  ArrowRight,
+  Radio,
+  CalendarDays,
+  Users,
+  Settings2,
+  CheckCircle2,
+  ShieldCheck,
+  ExternalLink,
+  Activity,
+  Layers,
+} from "lucide-react";
+import { Link } from "wouter";
 
 export default function SportsMissionControlPage() {
   const [, params] = useRoute("/tournament/:id/mission-control");
@@ -269,6 +282,146 @@ function TournamentDashboardBody({
             onOpenScoring={handleContinue}
           />
         ) : null}
+
+        {/* Operational Quick-Jump Navigation Cards & Readiness */}
+        <section className="space-y-3 pt-2" aria-labelledby="mc-quick-jump-heading">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-[11px] font-bold tracking-[0.14em] uppercase text-muted-foreground">
+                Operational Modules
+              </p>
+              <h3 id="mc-quick-jump-heading" className="text-lg font-bold text-foreground">
+                Quick-Jump Operations & Control
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border",
+                  presenter.mode === "ready"
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+                    : "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400",
+                )}
+              >
+                {presenter.mode === "ready" ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Ready for Match Day
+                  </>
+                ) : (
+                  <>
+                    <Activity className="w-3.5 h-3.5" />
+                    Setup In Progress
+                  </>
+                )}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Fixtures & Draws */}
+            {capabilities.missionControlDestinations?.fixtures ? (
+              <Link
+                href={capabilities.missionControlDestinations.fixtures(tournamentId)}
+                className="group p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all flex flex-col justify-between"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                      <CalendarDays className="w-4 h-4" />
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-foreground">Fixtures & Draws</h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Schedule matches, pools, and venue allocations
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 pt-2.5 border-t border-border/50 text-[11px] font-semibold text-primary">
+                  Open Fixtures →
+                </div>
+              </Link>
+            ) : null}
+
+            {/* Live Operations & Match Center */}
+            <Link
+              href={presenter.scoring.href ?? (capabilities.missionControlDestinations?.scoring ? capabilities.missionControlDestinations.scoring(tournamentId) : "#")}
+              className="group p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all flex flex-col justify-between"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <Radio className="w-4 h-4" />
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-foreground">Live Match Operations</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Live scorer consoles, scorebugs & supervisor controls
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-border/50 text-[11px] font-semibold text-primary">
+                Open Live Ops →
+              </div>
+            </Link>
+
+            {/* Teams & Squads */}
+            {capabilities.missionControlDestinations?.teams ? (
+              <Link
+                href={capabilities.missionControlDestinations.teams(tournamentId)}
+                className="group p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all flex flex-col justify-between"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-foreground">Teams & Players</h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Rosters, playing XI, player tags & readiness
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 pt-2.5 border-t border-border/50 text-[11px] font-semibold text-primary">
+                  Manage Teams →
+                </div>
+              </Link>
+            ) : null}
+
+            {/* Rules & Formats */}
+            {capabilities.missionControlDestinations?.tournament ? (
+              <Link
+                href={capabilities.missionControlDestinations.tournament(tournamentId)}
+                className="group p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all flex flex-col justify-between"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                      <Settings2 className="w-4 h-4" />
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-foreground">Rules & Formats</h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Scoring rules, overs/games & regulations
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 pt-2.5 border-t border-border/50 text-[11px] font-semibold text-primary">
+                  Configure Rules →
+                </div>
+              </Link>
+            ) : null}
+          </div>
+        </section>
 
         {showFocusedWorkspace ? (
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

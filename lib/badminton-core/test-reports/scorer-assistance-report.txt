@@ -1,5 +1,5 @@
 SCORER ASSISTANCE TEST REPORT
-Generated: 2026-11-22T21:59:54.467Z
+Generated: 2026-11-23T03:48:24.332Z
 
 1. [PASS] Singles server label
    Expected Abhinav Keshri, got Abhinav Keshri

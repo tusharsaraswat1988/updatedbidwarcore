@@ -26,20 +26,13 @@ import {
 /** Shared form tokens — inherits BidWar design system */
 
 export const inputClass =
-
-  "w-full h-11 px-3.5 rounded-lg bg-background border border-border text-foreground text-sm placeholder:text-muted-foreground shadow-xs transition-colors focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/15 disabled:opacity-50 disabled:cursor-not-allowed";
-
-
+  "w-full h-11 px-3.5 rounded-lg bg-background border border-border text-foreground text-sm placeholder:text-muted-foreground shadow-xs transition-colors focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed";
 
 export const labelClass =
-
   "block text-muted-foreground text-xs font-semibold mb-2 uppercase tracking-wider";
 
-
-
 export const selectTriggerClass =
-
-  "h-11 w-full rounded-lg border-border bg-background text-foreground text-sm shadow-xs focus:ring-2 focus:ring-primary/15 focus:border-primary/50 data-[placeholder]:text-muted-foreground";
+  "h-11 w-full rounded-lg border border-border bg-background text-foreground text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background data-[placeholder]:text-muted-foreground";
 
 
 
@@ -100,7 +93,7 @@ export function HubPageShell({
   }
 
   if (!tournamentId) {
-    return <div className={cn("min-h-screen bg-background dark", className)}>{children}</div>;
+    return <div className={cn("min-h-screen bg-background text-foreground", className)}>{children}</div>;
   }
 
   return (
@@ -611,14 +604,14 @@ export function PickerTrigger({
 
 /** Primary CTA — filled gold surface; always reads as clickable. */
 export const btnPrimaryClass =
-  "gold-button gold-button-hover inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground border border-primary-border min-h-11 px-4 py-2.5 font-semibold text-sm shadow-[var(--shadow-glow)] hover-elevate active-elevate-2 disabled:opacity-50 disabled:pointer-events-none transition-all";
+  "gold-button gold-button-hover inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground border border-primary-border min-h-11 px-4 py-2.5 font-semibold text-sm shadow-[var(--shadow-glow)] hover-elevate active-elevate-2 disabled:opacity-50 disabled:pointer-events-none transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background cursor-pointer";
 
 /**
  * Secondary CTA — solid raised chip (not ghost/outline).
  * Do NOT use `.ghost-button` here — that class forces a near-transparent fill.
  */
 export const btnSecondaryClass =
-  "inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-muted text-foreground min-h-11 px-4 py-2.5 font-semibold text-sm shadow-sm hover:bg-muted/80 hover:border-foreground/25 active:bg-muted/70 disabled:opacity-50 disabled:pointer-events-none transition-colors";
+  "inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card text-foreground min-h-11 px-4 py-2.5 font-semibold text-sm shadow-xs hover:bg-muted/80 hover:border-foreground/25 active:bg-muted/70 disabled:opacity-50 disabled:pointer-events-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background cursor-pointer";
 
 /** Compact toolbar / card action size. */
 export const btnCompactClass = "min-h-9 h-9 px-3.5 text-xs";

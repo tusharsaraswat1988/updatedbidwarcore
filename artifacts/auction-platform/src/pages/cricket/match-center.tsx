@@ -92,16 +92,29 @@ import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import {
   AlertTriangle,
+  Award,
+  Calendar,
+  Check,
+  CheckCircle2,
+  Clock,
+  Copy,
   Download,
   Edit2,
   ExternalLink,
+  Flame,
+  Layers,
   Monitor,
   MoreVertical,
+  Plus,
   Printer,
   Radio,
+  Shield,
+  ShieldCheck,
+  Sparkles,
   Trash2,
   Trophy,
   Tv,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -233,6 +246,28 @@ export default function CricketMatchCenterPage() {
   }
   const isLive = data?.match.status === "live";
   const isFinished = data ? isTerminalCricketMatchStatus(data.match.status) : false;
+
+  const [activeZone, setActiveZone] = useState<"pre" | "live" | "post">(
+    data?.match.status === "live"
+      ? "live"
+      : data && isTerminalCricketMatchStatus(data.match.status)
+        ? "post"
+        : "pre",
+  );
+  const [copiedPin, setCopiedPin] = useState(false);
+
+  function handleCopyPin() {
+    const pin = data?.match.scorerPin ?? "0000";
+    if (navigator?.clipboard?.writeText) {
+      void navigator.clipboard.writeText(String(pin));
+    }
+    setCopiedPin(true);
+    toast({
+      title: "Scorer PIN Copied",
+      description: `Scorer PIN ${pin} copied to clipboard for match officials`,
+    });
+    setTimeout(() => setCopiedPin(false), 2000);
+  }
 
   const summary = useMemo(() => {
     if (!data) return null;
@@ -451,201 +486,487 @@ export default function CricketMatchCenterPage() {
           />
         </section>
 
-        {/* Primary Actions & Share */}
-        <section className="space-y-3">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <HubSectionHeader title="Match Actions" subtitle="Scoring, public view & fan scorecard" />
-            <ShareButtons
-              url={publicMatchUrl}
-              shareText={`${home?.name ?? "Home"} vs ${away?.name ?? "Away"}`}
-            />
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
-            {/* 1. Scorer Pad */}
-            <a
-              href={scorerHref}
-              className="flex items-center gap-3 p-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold transition-all shadow-md shadow-amber-400/20"
-            >
-              <Radio className="w-5 h-5 shrink-0" />
-              <div>
-                <div className="text-sm leading-tight">Open Scorer / Umpire Pad</div>
-                <div className="text-[11px] opacity-80 font-normal">Toss, lineups & ball-by-ball scoring</div>
-              </div>
-            </a>
-
-            {/* 2. Public Match View */}
-            <a
-              href={cricketMatchPublicPath(tournamentId, matchId)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(hubPanelClass, "flex items-center gap-3 p-3.5 hover:border-primary/40 transition-all")}
-            >
-              <ExternalLink className="w-5 h-5 text-primary shrink-0" />
-              <div>
-                <div className="text-sm font-bold text-foreground leading-tight">Public Match Page</div>
-                <div className="text-[11px] text-muted-foreground font-normal">Live scorecard & ball replay</div>
-              </div>
-            </a>
-
-            {/* 3. Print / PDF */}
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className={cn(hubPanelClass, "flex items-center gap-3 p-3.5 hover:border-primary/40 text-left transition-all")}
-            >
-              <Printer className="w-5 h-5 text-emerald-400 shrink-0" />
-              <div>
-                <div className="text-sm font-bold text-foreground leading-tight">Print Official Scorecard</div>
-                <div className="text-[11px] text-muted-foreground font-normal">Download printable PDF match sheet</div>
-              </div>
-            </button>
-          </div>
-        </section>
-
-        {/* Timeline */}
-        <section>
-          <HubSectionHeader title="Timeline" subtitle="From existing match state and scorecard" />
-          {timeline.length === 0 ? (
-            <p className="text-sm text-muted-foreground mt-3">
-              Timeline fills as toss, XI, and balls are recorded on Scorer.
-            </p>
-          ) : (
-            <ol className="mt-3 space-y-2 border-l border-border ml-2 pl-4">
-              {timeline.map((item) => (
-                <li key={item.id} className="relative">
-                  <span className="absolute -left-[1.35rem] top-1.5 h-2 w-2 rounded-full bg-primary" />
-                  <p className="text-sm font-semibold text-foreground">{item.label}</p>
-                  {item.detail ? (
-                    <p className="text-xs text-muted-foreground">{item.detail}</p>
-                  ) : null}
-                  {item.at ? (
-                    <p className="text-[11px] text-muted-foreground/80">
-                      {new Date(item.at).toLocaleString()}
-                    </p>
-                  ) : null}
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
-
-        {/* Live scorecard — reuse ScorecardView */}
-        <section className="print:break-before-page">
-          <HubSectionHeader title="Scorecard" subtitle="Same projection as the public scorecard" />
-          <div className="mt-3">
-            {scorecard ? (
-              <ScorecardView data={scorecard} tournamentId={tournamentId} />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Scorecard appears once scoring has started.
-              </p>
+        {/* Operational Zone Navigation */}
+        <div className="flex border-b border-border bg-card rounded-xl p-1 gap-1 shadow-xs overflow-x-auto print:hidden">
+          <button
+            type="button"
+            onClick={() => setActiveZone("pre")}
+            className={cn(
+              "flex-1 min-w-[140px] py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer",
+              activeZone === "pre"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
             )}
-          </div>
-        </section>
+          >
+            <Users className="w-4 h-4" />
+            <span>1. Pre-Match Setup</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveZone("live")}
+            className={cn(
+              "flex-1 min-w-[140px] py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer",
+              activeZone === "live"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+            )}
+          >
+            <Radio className="w-4 h-4" />
+            <span>2. Live Supervision</span>
+            {isLive ? (
+              <span className="h-2 w-2 rounded-full bg-red-600 animate-pulse ml-0.5" />
+            ) : null}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveZone("post")}
+            className={cn(
+              "flex-1 min-w-[140px] py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer",
+              activeZone === "post"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+            )}
+          >
+            <Trophy className="w-4 h-4" />
+            <span>3. Post-Match Finalisation</span>
+            {isFinished ? (
+              <span className="h-2 w-2 rounded-full bg-emerald-600 ml-0.5" />
+            ) : null}
+          </button>
+        </div>
 
-        {/* Match summary — reuse MatchSummaryCard */}
-        {summary ? (
-          <section>
-            <HubSectionHeader title="Match summary" />
-            <div className="mt-3 space-y-3">
-              <MatchSummaryCard summary={summary} teams={teams} />
-              <div className={cn(hubPanelClass, "grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm")}>
-                {scorecard?.manOfTheMatch ? (
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Player of Match</p>
-                    <p className="font-semibold">{scorecard.manOfTheMatch.playerName}</p>
+        {/* ─── ZONE 1: PRE-MATCH SETUP ─── */}
+        {activeZone === "pre" ? (
+          <div className="space-y-6">
+            {/* Toss Entry & Status */}
+            <section className={cn(hubCardClass, "p-4 sm:p-5 space-y-3")}>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <HubSectionHeader
+                  title="Toss Status & Decision"
+                  subtitle="Toss outcome determines batting and bowling positions"
+                />
+                <Badge
+                  variant={state.tossWinnerTeamId != null ? "secondary" : "outline"}
+                  className={cn(
+                    state.tossWinnerTeamId != null
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {state.tossWinnerTeamId != null ? "Toss Recorded" : "Toss Pending"}
+                </Badge>
+              </div>
+
+              {state.tossWinnerTeamId != null && state.electedTo ? (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex items-center gap-3">
+                  <div className="p-2.5 rounded-lg bg-emerald-500/15 shrink-0">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                ) : null}
-                {duration ? (
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Duration</p>
-                    <p className="font-semibold">{duration}</p>
-                  </div>
-                ) : null}
-                {(officials?.length ?? 0) > 0 ? (
-                  <div className="sm:col-span-2">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Officials</p>
-                    <p className="font-semibold">
-                      {(officials ?? []).map((o) => `${o.name} (${o.role})`).join(" · ")}
+                    <p className="text-sm font-bold text-foreground">
+                      {teamMap.get(state.tossWinnerTeamId)?.name ?? "Toss Winner"} won the toss and elected to{" "}
+                      <span className="uppercase text-primary font-mono">{state.electedTo}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Decision confirmed. Batting and bowling orders are locked into live match scoring.
                     </p>
                   </div>
-                ) : null}
-              </div>
-            </div>
-          </section>
-        ) : null}
-
-        {/* Stats snapshot from this match scorecard */}
-        {stats.length > 0 ? (
-          <section>
-            <HubSectionHeader title="Statistics snapshot" subtitle="From this match scorecard" />
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 mt-3">
-              {stats.map((s) => (
-                <div key={s.label} className={cn(hubCardClass, "p-3")}>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</p>
-                  <p className="text-sm font-semibold truncate mt-1">{s.playerName}</p>
-                  <p className="text-lg font-display font-bold text-primary tabular-nums">{s.value}</p>
                 </div>
-              ))}
-            </div>
-          </section>
+              ) : (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        Toss has not yet been conducted
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Conduct the toss at the pitch, then record it on the Scorer Console or through Match Officials.
+                      </p>
+                    </div>
+                  </div>
+                  <BtnPrimary href={scorerHref} className={cn(btnCompactClass, "shrink-0")}>
+                    <Radio className="w-4 h-4" />
+                    Conduct Toss on Scorer Pad
+                  </BtnPrimary>
+                </div>
+              )}
+            </section>
+
+            {/* Squads & Playing XI Review */}
+            <section className="space-y-3">
+              <HubSectionHeader
+                title="Playing XI & Squad Lineups"
+                subtitle="Players submitted by team management for this match"
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Home Team Lineup */}
+                <div className={cn(hubCardClass, "p-4 space-y-3")}>
+                  <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-foreground">{home?.name ?? "Home Team"}</span>
+                      <span className="text-xs text-muted-foreground font-mono">({home?.shortCode ?? "H"})</span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">
+                      {((state.lineups?.[data.match.homeTeamId] ?? []).length > 0)
+                        ? `${(state.lineups?.[data.match.homeTeamId] ?? []).length} Confirmed`
+                        : "Squad Pending"}
+                    </Badge>
+                  </div>
+                  {((state.lineups?.[data.match.homeTeamId] ?? []).length > 0) ? (
+                    <ol className="space-y-1.5 text-xs">
+                      {(state.lineups?.[data.match.homeTeamId] ?? []).map((pId: number, idx: number) => (
+                        <li key={pId} className="flex items-center justify-between py-1 border-b border-border/30 last:border-0">
+                          <span className="text-muted-foreground font-mono w-5">{idx + 1}.</span>
+                          <span className="font-medium text-foreground flex-1 truncate">{playerName(pId)}</span>
+                          {captainLabel(data.match.homeTeamId) === playerName(pId) ? (
+                            <Badge variant="secondary" className="text-[9px] py-0 px-1 font-bold">C</Badge>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <p className="text-xs text-muted-foreground py-4 text-center">
+                      Playing XI lineup will be locked when the scorer initiates the match.
+                    </p>
+                  )}
+                </div>
+
+                {/* Away Team Lineup */}
+                <div className={cn(hubCardClass, "p-4 space-y-3")}>
+                  <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-foreground">{away?.name ?? "Away Team"}</span>
+                      <span className="text-xs text-muted-foreground font-mono">({away?.shortCode ?? "A"})</span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">
+                      {((state.lineups?.[data.match.awayTeamId] ?? []).length > 0)
+                        ? `${(state.lineups?.[data.match.awayTeamId] ?? []).length} Confirmed`
+                        : "Squad Pending"}
+                    </Badge>
+                  </div>
+                  {((state.lineups?.[data.match.awayTeamId] ?? []).length > 0) ? (
+                    <ol className="space-y-1.5 text-xs">
+                      {(state.lineups?.[data.match.awayTeamId] ?? []).map((pId: number, idx: number) => (
+                        <li key={pId} className="flex items-center justify-between py-1 border-b border-border/30 last:border-0">
+                          <span className="text-muted-foreground font-mono w-5">{idx + 1}.</span>
+                          <span className="font-medium text-foreground flex-1 truncate">{playerName(pId)}</span>
+                          {captainLabel(data.match.awayTeamId) === playerName(pId) ? (
+                            <Badge variant="secondary" className="text-[9px] py-0 px-1 font-bold">C</Badge>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <p className="text-xs text-muted-foreground py-4 text-center">
+                      Playing XI lineup will be locked when the scorer initiates the match.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {/* Match Officials & Ground Conditions */}
+            <section className={cn(hubPanelClass, "space-y-3")}>
+              <HubSectionHeader title="Match Conditions & Officials" />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                <div>
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider block">Overs Limit</span>
+                  <span className="font-semibold">{data.match.rules?.overs ?? 6} Overs per inning</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider block">Ground / Venue</span>
+                  <span className="font-semibold">{data.match.venue || "Default Ground"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider block">Assigned Officials</span>
+                  <span className="font-semibold">
+                    {(officials?.length ?? 0) > 0
+                      ? (officials ?? []).map((o) => o.name).join(", ")
+                      : "Officials TBD"}
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* Danger Zone: Match Removal (Pre-toss / Scheduled Only) */}
+            {data.match.status !== "completed" && data.match.status !== "abandoned" ? (
+              <section className="rounded-xl border border-destructive/25 bg-destructive/[0.03] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-destructive flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4" />
+                    Danger Zone: Delete Match #{data.match.tournamentMatchNumber ?? matchId}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Pre-toss fixtures can be removed if no balls have been bowled. This action cannot be undone.
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDeleteOpen(true)}
+                  className="shrink-0 cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4 mr-1.5" />
+                  Delete Match
+                </Button>
+              </section>
+            ) : null}
+          </div>
         ) : null}
 
-        {/* Downloads + public links */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <HubSectionHeader title="Downloads" />
-            <ul className="mt-3 space-y-2 text-sm">
-              <li>
+        {/* ─── ZONE 2: LIVE SUPERVISION ─── */}
+        {activeZone === "live" ? (
+          <div className="space-y-6">
+            {/* Scorer Console Access Card with PIN copy */}
+            <section className="rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-primary">
+                    Live Match Console Access
+                  </span>
+                  <h3 className="text-lg font-bold text-foreground">
+                    Dedicated Scorer & Umpire Terminal
+                  </h3>
+                  <p className="text-xs text-muted-foreground max-w-xl">
+                    Open the touch-optimized scoring console to log balls, boundaries, wickets, and extras in real time.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Scorer PIN copy block */}
+                  <div className="flex items-center gap-2 bg-card border border-border px-3 py-1.5 rounded-lg shadow-xs">
+                    <span className="text-xs text-muted-foreground">Scorer PIN:</span>
+                    <span className="font-mono font-bold text-sm text-foreground tracking-wider">
+                      {data.match.scorerPin ?? "0000"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyPin}
+                      className="p-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      title="Copy Scorer PIN"
+                      aria-label="Copy Scorer PIN"
+                    >
+                      {copiedPin ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+
+                  <a
+                    href={scorerHref}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground font-bold text-sm h-10 px-4 shadow-xs hover-elevate active-elevate-2 transition-all cursor-pointer"
+                  >
+                    <Radio className="w-4 h-4" />
+                    Open Scorer Pad
+                  </a>
+                </div>
+              </div>
+
+              {/* Broadcast triggers and public match quick links */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-border/50">
+                <a
+                  href={liveControlHref}
+                  className={cn(hubPanelClass, "flex items-center gap-3 p-3 hover:border-primary/40 transition-all")}
+                >
+                  <Tv className="w-4 h-4 text-primary shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-foreground truncate">Live Control & OBS</p>
+                    <p className="text-[10px] text-muted-foreground truncate">Manage broadcast overlays</p>
+                  </div>
+                </a>
+
                 <button
                   type="button"
-                  className="text-primary font-semibold hover:underline"
-                  onClick={() => window.print()}
+                  onClick={() => openScoreDisplay(tournamentId)}
+                  className={cn(hubPanelClass, "flex items-center gap-3 p-3 hover:border-primary/40 text-left transition-all cursor-pointer")}
                 >
-                  Print / save PDF scorecard
+                  <Monitor className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-foreground truncate">LED Arena Display</p>
+                    <p className="text-[10px] text-muted-foreground truncate">Open venue score screen</p>
+                  </div>
                 </button>
-              </li>
-              <li>
+
                 <a
                   href={cricketMatchPublicPath(tournamentId, matchId)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary font-semibold hover:underline"
+                  className={cn(hubPanelClass, "flex items-center gap-3 p-3 hover:border-primary/40 transition-all")}
                 >
-                  Open public scorecard (print from there)
+                  <ExternalLink className="w-4 h-4 text-primary shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-foreground truncate">Fan Scorecard</p>
+                    <p className="text-[10px] text-muted-foreground truncate">Public ball-by-ball web view</p>
+                  </div>
                 </a>
-              </li>
-            </ul>
+              </div>
+            </section>
+
+            {/* Ball-by-Ball Live Timeline Stream */}
+            <section className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <HubSectionHeader title="Live Event Timeline" subtitle="Authoritative match events stream" />
+                <span className="text-xs text-muted-foreground font-mono">
+                  {timeline.length} event{timeline.length === 1 ? "" : "s"} recorded
+                </span>
+              </div>
+              {timeline.length === 0 ? (
+                <div className="p-6 rounded-xl border border-border bg-card text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Timeline stream activates once toss, lineups, and balls are entered on Scorer Pad.
+                  </p>
+                </div>
+              ) : (
+                <ol className="space-y-2 border-l border-border ml-2 pl-4">
+                  {timeline.map((item) => (
+                    <li key={item.id} className="relative">
+                      <span className="absolute -left-[1.35rem] top-1.5 h-2 w-2 rounded-full bg-primary" />
+                      <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                      {item.detail ? (
+                        <p className="text-xs text-muted-foreground">{item.detail}</p>
+                      ) : null}
+                      {item.at ? (
+                        <p className="text-[11px] text-muted-foreground/80">
+                          {new Date(item.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+
+            {/* Live Scorecard Preview */}
+            <section className="space-y-3">
+              <HubSectionHeader title="Live Scorecard Preview" subtitle="Synchronized with live ball scoring" />
+              <div className="mt-2">
+                {scorecard ? (
+                  <ScorecardView data={scorecard} tournamentId={tournamentId} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Scorecard appears once scoring has started.
+                  </p>
+                )}
+              </div>
+            </section>
           </div>
-          <div>
-            <HubSectionHeader title="Public links" />
-            <ul className="mt-3 space-y-2 text-sm break-all">
-              <li>
-                <span className="text-muted-foreground">Match: </span>
-                <a
-                  href={cricketMatchPublicPath(tournamentId, matchId)}
-                  className="text-primary font-medium"
-                  target="_blank"
-                  rel="noopener noreferrer"
+        ) : null}
+
+        {/* ─── ZONE 3: POST-MATCH FINALISATION & REPORTS ─── */}
+        {activeZone === "post" ? (
+          <div className="space-y-6">
+            {/* Result Verification Card */}
+            <section className="rounded-xl border border-border bg-card p-5 space-y-4 shadow-xs">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <HubSectionHeader title="Official Match Result" subtitle="Authoritative outcome verified by match referee" />
+                <Badge
+                  variant={isFinished ? "secondary" : "outline"}
+                  className={cn(
+                    isFinished
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 font-bold"
+                      : "text-muted-foreground",
+                  )}
                 >
-                  {cricketMatchPublicPath(tournamentId, matchId)}
-                </a>
-              </li>
-              <li>
-                <span className="text-muted-foreground">Tournament: </span>
-                <a
-                  href={cricketPublicPath(tournamentId)}
-                  className="text-primary font-medium"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {cricketPublicPath(tournamentId)}
-                </a>
-              </li>
-            </ul>
+                  {isFinished ? "Result Verified" : "Pending Match Completion"}
+                </Badge>
+              </div>
+
+              {summary ? (
+                <div className="space-y-4">
+                  <MatchSummaryCard summary={summary} teams={teams} />
+                  <div className={cn(hubPanelClass, "grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm")}>
+                    {scorecard?.manOfTheMatch ? (
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Player of Match</p>
+                        <p className="font-semibold text-primary">{scorecard.manOfTheMatch.playerName}</p>
+                      </div>
+                    ) : null}
+                    {duration ? (
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Duration</p>
+                        <p className="font-semibold">{duration}</p>
+                      </div>
+                    ) : null}
+                    {(officials?.length ?? 0) > 0 ? (
+                      <div className="sm:col-span-2">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Match Officials</p>
+                        <p className="font-semibold">
+                          {(officials ?? []).map((o) => `${o.name} (${o.role})`).join(" · ")}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Match summary will be calculated when the match concludes.
+                </p>
+              )}
+            </section>
+
+            {/* Statistics Snapshot */}
+            {stats.length > 0 ? (
+              <section className="space-y-3">
+                <HubSectionHeader title="Match Performance Honors" subtitle="Key individual milestones" />
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5">
+                  {stats.map((s) => (
+                    <div key={s.label} className={cn(hubCardClass, "p-3")}>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</p>
+                      <p className="text-sm font-semibold truncate mt-1">{s.playerName}</p>
+                      <p className="text-lg font-display font-bold text-primary tabular-nums">{s.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {/* Official PDF Scorecard & Exports */}
+            <section className={cn(hubCardClass, "p-5 space-y-4")}>
+              <HubSectionHeader title="Documentation & Official Exports" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Printer className="w-5 h-5 text-emerald-500" />
+                    <h4 className="font-bold text-sm text-foreground">Official PDF Scorecard</h4>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Print or save the official signed scorecard document in high-fidelity A4 sheet layout.
+                  </p>
+                  <Button
+                    onClick={() => window.print()}
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 font-semibold cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4 mr-1.5" />
+                    Print Scorecard
+                  </Button>
+                </div>
+
+                <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <ExternalLink className="w-5 h-5 text-primary" />
+                    <h4 className="font-bold text-sm text-foreground">Share Match Result</h4>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Direct public fan match scorecard link for social media and broadcast dispatches.
+                  </p>
+                  <div className="pt-2">
+                    <ShareButtons
+                      url={publicMatchUrl}
+                      shareText={`${home?.name ?? "Home"} vs ${away?.name ?? "Away"}`}
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
-        </section>
+        ) : null}
 
         <div className="flex flex-wrap gap-3 text-sm print:hidden">
           <Link href={cricketScoreHubPath(tournamentId)} className="text-primary font-semibold">

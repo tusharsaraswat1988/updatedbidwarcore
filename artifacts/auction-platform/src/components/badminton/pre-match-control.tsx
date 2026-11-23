@@ -170,13 +170,13 @@ export function PreMatchControlPanel({
       <div className={cn(hubCardClass, "p-5 space-y-4")}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">
+            <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">
               Pre-match
             </p>
-            <h2 className="text-white font-bold text-xl mt-1">
+            <h2 className="text-foreground font-bold text-xl mt-1">
               {snapshot.leftLabel} vs {snapshot.rightLabel}
             </h2>
-            <p className="text-white/40 text-sm mt-1">{snapshot.tournamentName}</p>
+            <p className="text-muted-foreground text-sm mt-1">{snapshot.tournamentName}</p>
           </div>
           <ScoringFormatBadge label={snapshot.matchFormatLabel} />
         </div>
@@ -193,18 +193,18 @@ export function PreMatchControlPanel({
           <InfoRow label="Team / Player (right)" value={snapshot.rightLabel} />
           {pinHint ? <InfoRow label="Legacy court code" value={pinHint} /> : null}
         </dl>
-        <p className="text-white/45 text-xs">
+        <p className="text-muted-foreground text-xs">
           Scorers open{" "}
           <Link
             href={badmintonScorerMatchPath(snapshot.matchId, snapshot.tournamentId)}
-            className="text-[#4fc3f7] font-semibold hover:underline"
+            className="text-primary font-semibold hover:underline"
           >
             Live Scoring
           </Link>{" "}
           and sign in with mobile and personal PIN
           {pinHint ? (
             <>
-              . Legacy code <span className="text-white font-semibold tracking-wider">{pinHint}</span> is
+              . Legacy code <span className="text-foreground font-semibold tracking-wider">{pinHint}</span> is
               not used for login
             </>
           ) : null}
@@ -214,15 +214,15 @@ export function PreMatchControlPanel({
 
       {hardWarnings.length > 0 ? (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
-          <p className="text-amber-200 text-xs font-bold uppercase tracking-wider">
+          <p className="text-amber-700 dark:text-amber-400 text-xs font-bold uppercase tracking-wider">
             Cannot start yet
           </p>
           <ul className="space-y-2">
             {hardWarnings.map((w) => (
-              <li key={w.id} className="text-sm text-amber-100/90 flex flex-wrap items-center gap-2">
+              <li key={w.id} className="text-sm text-foreground flex flex-wrap items-center gap-2">
                 <span>{w.message}</span>
                 {w.href ? (
-                  <Link href={w.href} className="text-[#4fc3f7] font-semibold hover:underline min-h-11 inline-flex items-center">
+                  <Link href={w.href} className="text-primary font-semibold hover:underline min-h-11 inline-flex items-center">
                     {w.hrefLabel ?? "Fix"}
                   </Link>
                 ) : null}
@@ -233,7 +233,7 @@ export function PreMatchControlPanel({
             <button
               type="button"
               onClick={() => setShowDelay(true)}
-              className="min-h-11 px-4 rounded-xl bg-amber-500/30 hover:bg-amber-500/40 border border-amber-400/40 text-amber-50 text-sm font-bold"
+              className="min-h-11 px-4 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-900 dark:text-amber-100 text-sm font-bold cursor-pointer"
             >
               Set court & time now
             </button>
@@ -241,27 +241,27 @@ export function PreMatchControlPanel({
         </div>
       ) : softWarnings.length > 0 ? (
         <div className="rounded-xl border border-sky-500/25 bg-sky-500/10 p-4 space-y-2">
-          <p className="text-sky-200 text-xs font-bold uppercase tracking-wider">
+          <p className="text-sky-700 dark:text-sky-400 text-xs font-bold uppercase tracking-wider">
             Check before starting
           </p>
           <ul className="space-y-2">
             {softWarnings.map((w) => (
-              <li key={w.id} className="text-sm text-sky-100/90 flex flex-wrap items-center gap-2">
+              <li key={w.id} className="text-sm text-foreground flex flex-wrap items-center gap-2">
                 <span>{w.message}</span>
                 {w.href ? (
-                  <Link href={w.href} className="text-[#4fc3f7] font-semibold hover:underline min-h-11 inline-flex items-center">
+                  <Link href={w.href} className="text-primary font-semibold hover:underline min-h-11 inline-flex items-center">
                     {w.hrefLabel ?? "Review"}
                   </Link>
                 ) : null}
               </li>
             ))}
           </ul>
-          <p className="text-emerald-400/90 text-sm pt-1">
+          <p className="text-emerald-700 dark:text-emerald-400 text-sm pt-1 font-medium">
             Ready to start when you confirm — format, roster, and court will freeze.
           </p>
         </div>
       ) : (
-        <p className="text-emerald-400/90 text-sm">
+        <p className="text-emerald-700 dark:text-emerald-400 text-sm font-medium">
           Ready to start — format, roster, and court will freeze when the match begins.
         </p>
       )}
@@ -286,7 +286,7 @@ export function PreMatchControlPanel({
                 .catch((e) => setError(friendlyBadmintonError(e, "Could not clear hold")))
                 .finally(() => setBusy(false));
             }}
-            className="min-h-11 px-4 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/35 text-emerald-100 text-sm font-bold"
+            className="min-h-11 px-4 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 text-emerald-700 dark:text-emerald-300 text-sm font-bold cursor-pointer"
           >
             Resume from Hold
           </button>
@@ -306,14 +306,14 @@ export function PreMatchControlPanel({
                 .catch((e) => setError(friendlyBadmintonError(e, "Could not put match on hold")))
                 .finally(() => setBusy(false));
             }}
-            className="min-h-11 px-4 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/35 text-sky-100 text-sm font-bold"
+            className="min-h-11 px-4 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/35 text-sky-700 dark:text-sky-300 text-sm font-bold cursor-pointer"
           >
             Put on Hold (free court)
           </button>
         )}
         {hasSavedToss ? (
           <>
-            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100/90">
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200 font-medium">
               Toss already recorded when this match was created. You can start immediately, or re-do the toss on court.
             </div>
             <BtnPrimary
@@ -325,7 +325,7 @@ export function PreMatchControlPanel({
                 }
                 void handleStartWithSavedToss();
               }}
-              className="w-full sm:w-auto min-h-12 text-base px-8"
+              className="w-full sm:w-auto min-h-12 text-base px-8 cursor-pointer"
             >
               Start Match (saved toss)
             </BtnPrimary>
@@ -340,7 +340,7 @@ export function PreMatchControlPanel({
                 setError("");
                 setShowTossSetup(true);
               }}
-              className="min-h-11 px-4 rounded-xl bg-white/6 hover:bg-white/10 text-white/70 text-sm font-semibold"
+              className="min-h-11 px-4 rounded-xl bg-card border border-border hover:bg-muted text-foreground text-sm font-semibold cursor-pointer shadow-xs"
             >
               Re-do toss on court
             </button>
@@ -357,11 +357,11 @@ export function PreMatchControlPanel({
                 setError("");
                 setShowTossSetup(true);
               }}
-              className="w-full sm:w-auto min-h-12 text-base px-8"
+              className="w-full sm:w-auto min-h-12 text-base px-8 cursor-pointer"
             >
               Toss & Start Match
             </BtnPrimary>
-            <p className="text-white/40 text-xs max-w-md">
+            <p className="text-muted-foreground text-xs max-w-md">
               {isPair
                 ? "Next: toss winner, serve/receive, first server, and first receiver."
                 : "Next: choose which side serves first after the toss."}
@@ -373,7 +373,7 @@ export function PreMatchControlPanel({
             type="button"
             disabled={busy}
             onClick={() => setShowWalkover(true)}
-            className="min-h-11 px-4 rounded-xl bg-white/6 hover:bg-white/10 text-white/55 text-sm font-semibold"
+            className="min-h-11 px-4 rounded-xl bg-card border border-border hover:bg-muted text-foreground text-sm font-semibold cursor-pointer shadow-xs"
           >
             Walkover
           </button>
@@ -381,7 +381,7 @@ export function PreMatchControlPanel({
             type="button"
             disabled={busy}
             onClick={() => setShowRetire(true)}
-            className="min-h-11 px-4 rounded-xl bg-white/6 hover:bg-white/10 text-white/55 text-sm font-semibold"
+            className="min-h-11 px-4 rounded-xl bg-card border border-border hover:bg-muted text-foreground text-sm font-semibold cursor-pointer shadow-xs"
           >
             Retire Before Start
           </button>
@@ -390,31 +390,31 @@ export function PreMatchControlPanel({
             disabled={busy}
             onClick={() => setShowDelay(true)}
             className={cn(
-              "min-h-11 px-4 rounded-xl text-sm font-semibold",
+              "min-h-11 px-4 rounded-xl text-sm font-semibold cursor-pointer shadow-xs",
               needsCourtOrTime
-                ? "bg-amber-500/25 hover:bg-amber-500/35 border border-amber-500/40 text-amber-100"
-                : "bg-white/6 hover:bg-white/10 text-white/55",
+                ? "bg-amber-500/25 hover:bg-amber-500/35 border border-amber-500/40 text-amber-900 dark:text-amber-100"
+                : "bg-card border border-border hover:bg-muted text-foreground",
             )}
           >
             {needsCourtOrTime ? "Set court & time" : "Change time"}
           </button>
           <Link
             href={`/tournament/${snapshot.tournamentId}/badminton/matches?edit=${snapshot.matchId}`}
-            className="min-h-11 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white/45 text-sm font-semibold inline-flex items-center"
+            className="min-h-11 px-4 rounded-xl bg-card border border-border hover:bg-muted text-foreground text-sm font-semibold inline-flex items-center shadow-xs"
           >
             Edit match
           </Link>
           {snapshot.fixtureId ? (
             <Link
               href={`/tournament/${snapshot.tournamentId}/badminton/schedule?fixture=${snapshot.fixtureId}`}
-              className="min-h-11 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white/45 text-sm font-semibold inline-flex items-center"
+              className="min-h-11 px-4 rounded-xl bg-card border border-border hover:bg-muted text-foreground text-sm font-semibold inline-flex items-center shadow-xs"
             >
               Fixture schedule
             </Link>
           ) : null}
           <Link
             href={`/tournament/${snapshot.tournamentId}/badminton/control`}
-            className="min-h-11 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white/40 text-sm font-semibold inline-flex items-center"
+            className="min-h-11 px-4 rounded-xl bg-card border border-border hover:bg-muted text-foreground text-sm font-semibold inline-flex items-center shadow-xs"
           >
             Live Control
           </Link>
@@ -481,9 +481,9 @@ export function PreMatchControlPanel({
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-white/4 border border-white/8 px-3 py-2.5">
-      <dt className="text-white/35 text-[10px] font-bold uppercase tracking-wider">{label}</dt>
-      <dd className="text-white text-sm font-medium mt-0.5 truncate">{value}</dd>
+    <div className="rounded-lg bg-muted/40 border border-border px-3 py-2.5 shadow-xs">
+      <dt className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider">{label}</dt>
+      <dd className="text-foreground text-sm font-semibold mt-0.5 truncate">{value}</dd>
     </div>
   );
 }

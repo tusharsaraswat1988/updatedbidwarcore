@@ -55,6 +55,7 @@ import {
   Printer,
   Scale,
   Shield,
+  ShieldCheck,
   Sparkles,
   Target,
   Trophy,
@@ -582,48 +583,90 @@ export default function CricketReportsPage() {
             )}
 
             {/* ============================================================== */}
-            {/* SECTION 4: COMPLETED MATCH RESULTS                             */}
+            {/* SECTION 4: COMPLETED MATCH RESULTS & DIGITAL SIGN-OFF          */}
             {/* ============================================================== */}
             {(activeTab === "all" || activeTab === "results") && (
               <section className={cn(hubCardClass, "p-5 sm:p-6 space-y-4")}>
-                <HubSectionHeader title="Completed Match Results" subtitle="Final fixtures and outcome summaries" />
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <HubSectionHeader
+                    title="Completed Match Results & Digital Sign-Off"
+                    subtitle="Verified match outcomes, official scorecards, and digital certification"
+                  />
+                  {(matches ?? []).filter((m) => isTerminalCricketMatchStatus(m.status)).length > 0 ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      {(matches ?? []).filter((m) => isTerminalCricketMatchStatus(m.status)).length} Matches Signed Off
+                    </span>
+                  ) : null}
+                </div>
 
                 {(matches ?? []).filter((m) => isTerminalCricketMatchStatus(m.status)).length === 0 ? (
                   <div className="py-6 text-center text-sm text-muted-foreground bg-muted/20 rounded-xl border border-dashed border-border/60">
-                    No completed matches recorded yet. Match summaries will appear as soon as games finish.
+                    No completed matches recorded yet. Match summaries and official sign-offs will appear as soon as games finish.
                   </div>
                 ) : (
-                  <ul className="divide-y divide-border/40 text-sm">
-                    {(matches ?? [])
-                      .filter((m) => isTerminalCricketMatchStatus(m.status))
-                      .map((m) => {
-                        const home = teamMap.get(m.homeTeamId);
-                        const away = teamMap.get(m.awayTeamId);
-                        return (
-                          <li key={m.id} className="py-3 flex flex-wrap items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-foreground">
-                                {home?.name ?? "Home"} vs {away?.name ?? "Away"}
-                              </span>
-                              <span className="text-xs text-muted-foreground font-mono">
-                                ({home?.shortCode ?? "H"} vs {away?.shortCode ?? "A"})
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-md">
-                                {m.resultSummary ?? m.status}
-                              </span>
-                              <Link
-                                href={cricketMatchPublicPath(tournamentId, m.id)}
-                                className="text-xs font-semibold text-primary hover:underline print:hidden"
-                              >
-                                View Scorecard
-                              </Link>
-                            </div>
-                          </li>
-                        );
-                      })}
-                  </ul>
+                  <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-xs">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/40 text-muted-foreground text-left">
+                          <th className="py-3 px-4 font-semibold">Match #</th>
+                          <th className="py-3 px-4 font-semibold">Stage</th>
+                          <th className="py-3 px-4 font-semibold">Contestants</th>
+                          <th className="py-3 px-4 font-semibold">Outcome & Margin</th>
+                          <th className="py-3 px-4 font-semibold">Sign-Off Status</th>
+                          <th className="py-3 px-4 font-semibold text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/50">
+                        {(matches ?? [])
+                          .filter((m) => isTerminalCricketMatchStatus(m.status))
+                          .map((m) => {
+                            const home = teamMap.get(m.homeTeamId);
+                            const away = teamMap.get(m.awayTeamId);
+                            return (
+                              <tr key={m.id} className="hover:bg-muted/30 transition-colors">
+                                <td className="py-3 px-4 font-mono font-bold text-foreground">
+                                  #{m.tournamentMatchNumber ?? m.id}
+                                </td>
+                                <td className="py-3 px-4 text-muted-foreground font-medium">
+                                  {m.roundName || "Standard Round"}
+                                </td>
+                                <td className="py-3 px-4 font-medium text-foreground">
+                                  <span>{home?.name ?? "Home"}</span>
+                                  <span className="text-muted-foreground mx-1.5 font-normal">vs</span>
+                                  <span>{away?.name ?? "Away"}</span>
+                                </td>
+                                <td className="py-3 px-4 text-emerald-700 dark:text-emerald-400 font-semibold">
+                                  {m.resultSummary ?? m.status}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25">
+                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    Signed Off
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <div className="inline-flex items-center gap-3">
+                                    <Link
+                                      href={`/tournament/${tournamentId}/score/${m.id}`}
+                                      className="text-xs font-semibold text-primary hover:underline print:hidden"
+                                    >
+                                      Match Center →
+                                    </Link>
+                                    <Link
+                                      href={cricketMatchPublicPath(tournamentId, m.id)}
+                                      className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline print:hidden"
+                                    >
+                                      Public Card
+                                    </Link>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </section>
             )}
