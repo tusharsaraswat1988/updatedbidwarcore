@@ -11,6 +11,7 @@ interface Props {
   teamLogoUrl?:  string | null;
   onReady:       () => void;
   onSync?:       () => void;
+  onOpenWarRoom?: () => void;
 }
 
 const STEPS = [
@@ -20,7 +21,7 @@ const STEPS = [
   "Ready to bid!",
 ];
 
-export function Warmup({ teamName, teamShortCode, teamColor, teamLogoUrl, onReady }: Props) {
+export function Warmup({ teamName, teamShortCode, teamColor, teamLogoUrl, onReady, onOpenWarRoom }: Props) {
   const [step, setStep] = useState(0);
   const { brandName, logos, poweredByText, miniBrandText } = useBranding();
   const splashSrc = resolveSplashLogoUrl(logos);
@@ -113,6 +114,19 @@ export function Warmup({ teamName, teamShortCode, teamColor, teamLogoUrl, onRead
           className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin mx-auto"
           style={{ borderColor: `${teamColor}40`, borderTopColor: teamColor }}
         />
+
+        {/* Pre-Auction Strategy War Room Shortcut */}
+        {onOpenWarRoom && (
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={onOpenWarRoom}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#2a2458] hover:bg-[#352e6d] border border-amber-400/40 text-amber-300 font-bold text-xs transition-all shadow-lg active:scale-95 cursor-pointer"
+            >
+              <span>🎯 Open AI Strategy War Room</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <p className="absolute bottom-8 text-sm text-[#3d3670] uppercase tracking-widest">

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy, User, LogOut,
   AlertTriangle, Coffee, RefreshCw, X, XCircle, Radar, ShieldUser, Sparkles,
-  Info, ChevronRight, Wallet, Users,
+  Info, ChevronRight, Wallet, Users, Target,
 } from "lucide-react";
 import { useLiveBidLayout, type DeviceTier } from "@/hooks/useLiveBidLayout";
 import { useCountdown } from "@/hooks/useCountdown";
@@ -30,6 +30,8 @@ import { getListPlayersQueryKey, useListPlayers, useGetTeamPurses, getGetTeamPur
 import { useBreakCountdownFromState } from "@/lib/break-countdown";
 import { getPlayerTagTheme } from "@/lib/player-tag-theme";
 import { OwnerPlayerAuctionHistory } from "@/components/OwnerPlayerAuctionHistory";
+import { useOwnerTargets, useAiRadarPreference } from "@/lib/owner-targets";
+import { isRecognizedRole } from "@/lib/war-room-engine";
 
 const BIDWAR_AMBER = "#F59E0B";
 
@@ -156,6 +158,7 @@ interface Props {
   onBid: (amount: number) => Promise<"success" | "leading" | "error">;
   onViewSquad: () => void;
   onViewScout: () => void;
+  onViewWarRoom?: () => void;
   navToast?: string | null;
   onNavToastDismiss?: () => void;
   onSignOut: () => void;
@@ -211,6 +214,7 @@ function PlayerBioSideDrawer({
   sport,
   tournamentId,
   features,
+  isTargetPlayer = false,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -221,6 +225,7 @@ function PlayerBioSideDrawer({
   sport?: string | null;
   tournamentId?: number;
   features?: any;
+  isTargetPlayer?: boolean;
 }) {
   const specGroupLabels = useRoleSpecGroups(sport ?? undefined, player?.role).map((g) => g.groupName);
   const specs = useMemo(
@@ -304,6 +309,13 @@ function PlayerBioSideDrawer({
                   <h3 className="font-display font-black text-xl text-white leading-tight truncate mt-0.5">
                     {player.name}
                   </h3>
+                  {isTargetPlayer && (
+                    <div className="mt-1">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500/30 to-yellow-500/30 text-amber-300 border border-amber-400/60 shadow-[0_0_12px_rgba(245,158,11,0.35)] animate-pulse">
+                        ⭐ YOUR TARGET PLAYER
+                      </span>
+                    </div>
+                  )}
                   {player.playerTag ? (
                     <div className="mt-1">
                       <PlayerTagBadge tagKey={player.playerTag} size="md" />
@@ -400,6 +412,7 @@ function PlayerCard({
   features,
   squadRoleCount,
   onOpenBio,
+  isTargetPlayer,
 }: {
   player: NonNullable<AuctionState["currentPlayer"]>;
   teamColor: string;
@@ -411,6 +424,7 @@ function PlayerCard({
   features?: any;
   squadRoleCount?: number | null;
   onOpenBio?: () => void;
+  isTargetPlayer?: boolean;
 }) {
   const specGroupLabels = useRoleSpecGroups(sport ?? undefined, player.role).map((g) => g.groupName);
   const specs = useMemo(
@@ -468,7 +482,12 @@ function PlayerCard({
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 mt-1">
-            {player.role ? (
+            {isTargetPlayer && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/30 to-yellow-500/30 text-amber-300 border border-amber-400/60 shadow-[0_0_12px_rgba(245,158,11,0.35)] animate-pulse">
+                ⭐ YOUR TARGET PLAYER
+              </span>
+            )}
+            {isRecognizedRole(player.role) ? (
               <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-[#18123a] text-amber-300 border border-amber-400/30">
                 {player.role}
               </span>
@@ -478,7 +497,7 @@ function PlayerCard({
                 Base <span className="text-emerald-400 font-extrabold">{formatIndianRupee(player.basePrice, unit)}</span>
               </span>
             ) : null}
-            {(player.role || categoryName) && squadRoleCount !== undefined && squadRoleCount !== null && (
+            {isRecognizedRole(player.role || categoryName) && squadRoleCount !== undefined && squadRoleCount !== null && (
               squadRoleCount === 0 ? (
                 <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
                   <Sparkles className="w-2.5 h-2.5 text-rose-400" />
@@ -554,8 +573,13 @@ function PlayerCard({
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
           <span className="font-mono text-sm text-[#a8a0c4] shrink-0">#{player.serialNo ?? player.id}</span>
           <h2 className={`font-display font-black leading-tight text-white truncate ${nameClass}`}>{player.name}</h2>
+          {isTargetPlayer && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500/30 to-yellow-500/30 text-amber-300 border border-amber-400/60 shadow-[0_0_12px_rgba(245,158,11,0.35)] animate-pulse">
+              ⭐ YOUR TARGET PLAYER
+            </span>
+          )}
           {player.playerTag ? <PlayerTagBadge tagKey={player.playerTag} size="md" className="shrink-0" /> : null}
-          {(player.role || categoryName) && squadRoleCount !== undefined && squadRoleCount !== null && (
+          {isRecognizedRole(player.role || categoryName) && squadRoleCount !== undefined && squadRoleCount !== null && (
             squadRoleCount === 0 ? (
               <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
                 <Sparkles className="w-3.5 h-3.5 text-rose-400" />
@@ -1407,6 +1431,8 @@ interface TacticalWarRoomProps {
   rivalOutbidCount: number;
   unit: ReturnType<typeof resolveAuctionUnit>;
   tier: DeviceTier;
+  aiRadarEnabled?: boolean;
+  onToggleAiRadar?: () => void;
 }
 
 function TacticalWarRoomStrip({
@@ -1415,7 +1441,25 @@ function TacticalWarRoomStrip({
   rivalOutbidCount,
   unit,
   tier,
+  aiRadarEnabled = true,
+  onToggleAiRadar,
 }: TacticalWarRoomProps) {
+  if (aiRadarEnabled === false) {
+    return (
+      <div className="w-full flex items-center justify-center py-0.5 select-none">
+        <button
+          type="button"
+          onClick={onToggleAiRadar}
+          className="h-6 min-h-[24px] px-3 rounded-full bg-[#1b1542]/90 hover:bg-[#251d5c] border border-[#4a4478] text-[10px] font-bold text-[#a8a0c4] hover:text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+          title="AI Radar collapsed. Tap to expand full AI advice."
+        >
+          <span>👁️ AI Radar: OFF</span>
+          <span className="text-[#6b6490] font-normal">· Tap to expand</span>
+        </button>
+      </div>
+    );
+  }
+
   const marginConfig = {
     safe: {
       label: "Safe Margin",
@@ -1457,13 +1501,27 @@ function TacticalWarRoomStrip({
         </div>
       </div>
 
-      {/* Rival Outbid Capacity Radar */}
-      <div className="flex items-center gap-1 shrink-0 bg-[#241c56] border border-[#4a4478] px-2 py-0.5 rounded-xl text-[10px]">
-        <Radar className="w-3 h-3 text-sky-400 shrink-0" />
-        <span className="font-semibold text-[#a8a0c4] whitespace-nowrap">
-          <strong className="text-white font-mono font-bold mr-0.5">{rivalOutbidCount}</strong>
-          {isMobile ? "outbid" : rivalOutbidCount === 1 ? "rival can outbid" : "rivals can outbid"}
-        </span>
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Rival Outbid Capacity Radar */}
+        <div className="flex items-center gap-1 shrink-0 bg-[#241c56] border border-[#4a4478] px-2 py-0.5 rounded-xl text-[10px]">
+          <Radar className="w-3 h-3 text-sky-400 shrink-0" />
+          <span className="font-semibold text-[#a8a0c4] whitespace-nowrap">
+            <strong className="text-white font-mono font-bold mr-0.5">{rivalOutbidCount}</strong>
+            {isMobile ? "outbid" : rivalOutbidCount === 1 ? "rival can outbid" : "rivals can outbid"}
+          </span>
+        </div>
+
+        {/* 1-Click AI Radar Toggle to collapse */}
+        {onToggleAiRadar && (
+          <button
+            type="button"
+            onClick={onToggleAiRadar}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#241c56] hover:bg-[#322774] border border-[#4a4478] text-[9px] font-bold text-amber-300 transition-all cursor-pointer active:scale-95 shrink-0"
+            title="Click to collapse AI advice into a 24px micro-pill"
+          >
+            <span>👁️ AI Radar: ON</span>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1476,6 +1534,7 @@ interface LivePursePreservationSimulatorProps {
   avgPerPlayer: number;
   unit: ReturnType<typeof resolveAuctionUnit>;
   tier: DeviceTier;
+  aiRadarEnabled?: boolean;
 }
 
 function LivePursePreservationSimulator({
@@ -1485,7 +1544,9 @@ function LivePursePreservationSimulator({
   avgPerPlayer,
   unit,
   tier,
+  aiRadarEnabled = true,
 }: LivePursePreservationSimulatorProps) {
+  if (aiRadarEnabled === false) return null;
   const isMobile = tier === "mobile";
   return (
     <div className="w-full flex items-center justify-center text-center px-2 py-1 rounded-xl bg-black/40 border border-white/10 select-none">
@@ -2236,6 +2297,7 @@ function LiveBidHeader({
   onSync,
   onViewSquad,
   onViewScout,
+  onViewWarRoom,
   onLeave,
   layout,
   tier,
@@ -2256,6 +2318,7 @@ function LiveBidHeader({
   onSync: () => void;
   onViewSquad: () => void;
   onViewScout: () => void;
+  onViewWarRoom?: () => void;
   onLeave: () => void;
   layout: "stacked" | "split";
   tier: DeviceTier;
@@ -2332,6 +2395,17 @@ function LiveBidHeader({
       <HeaderActionButton onClick={onSync} title="Sync auction data" label="Sync" compact={actionCompact}>
         <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${syncing ? "animate-spin" : ""}`} />
       </HeaderActionButton>
+      {onViewWarRoom && (
+        <HeaderActionButton
+          onClick={onViewWarRoom}
+          title={navBlocked ? "Unavailable during live player auction" : "Pre-Auction AI Strategy War Room"}
+          label={actionCompact ? "AI Room" : "AI Strategy"}
+          blocked={navBlocked}
+          compact={actionCompact}
+        >
+          <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" strokeWidth={2.25} />
+        </HeaderActionButton>
+      )}
       <HeaderActionButton
         onClick={onViewSquad}
         title={navBlocked ? "Unavailable during live player auction" : "View my squad"}
@@ -2397,10 +2471,16 @@ function LiveBidHeader({
 export function LiveBid({
   state, team, tournament, teamPurse, teamId, tournamentId,
   connectionStatus, bidErrorMsg, onBid, onViewSquad, onViewScout,
+  onViewWarRoom,
   navToast, onNavToastDismiss, onSignOut, onSync, isSyncError,
 }: Props) {
   const { layout, tier } = useLiveBidLayout();
   const isSplit = layout === "split";
+
+  // Target shortlist detection & AI Radar toggle preference
+  const { isTarget } = useOwnerTargets(tournamentId, teamId);
+  const isTargetPlayer = isTarget(state?.currentPlayer?.id ?? 0);
+  const [aiRadarEnabled, toggleAiRadar] = useAiRadarPreference();
   const feed        = useAuctionConnectionState(
     connectionStatus,
     tournamentId,
@@ -2804,6 +2884,7 @@ export function LiveBid({
           onSync={handleSyncTap}
           onViewSquad={onViewSquad}
           onViewScout={onViewScout}
+          onViewWarRoom={onViewWarRoom}
           onLeave={() => setShowSignOutConfirm(true)}
           layout="stacked"
           tier={tier}
@@ -2850,6 +2931,7 @@ export function LiveBid({
                 features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
                 squadRoleCount={mySquadRoleCount}
                 onOpenBio={() => setShowPlayerBioDrawer(true)}
+                isTargetPlayer={isTargetPlayer}
               />
             ) : showUnsoldResult ? (
               <UnsoldPlayerCard
@@ -2929,6 +3011,8 @@ export function LiveBid({
               rivalOutbidCount={rivalOutbidCount}
               unit={unit}
               tier={tier}
+              aiRadarEnabled={aiRadarEnabled}
+              onToggleAiRadar={toggleAiRadar}
             />
           )}
 
@@ -2973,6 +3057,7 @@ export function LiveBid({
               avgPerPlayer={avgPerPlayerNeeded}
               unit={unit}
               tier={tier}
+              aiRadarEnabled={aiRadarEnabled}
             />
           )}
 
@@ -3045,6 +3130,7 @@ export function LiveBid({
           sport={tournament?.sport}
           tournamentId={tournamentId}
           features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
+          isTargetPlayer={isTargetPlayer}
         />
 
         {/* ── Sign-out confirmation ── */}
@@ -3114,6 +3200,7 @@ export function LiveBid({
           onSync={handleSyncTap}
           onViewSquad={onViewSquad}
           onViewScout={onViewScout}
+          onViewWarRoom={onViewWarRoom}
           onLeave={() => setShowSignOutConfirm(true)}
           layout="split"
           tier={tier}
@@ -3155,6 +3242,7 @@ export function LiveBid({
                 features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
                 squadRoleCount={mySquadRoleCount}
                 onOpenBio={() => setShowPlayerBioDrawer(true)}
+                isTargetPlayer={isTargetPlayer}
               />
             ) : showUnsoldResult ? (
               <UnsoldPlayerCard
@@ -3233,6 +3321,8 @@ export function LiveBid({
             rivalOutbidCount={rivalOutbidCount}
             unit={unit}
             tier={tier}
+            aiRadarEnabled={aiRadarEnabled}
+            onToggleAiRadar={toggleAiRadar}
           />
         )}
 
@@ -3276,6 +3366,7 @@ export function LiveBid({
                 unit={unit}
                 onViewSquad={onViewSquad}
                 onViewScout={onViewScout}
+                onViewWarRoom={onViewWarRoom}
                 sport={tournament?.sport}
               />
             )}
@@ -3291,6 +3382,7 @@ export function LiveBid({
                 avgPerPlayer={avgPerPlayerNeeded}
                 unit={unit}
                 tier={tier}
+                aiRadarEnabled={aiRadarEnabled}
               />
             </div>
           )}
@@ -3386,6 +3478,7 @@ export function LiveBid({
         sport={tournament?.sport}
         tournamentId={tournamentId}
         features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
+        isTargetPlayer={isTargetPlayer}
       />
 
       <Toast message={navToast ?? null} onDismiss={onNavToastDismiss ?? (() => {})} />

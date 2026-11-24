@@ -25,6 +25,7 @@ import { LiveBid } from "./LiveBid";
 import { Completed } from "./Completed";
 import { Squad } from "./Squad";
 import { Scout } from "./Scout";
+import { PreAuctionWarRoom } from "./PreAuctionWarRoom";
 import { upsertSavedAuction, removeSavedAuction } from "./Launcher";
 import { loadOnboardingEntries } from "@/lib/owner-flow";
 import { isPlayerOnAuctionStage, AUCTION_STAGE_NAV_MESSAGE } from "@/lib/auction-stage";
@@ -36,7 +37,7 @@ import { resolveSplashLogoUrl } from "@/lib/brand-assets";
 import { breakCountdownEndsAt, isAuctionPausedForBreak } from "@/lib/break-countdown";
 import { selectAuthoritativeTeamPurse, shouldPreferEmbeddedTeamPurses } from "@workspace/api-base";
 
-type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "scout" | "completed";
+type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "scout" | "warroom" | "completed";
 
 /** Extract bid error text from ApiError (customFetch) or axios-shaped errors. */
 function extractBidErrorMessage(err: unknown): string {
@@ -181,13 +182,13 @@ export function OwnerRoute() {
     if (done && screen === "live") setScreen("completed");
   }, [state, screen]);
 
-  // Auto-return from scout/squad to live when a player goes on stage
+  // Auto-return from scout/squad/warroom to live when a player goes on stage
   const [scoutAutoReturn, setScoutAutoReturn] = useState(false);
   useEffect(() => {
-    if (screen !== "scout" && screen !== "squad") return;
+    if (screen !== "scout" && screen !== "squad" && screen !== "warroom") return;
     if (!isPlayerOnAuctionStage(state)) return;
 
-    if (screen === "scout") {
+    if (screen === "scout" || screen === "warroom") {
       setScoutAutoReturn(true);
       const t = setTimeout(() => {
         setScoutAutoReturn(false);
@@ -203,6 +204,16 @@ export function OwnerRoute() {
 
   const [navToast, setNavToast] = useState<string | null>(null);
   const dismissNavToast = useCallback(() => setNavToast(null), []);
+  const [warRoomReturnScreen, setWarRoomReturnScreen] = useState<"live" | "warmup" | "scout">("live");
+
+  function handleViewWarRoom(from?: "live" | "warmup" | "scout") {
+    if (isPlayerOnAuctionStage(state)) {
+      setNavToast(AUCTION_STAGE_NAV_MESSAGE);
+      return;
+    }
+    setWarRoomReturnScreen(from ?? (screen === "warmup" ? "warmup" : screen === "scout" ? "scout" : "live"));
+    setScreen("warroom");
+  }
 
   function handleViewScout() {
     if (isPlayerOnAuctionStage(state)) {
@@ -332,6 +343,7 @@ export function OwnerRoute() {
         teamLogoUrl={team.logoUrl}
         onReady={handleWarmupReady}
         onSync={handleSync}
+        onOpenWarRoom={() => handleViewWarRoom("warmup")}
       />
     );
   }
@@ -349,7 +361,7 @@ export function OwnerRoute() {
     );
   }
 
-  const isDrawerOpen = screen === "squad" || screen === "scout";
+  const isDrawerOpen = screen === "squad" || screen === "scout" || screen === "warroom";
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-background">
@@ -365,6 +377,7 @@ export function OwnerRoute() {
       onBid={handleBid}
       onViewSquad={handleViewSquad}
       onViewScout={handleViewScout}
+      onViewWarRoom={() => handleViewWarRoom("live")}
       navToast={navToast}
       onNavToastDismiss={dismissNavToast}
       onSync={handleSync}
@@ -379,7 +392,7 @@ export function OwnerRoute() {
       }}
     />
 
-      {/* Slide-over Tactical Drawer for Squad / Rivals */}
+      {/* Slide-over Tactical Drawer for Squad / Rivals / War Room */}
       <AnimatePresence>
         {isDrawerOpen && (
           <motion.div
@@ -389,7 +402,7 @@ export function OwnerRoute() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex justify-end"
-            onClick={() => setScreen("live")}
+            onClick={() => setScreen(screen === "warroom" ? warRoomReturnScreen : "live")}
           >
             <motion.div
               key="tactical-drawer-panel"
@@ -408,15 +421,33 @@ export function OwnerRoute() {
                   teamPurse={teamPurse ?? null}
                   onBack={() => setScreen("live")}
                 />
-              ) : (
+              ) : screen === "scout" ? (
                 <Scout
                   tournamentId={tournamentId}
                   teamId={teamId}
                   teamColor={teamColor}
                   onBack={() => setScreen("live")}
                   auctionStarted={scoutAutoReturn}
+                  onViewWarRoom={() => handleViewWarRoom("scout")}
                 />
-              )}
+              ) : screen === "warroom" ? (
+                <PreAuctionWarRoom
+                  tournamentId={tournamentId}
+                  teamId={teamId}
+                  team={team}
+                  teamPurse={teamPurse ?? null}
+                  tournament={tournament ?? null}
+                  onBack={() => setScreen(warRoomReturnScreen)}
+                  auctionStarted={scoutAutoReturn}
+                  returnLabel={
+                    warRoomReturnScreen === "warmup"
+                      ? "Return to Waiting Room"
+                      : warRoomReturnScreen === "scout"
+                        ? "Return to Scout"
+                        : "Return to Live Auction"
+                  }
+                />
+              ) : null}
             </motion.div>
           </motion.div>
         )}

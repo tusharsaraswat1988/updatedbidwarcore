@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Radar, Users, ShieldUser, ArrowRight, Zap, Target } from "lucide-react";
 import { useGetTeamScout, getGetTeamScoutQueryKey, useListPlayers, getListPlayersQueryKey } from "@workspace/api-client-react";
 import { formatShortIndianRupee, type resolveAuctionUnit } from "@/lib/format";
+import { isRecognizedRole } from "@/lib/war-room-engine";
 import { TeamLogo } from "@/components/TeamLogo";
 
 interface InterLotCommandCenterProps {
@@ -15,6 +16,7 @@ interface InterLotCommandCenterProps {
   onViewSquad: () => void;
   onViewScout: () => void;
   sport?: string | null;
+  onViewWarRoom?: () => void;
 }
 
 export function InterLotCommandCenter({
@@ -26,6 +28,7 @@ export function InterLotCommandCenter({
   unit,
   onViewSquad,
   onViewScout,
+  onViewWarRoom,
 }: InterLotCommandCenterProps) {
   // Query squad players
   const { data: allPlayers } = useListPlayers(tournamentId, {
@@ -50,7 +53,8 @@ export function InterLotCommandCenter({
     const mine = (allPlayers ?? []).filter((p) => p.teamId === teamId && !p.isNonPlayingMember);
     const roles: Record<string, number> = {};
     for (const p of mine) {
-      const r = (p.role || "Player").trim();
+      if (!isRecognizedRole(p.role)) continue;
+      const r = p.role!.trim();
       roles[r] = (roles[r] || 0) + 1;
     }
     return {
@@ -104,10 +108,22 @@ export function InterLotCommandCenter({
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#2a2458] border border-[#4a4478] text-[10px] text-[#a8a0c4] font-semibold">
-            <Target className="w-3 h-3 text-amber-400" />
-            <span>WAR ROOM</span>
-          </div>
+          {onViewWarRoom ? (
+            <button
+              type="button"
+              onClick={onViewWarRoom}
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#2a2458] hover:bg-[#342e6b] border border-amber-400/40 text-[10px] text-amber-300 font-semibold cursor-pointer transition-colors"
+              title="Open Pre-Auction Strategy War Room"
+            >
+              <Target className="w-3 h-3 text-amber-400" />
+              <span>WAR ROOM</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#2a2458] border border-[#4a4478] text-[10px] text-[#a8a0c4] font-semibold">
+              <Target className="w-3 h-3 text-amber-400" />
+              <span>WAR ROOM</span>
+            </div>
+          )}
         </div>
         <p className="text-xs text-[#a8a0c4] mt-1 line-clamp-1">{statusSubline}</p>
       </div>
@@ -208,6 +224,16 @@ export function InterLotCommandCenter({
 
       {/* ── Bottom Actions ── */}
       <div className="flex-shrink-0 pt-2 border-t border-[#4a4478]/70 flex items-center gap-2">
+        {onViewWarRoom && (
+          <button
+            type="button"
+            onClick={onViewWarRoom}
+            className="flex-1 py-2 px-2.5 rounded-xl bg-[#2a2458] hover:bg-[#342e6b] border border-amber-400/40 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer"
+          >
+            <Target className="w-3.5 h-3.5 text-amber-400" />
+            <span>AI Strategy</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={onViewSquad}

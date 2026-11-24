@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Users, UserX, ChevronDown, ChevronRight, Zap, Radar, X } from "lucide-react";
+import { ArrowLeft, Users, UserX, ChevronDown, ChevronRight, Zap, Radar, X, Target, Star } from "lucide-react";
 import { useGetTeamScout, getGetTeamScoutQueryKey } from "@workspace/api-client-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { TeamLogo } from "@/components/TeamLogo";
 import { useBranding } from "@/hooks/useBranding";
 import { resolveHeaderBrandLogoUrl } from "@/lib/brand-assets";
+import { useOwnerTargets } from "@/lib/owner-targets";
 
 interface Props {
   tournamentId: number;
@@ -13,6 +14,7 @@ interface Props {
   teamColor: string;
   onBack: () => void;
   auctionStarted: boolean;
+  onViewWarRoom?: () => void;
 }
 
 type Tab = "teams" | "unsold";
@@ -168,7 +170,7 @@ function TeamRow({
   );
 }
 
-export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted }: Props) {
+export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted, onViewWarRoom }: Props) {
   const [tab, setTab] = useState<Tab>("teams");
 
   useEffect(() => {
@@ -181,6 +183,7 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
 
   const { brandName, logos, iconVersion } = useBranding();
   const brandLogoSrc = resolveHeaderBrandLogoUrl(logos, iconVersion);
+  const { toggleTarget, isTarget } = useOwnerTargets(tournamentId, teamId);
 
   const { data, isLoading, isError, refetch } = useGetTeamScout(tournamentId, {
     query: {
@@ -253,18 +256,31 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
               <p className="text-xs text-[#a8a0c4] mt-0.5">Purses, rosters & unsold pool</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/35 border-2 border-red-500/50 text-red-200 font-black text-xs transition-all active:scale-95 shrink-0 shadow-lg cursor-pointer"
-            title="Close scouting and return to live auction (ESC)"
-          >
-            <X className="w-4 h-4 text-red-300 stroke-[3]" />
-            <span>CLOSE</span>
-            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-mono bg-black/60 rounded border border-red-500/40 text-red-200 ml-1">
-              ESC
-            </kbd>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onViewWarRoom && (
+              <button
+                type="button"
+                onClick={onViewWarRoom}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border-2 border-amber-500/50 text-amber-200 font-black text-xs transition-all active:scale-95 shrink-0 shadow-lg cursor-pointer"
+                title="Open Pre-Auction AI Strategy War Room"
+              >
+                <Target className="w-3.5 h-3.5 text-amber-400" />
+                <span>AI WAR ROOM</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/35 border-2 border-red-500/50 text-red-200 font-black text-xs transition-all active:scale-95 shrink-0 shadow-lg cursor-pointer"
+              title="Close scouting and return to live auction (ESC)"
+            >
+              <X className="w-4 h-4 text-red-300 stroke-[3]" />
+              <span>CLOSE</span>
+              <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-mono bg-black/60 rounded border border-red-500/40 text-red-200 ml-1">
+                ESC
+              </kbd>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -361,20 +377,46 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  {grp.players.map((pl) => (
-                    <div
-                      key={pl.id}
-                      className="scout-player-row flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#2a2458] border border-[#4a4478]"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-[#e4e4e7] truncate">{pl.name}</p>
-                        {pl.role && <p className="text-[10px] text-[#6b6490] mt-0.5">{pl.role}</p>}
+                  {grp.players.map((pl) => {
+                    const targeted = isTarget(pl.id);
+                    return (
+                      <div
+                        key={pl.id}
+                        className={`scout-player-row flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${
+                          targeted
+                            ? "bg-amber-500/15 border-amber-400/50 shadow-xs"
+                            : "bg-[#2a2458] border-[#4a4478]"
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-[#e4e4e7] truncate">{pl.name}</p>
+                            {targeted && (
+                              <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-400 text-black shrink-0">
+                                ⭐ TARGET
+                              </span>
+                            )}
+                          </div>
+                          {pl.role && <p className="text-[10px] text-[#6b6490] mt-0.5">{pl.role}</p>}
+                        </div>
+                        <p className="text-sm font-bold text-[#a8a0c4] flex-shrink-0">
+                          {formatShortIndianRupee(pl.basePrice)}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => toggleTarget(pl.id)}
+                          className={`p-1.5 rounded-lg border transition-all active:scale-95 cursor-pointer shrink-0 ${
+                            targeted
+                              ? "bg-amber-400 text-black border-amber-300"
+                              : "bg-[#18123a] text-[#8d85b5] hover:text-white border-[#4a4478]"
+                          }`}
+                          title={targeted ? "Remove target" : "Add target"}
+                        >
+                          <Star className={`w-3.5 h-3.5 ${targeted ? "fill-black" : ""}`} />
+                        </button>
                       </div>
-                      <p className="text-sm font-bold text-[#a8a0c4] flex-shrink-0">
-                        {formatShortIndianRupee(pl.basePrice)}
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -383,9 +425,20 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
       </div>
 
       <div className="p-3 bg-[#161036] border-t border-[#4a4478] flex items-center justify-between gap-3 shrink-0">
-        <p className="text-[11px] text-[#a8a0c4] uppercase tracking-wider font-semibold">
-          Rival Radar Active
-        </p>
+        {onViewWarRoom ? (
+          <button
+            type="button"
+            onClick={onViewWarRoom}
+            className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1.5 cursor-pointer"
+          >
+            <Target className="w-3.5 h-3.5 text-amber-400" />
+            <span>AI Strategy War Room</span>
+          </button>
+        ) : (
+          <p className="text-[11px] text-[#a8a0c4] uppercase tracking-wider font-semibold">
+            Rival Radar Active
+          </p>
+        )}
         <button
           type="button"
           onClick={onBack}
