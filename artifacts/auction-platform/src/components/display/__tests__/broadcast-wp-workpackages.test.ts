@@ -205,4 +205,11 @@ describe("Drawer Broadcast Filters & LED Category Filtering", () => {
     const content = readFileSync(useLedViewPath, "utf-8");
     expect(content).toContain("if (filter?.categoryId != null && p.categoryId !== filter.categoryId)");
   });
+
+  it("hides category selector when tournament has no categories", () => {
+    const drawerPath = resolve(__dirname, "../../auction/broadcast-studio-drawer.tsx");
+    const drawerContent = readFileSync(drawerPath, "utf-8");
+    expect(drawerContent).toContain("const hasCategories = Boolean(categories && categories.length > 0);");
+    expect(drawerContent).toContain("{hasCategories && (");
+  });
 });

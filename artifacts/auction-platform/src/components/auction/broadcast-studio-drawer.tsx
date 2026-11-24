@@ -225,6 +225,8 @@ export function BroadcastStudioDrawer({
                   const Icon = btn.icon;
 
                   if (btn.mode === "player") {
+                    const hasCategories = Boolean(categories && categories.length > 0);
+                    const hasTeams = Boolean(teams && teams.length > 0);
                     const currentStatus = displayPlayerFilter?.status ?? "all";
                     const currentCategory = categories?.find((c) => c.id === displayPlayerFilter?.categoryId);
                     const currentTeam = teams?.find((t) => t.id === displayPlayerFilter?.teamId);
@@ -345,62 +347,68 @@ export function BroadcastStudioDrawer({
                             })}
                           </div>
 
-                          {/* Category & Team Dropdowns */}
-                          <div className="grid grid-cols-2 gap-2 pt-0.5">
-                            {/* Role / Category */}
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-bold text-white/50 uppercase tracking-wider block">
-                                Category / Role
-                              </label>
-                              <select
-                                disabled={operatorReadOnly}
-                                value={displayPlayerFilter?.categoryId ?? ""}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  onSelectPlayerFilter?.({
-                                    status: (displayPlayerFilter?.status as any) ?? "all",
-                                    categoryId: val ? Number(val) : null,
-                                    teamId: displayPlayerFilter?.teamId ?? null,
-                                  });
-                                }}
-                                className="w-full bg-slate-900 border border-white/20 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
-                              >
-                                <option value="">All Categories</option>
-                                {categories?.map((cat) => (
-                                  <option key={cat.id} value={cat.id}>
-                                    {cat.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
+                          {/* Category & Team Dropdowns (Category hidden if tournament has no categories) */}
+                          {(hasCategories || hasTeams) && (
+                            <div className={`grid ${hasCategories && hasTeams ? "grid-cols-2" : "grid-cols-1"} gap-2 pt-0.5`}>
+                              {/* Role / Category - only displayed when tournament has categories */}
+                              {hasCategories && (
+                                <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-white/50 uppercase tracking-wider block">
+                                    Category / Role
+                                  </label>
+                                  <select
+                                    disabled={operatorReadOnly}
+                                    value={displayPlayerFilter?.categoryId ?? ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      onSelectPlayerFilter?.({
+                                        status: (displayPlayerFilter?.status as any) ?? "all",
+                                        categoryId: val ? Number(val) : null,
+                                        teamId: displayPlayerFilter?.teamId ?? null,
+                                      });
+                                    }}
+                                    className="w-full bg-slate-900 border border-white/20 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
+                                  >
+                                    <option value="">All Categories</option>
+                                    {categories?.map((cat) => (
+                                      <option key={cat.id} value={cat.id}>
+                                        {cat.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
 
-                            {/* Team Squad Filter */}
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-bold text-white/50 uppercase tracking-wider block">
-                                Team Squad
-                              </label>
-                              <select
-                                disabled={operatorReadOnly}
-                                value={displayPlayerFilter?.teamId ?? ""}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  onSelectPlayerFilter?.({
-                                    status: val ? "sold" : ((displayPlayerFilter?.status as any) ?? "all"),
-                                    categoryId: displayPlayerFilter?.categoryId ?? null,
-                                    teamId: val ? Number(val) : null,
-                                  });
-                                }}
-                                className="w-full bg-slate-900 border border-white/20 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
-                              >
-                                <option value="">All Teams</option>
-                                {teams?.map((tm) => (
-                                  <option key={tm.id} value={tm.id}>
-                                    {tm.name}
-                                  </option>
-                                ))}
-                              </select>
+                              {/* Team Squad Filter */}
+                              {hasTeams && (
+                                <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-white/50 uppercase tracking-wider block">
+                                    Team Squad
+                                  </label>
+                                  <select
+                                    disabled={operatorReadOnly}
+                                    value={displayPlayerFilter?.teamId ?? ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      onSelectPlayerFilter?.({
+                                        status: val ? "sold" : ((displayPlayerFilter?.status as any) ?? "all"),
+                                        categoryId: displayPlayerFilter?.categoryId ?? null,
+                                        teamId: val ? Number(val) : null,
+                                      });
+                                    }}
+                                    className="w-full bg-slate-900 border border-white/20 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
+                                  >
+                                    <option value="">All Teams</option>
+                                    {teams?.map((tm) => (
+                                      <option key={tm.id} value={tm.id}>
+                                        {tm.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     );
