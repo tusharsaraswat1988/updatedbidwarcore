@@ -1017,9 +1017,10 @@
   to { transform: rotate(360deg); }
 }
 
+/* Deprecated hardcoded 0deg settle keyframe replaced by dynamic Canvas Engine in WP-3 */
 @keyframes auction-wheel-settle {
-  0% { transform: rotate(720deg); }
-  100% { transform: rotate(0deg); }
+  from { opacity: 0.95; }
+  to { opacity: 1; }
 }
 
 @keyframes auction-toast-drop {

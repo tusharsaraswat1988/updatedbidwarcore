@@ -9,10 +9,16 @@ import { TrialLicenseBadge } from "@/components/trial-license-badge";
  * TOP STRIP — OBS crest (center), tournament line, LIVE pill, remaining counter.
  */
 export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
-  const { tournament, state, remaining, totalPlayers } = view;
+  const { tournament, state, remaining, totalPlayers, sponsors } = view;
   const paused = view.derivedState === "paused";
   const awaitingNext = view.derivedState === "awaitingNext";
   const live = state.isBidding && !paused;
+
+  const titleSponsor =
+    sponsors?.find((s) => s.tier === "title") ??
+    sponsors?.find((s) => s.tier === "co_sponsor") ??
+    sponsors?.[0] ??
+    null;
 
   return (
     <div className="relative grid h-full min-h-[5.2cqh] max-h-[5.2cqh] grid-cols-[1fr_auto_1fr] items-center gap-[1.7cqw] overflow-visible px-[3%] border-b border-white/10 bg-black/40">
@@ -42,6 +48,34 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
               {tournament.name}
             </span>
           </div>
+
+          {/* Clean Title Sponsor Sightline in Header */}
+          {titleSponsor?.logoUrl ? (
+            <div className="hidden @lg/stage:flex items-center gap-[0.6cqw] pl-[1cqw] border-l border-white/20">
+              <span className="text-[clamp(0.48rem,0.65cqw,0.72rem)] font-mono uppercase tracking-[0.18em] text-white/50 whitespace-nowrap">
+                Presented by
+              </span>
+              <img
+                src={cldUrl(titleSponsor.logoUrl, "headerLogo")}
+                alt={titleSponsor.name || "Title Sponsor"}
+                className="h-[4.2cqh] w-auto max-w-[8cqw] object-contain"
+                loading="eager"
+                decoding="async"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            </div>
+          ) : titleSponsor?.name ? (
+            <div className="hidden @lg/stage:flex items-center gap-[0.6cqw] pl-[1cqw] border-l border-white/20">
+              <span className="text-[clamp(0.48rem,0.65cqw,0.72rem)] font-mono uppercase tracking-[0.18em] text-white/50 whitespace-nowrap">
+                Presented by
+              </span>
+              <span className="text-[clamp(0.6rem,0.85cqw,0.9rem)] font-bold uppercase tracking-[0.05em] text-amber-300 whitespace-nowrap">
+                {titleSponsor.name}
+              </span>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -63,7 +97,7 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
         >
           {!live && !paused ? (
             <span className="led-status text-[clamp(0.85rem,1.1cqw,1.25rem)] font-bold uppercase tracking-[0.06em] text-white/85">
-              {awaitingNext ? "Awaiting Next Player" : "Standby"}
+              {awaitingNext ? "Awaiting Next Player" : "ON DECK"}
             </span>
           ) : (
             <>

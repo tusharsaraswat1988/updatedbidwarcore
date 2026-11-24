@@ -576,7 +576,9 @@ export function useLedView(
     const overlayState = derivedStateFromOverlayKey(overlayKey, teamPurseViewActive);
 
     let derivedState: DerivedState = "idle";
-    if (overlayState) derivedState = overlayState;
+    if (overlayState === "banner" && (isBreakFlag || breakCountdown > 0 || breakMeta.endsAt)) {
+      derivedState = breakMeta.type === "pre-auction" ? "preAuction" : "break";
+    } else if (overlayState) derivedState = overlayState;
     else if (fortuneWheelActive) derivedState = "fortuneWheel";
     else if (isBreakFlag) derivedState = "break";
     else if (

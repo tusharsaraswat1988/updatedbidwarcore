@@ -2,8 +2,8 @@ import { memo, useEffect, useMemo, useState } from "react";
 import type { LedTeam, LedView } from "@/lib/led-view/types";
 import { formatAuctionAmount, normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
 
-const ROTATION_INTERVAL_MS = 5000;
-const PAGE_SIZE = 4;
+const ROTATION_INTERVAL_MS = 12000;
+const PAGE_SIZE = 6;
 
 interface TeamsPurseBoardProps {
   view: LedView;
@@ -11,10 +11,12 @@ interface TeamsPurseBoardProps {
 
 /**
  * TEAMS PURSE & MAX BID BOARD — broadcast panel for the right-side stage column.
- * Displays all tournament teams with:
- *   1. Remaining Purse (balance points available)
- *   2. Max Bid Allowed Per Player (reserve-purse protected single-bid ceiling)
- * Highlights active highest bidder with team accent glow.
+ * Rendered in High-Contrast Light Mode to prevent data exhaustion and visual fatigue on LED walls.
+ * Features:
+ *   - Clean single header row: [TEAM] | [PURSE] | [MAX BID] (no repeating micro-labels)
+ *   - High-contrast white/light-slate container with crisp slate-900 typography
+ *   - Full-width team names in bold condensed typography without ellipsis cutting
+ *   - Monospace tabular alignment for remaining purse and max bid amounts
  */
 export const TeamsPurseBoard = memo(function TeamsPurseBoard({ view }: TeamsPurseBoardProps) {
   const { state, leadingTeam, hasTeamBid, tournament } = view;
@@ -54,133 +56,110 @@ export const TeamsPurseBoard = memo(function TeamsPurseBoard({ view }: TeamsPurs
 
   if (teams.length === 0) {
     return (
-      <div className="w-full flex-1 min-h-0 flex flex-col justify-center items-center p-3 border border-white/10 bg-black/40 text-center">
-        <span className="led-label text-[clamp(0.9rem,1.2cqw,1.35rem)] font-bold uppercase tracking-[0.06em] text-white/70 font-['Space_Grotesk']">
+      <div className="w-full flex-1 min-h-0 flex flex-col justify-center items-center p-3 rounded-xl border border-slate-200 bg-white text-center shadow-lg">
+        <span className="text-[clamp(0.85rem,1.1cqw,1.25rem)] font-bold uppercase tracking-[0.06em] text-slate-500 font-['Space_Grotesk']">
           Awaiting Teams Data
         </span>
       </div>
     );
   }
 
-  const isCompact = teams.length > 5;
+  const isCompact = teams.length > 6;
 
   return (
-    <div className="w-full flex-1 min-h-0 flex flex-col justify-between overflow-hidden border border-white/10 bg-black/45 p-2">
-      {/* Header Bar */}
-      <div className="flex items-center justify-between px-1.5 pb-1.5 border-b border-white/10 shrink-0">
-        <div className="flex items-center gap-1.5">
+    <div className="w-full flex-1 min-h-0 flex flex-col justify-between overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-xl p-2.5 text-slate-900">
+      {/* Top Banner / Title Header */}
+      <div className="flex items-center justify-between px-2 pb-2 border-b border-slate-200/80 shrink-0">
+        <div className="flex items-center gap-2">
           <div
-            className="size-2 rounded-full"
+            className="size-2.5 rounded-full"
             style={{
-              backgroundColor: isBidding ? "var(--accent)" : "rgba(255,255,255,0.6)",
+              backgroundColor: isBidding ? "#16a34a" : "#94a3b8",
               animation: isBidding ? "auction-pulse-glow 1.5s ease-in-out infinite" : undefined,
             }}
           />
-          <span className="led-label text-[clamp(0.75rem,0.95cqw,1.05rem)] font-extrabold uppercase tracking-[0.04em] text-white/90 font-['Space_Grotesk']">
+          <span className="text-[clamp(0.8rem,1.05cqw,1.15rem)] font-extrabold uppercase tracking-wide text-slate-900 font-['Space_Grotesk']">
             Teams Purse & Max Bid
           </span>
         </div>
-        <span className="led-label text-[clamp(0.7rem,0.85cqw,0.95rem)] font-bold uppercase text-white/75">
+        <span className="text-[clamp(0.7rem,0.85cqw,0.92rem)] font-bold font-mono uppercase text-slate-500">
           {teams.length} Teams
         </span>
       </div>
 
-      {/* Teams List */}
-      <div className="flex-1 min-h-0 flex flex-col justify-around gap-1.5 py-1.5 overflow-hidden">
-        {visibleTeams.map((team: LedTeam) => {
+      {/* Broadcast Table Column Headers (Eliminating repeating row micro-labels) */}
+      <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)] items-center px-2 py-1 text-[clamp(0.6rem,0.8cqw,0.78rem)] font-mono font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200/70 shrink-0">
+        <span>Team</span>
+        <span className="text-right">Purse</span>
+        <span className="text-right text-emerald-700">Max Bid</span>
+      </div>
+
+      {/* Teams List (In Light Mode without Data Cut) */}
+      <div className="flex-1 min-h-0 flex flex-col justify-around gap-1 py-1 overflow-hidden">
+        {visibleTeams.map((team: LedTeam, idx: number) => {
           const isLeader = activeTeamId === String(team.id);
-          const teamColor = team.color || "var(--accent)";
+          const teamColor = team.color || "#2563eb";
 
           return (
             <div
               key={team.id}
-              className={`relative flex items-center justify-between px-2 transition-all duration-300 ${
-                isCompact ? "py-1" : "py-1.5"
-              } border`}
+              className={`relative grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)] items-center px-2 transition-all duration-200 rounded-lg border ${
+                isCompact ? "py-0.5" : "py-1"
+              }`}
               style={{
                 backgroundColor: isLeader
-                  ? `color-mix(in srgb, ${teamColor} 22%, rgba(0,0,0,0.7))`
-                  : "rgba(255,255,255,0.04)",
-                borderColor: isLeader
-                  ? `color-mix(in srgb, ${teamColor} 75%, transparent)`
-                  : "rgba(255,255,255,0.12)",
-                boxShadow: isLeader
-                  ? `0 0 14px color-mix(in srgb, ${teamColor} 35%, transparent)`
-                  : undefined,
+                  ? "rgba(254, 243, 199, 0.75)" // amber-100/75 for leader
+                  : idx % 2 === 0
+                    ? "rgba(248, 250, 252, 0.85)" // slate-50
+                    : "#ffffff",
+                borderColor: isLeader ? "#f59e0b" : "rgba(226, 232, 240, 0.8)",
+                boxShadow: isLeader ? "0 0 10px rgba(245, 158, 11, 0.3)" : undefined,
               }}
             >
-              {/* Left Stripe */}
+              {/* Left Color Stripe */}
               <div
-                className="absolute left-0 inset-y-0 w-1.5"
+                className="absolute left-0 inset-y-1 w-1 rounded-r"
                 style={{ backgroundColor: teamColor }}
               />
 
-              {/* Team Identity */}
-              <div className="flex items-center gap-2 min-w-0 mr-2 flex-1">
+              {/* Team Identity Column */}
+              <div className="flex items-center gap-1.5 min-w-0 pr-1 pl-1.5">
                 {team.logoUrl ? (
                   <img
                     src={team.logoUrl}
                     alt={team.name}
-                    className="size-5 shrink-0 object-contain"
+                    className="size-4.5 shrink-0 object-contain rounded"
                   />
                 ) : (
                   <span
-                    className="led-team font-['Bebas_Neue'] text-[clamp(0.85rem,1.15cqw,1.3rem)] px-1.5 py-0.5 rounded leading-none shrink-0 font-bold"
+                    className="font-['Bebas_Neue'] text-[clamp(0.75rem,0.95cqw,1.05rem)] px-1 rounded leading-none shrink-0 font-bold"
                     style={{
-                      backgroundColor: `color-mix(in srgb, ${teamColor} 30%, transparent)`,
+                      backgroundColor: `color-mix(in srgb, ${teamColor} 18%, #f1f5f9)`,
                       color: teamColor,
                     }}
                   >
                     {team.short}
                   </span>
                 )}
-                <div className="flex flex-col min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="led-team text-[clamp(0.8rem,1cqw,1.15rem)] font-extrabold uppercase tracking-wide text-white truncate max-w-[140px]">
-                      {team.name}
-                    </span>
-                    {isLeader && (
-                      <span
-                        className="led-status text-[clamp(0.7rem,0.85cqw,0.95rem)] font-black uppercase tracking-wider px-1.5 py-0.5 rounded leading-tight shrink-0 shadow"
-                        style={{
-                          backgroundColor: teamColor,
-                          color: "#000",
-                        }}
-                      >
-                        Highest
-                      </span>
-                    )}
-                  </div>
-                </div>
+                <span
+                  className="font-['Barlow_Condensed'] text-[clamp(0.85rem,1.1cqw,1.25rem)] font-bold uppercase tracking-wide text-slate-900 truncate"
+                  title={team.name}
+                >
+                  {team.name}
+                </span>
+                {isLeader && (
+                  <span className="size-1.5 rounded-full bg-amber-500 shrink-0" title="Highest Bidder" />
+                )}
               </div>
 
-              {/* Financial Metrics: Remaining Purse & Max Bid Per Player */}
-              <div className="flex items-center gap-2.5 shrink-0 text-right">
-                {/* Remaining Purse */}
-                <div className="flex flex-col items-end">
-                  <span className="led-label text-[clamp(0.68rem,0.8cqw,0.9rem)] font-bold uppercase tracking-wider text-white/70 leading-none mb-0.5 font-['Space_Grotesk']">
-                    Purse
-                  </span>
-                  <span
-                    className="led-value font-['Bebas_Neue'] text-[clamp(0.95rem,1.3cqw,1.45rem)] tracking-wide tabular-nums leading-none font-black"
-                    style={{ color: isLeader ? teamColor : "var(--stage-text)" }}
-                  >
-                    {formatAuctionAmount(team.purse, auctionUnit)}
-                  </span>
-                </div>
+              {/* Remaining Purse Column */}
+              <div className="text-right font-['Bebas_Neue'] text-[clamp(0.95rem,1.25cqw,1.4rem)] font-black tracking-wide tabular-nums text-slate-800">
+                {formatAuctionAmount(team.purse, auctionUnit)}
+              </div>
 
-                {/* Vertical separator */}
-                <div className="h-5 w-px bg-white/15" />
-
-                {/* Max Bid Allowed */}
-                <div className="flex flex-col items-end min-w-[52px]">
-                  <span className="led-label text-[clamp(0.68rem,0.8cqw,0.9rem)] font-bold uppercase tracking-wider text-white/70 leading-none mb-0.5 font-['Space_Grotesk']">
-                    Max Bid
-                  </span>
-                  <span className="led-value font-['Bebas_Neue'] text-[clamp(0.95rem,1.3cqw,1.45rem)] tracking-wide tabular-nums leading-none text-emerald-400 font-black">
-                    {formatAuctionAmount(team.maxBidAllowed, auctionUnit)}
-                  </span>
-                </div>
+              {/* Max Bid Allowed Column */}
+              <div className="text-right font-['Bebas_Neue'] text-[clamp(0.95rem,1.25cqw,1.4rem)] font-black tracking-wide tabular-nums text-emerald-700">
+                {formatAuctionAmount(team.maxBidAllowed, auctionUnit)}
               </div>
             </div>
           );
@@ -189,13 +168,13 @@ export const TeamsPurseBoard = memo(function TeamsPurseBoard({ view }: TeamsPurs
 
       {/* Footer / Pagination dots if > 8 teams */}
       {isLargeRoster && (
-        <div className="flex items-center justify-center gap-1 pt-1 border-t border-white/10 shrink-0">
+        <div className="flex items-center justify-center gap-1 pt-1 border-t border-slate-200/80 shrink-0">
           {Array.from({ length: Math.ceil(teams.length / PAGE_SIZE) }).map((_, i) => (
             <div
               key={i}
-              className="size-1 rounded-full transition-colors duration-300"
+              className="size-1.5 rounded-full transition-colors duration-300"
               style={{
-                backgroundColor: i === pageIndex ? "var(--accent)" : "rgba(255,255,255,0.2)",
+                backgroundColor: i === pageIndex ? "#2563eb" : "#cbd5e1",
               }}
             />
           ))}

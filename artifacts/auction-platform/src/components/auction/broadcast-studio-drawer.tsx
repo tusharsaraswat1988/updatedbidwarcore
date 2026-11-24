@@ -124,27 +124,27 @@ export function BroadcastStudioDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-[92vw] sm:w-[480px] md:w-[540px] p-0 flex flex-col bg-[#0c1222] border-l border-white/15 text-white z-50 shadow-2xl"
+        className="w-[92vw] sm:w-[480px] md:w-[520px] p-0 flex flex-col bg-[#0c1222] border-l border-white/15 text-white z-50 shadow-2xl"
       >
-        <SheetHeader className="px-6 py-5 border-b border-white/10 shrink-0 bg-white/[0.02]">
+        <SheetHeader className="px-4 py-3 sm:px-5 sm:py-3.5 border-b border-white/10 shrink-0 bg-white/[0.02]">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-amber-500/20 border border-amber-500/35 flex items-center justify-center text-amber-400 shrink-0 shadow-sm">
-                <Tv2 className="w-6 h-6" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/35 flex items-center justify-center text-amber-400 shrink-0 shadow-xs">
+                <Tv2 className="w-4 h-4" />
               </div>
               <div>
-                <SheetTitle className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2">
+                <SheetTitle className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-2">
                   Broadcast &amp; Media Studio
                 </SheetTitle>
-                <SheetDescription className="text-xs sm:text-sm text-white/60 mt-0.5">
-                  Manage stage screens, OBS graphics, and intermissions
+                <SheetDescription className="text-[11px] sm:text-xs text-white/60">
+                  Stage screens, OBS graphics, and intermissions
                 </SheetDescription>
               </div>
             </div>
           </div>
 
           {/* Navigation Tabs (LED / OBS / Intermissions) */}
-          <div className="grid grid-cols-3 gap-2 pt-4">
+          <div className="grid grid-cols-3 gap-1.5 pt-2.5">
             {[
               { id: "led" as const, label: "LED Screen", icon: Tv2 },
               { id: "obs" as const, label: "OBS Stream", icon: Gavel },
@@ -157,14 +157,14 @@ export function BroadcastStudioDrawer({
                   key={tab.id}
                   type="button"
                   onClick={() => handleTabChange(tab.id)}
-                  className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black transition-all ${
+                  className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
                     active
-                      ? "bg-amber-400 text-slate-950 shadow-md font-black"
-                      : "text-white/60 hover:text-white hover:bg-white/5 border border-white/10"
+                      ? "bg-amber-400 text-slate-950 shadow-xs font-black"
+                      : "text-white/65 hover:text-white hover:bg-white/5 border border-white/10"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  {tab.label}
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="truncate">{tab.label}</span>
                 </button>
               );
             })}
@@ -172,162 +172,158 @@ export function BroadcastStudioDrawer({
         </SheetHeader>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-5 sm:py-3.5 space-y-3">
           {/* TAB 1: LED STAGE SCREEN */}
           {activeTab === "led" && (
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black uppercase tracking-wider text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-lg border border-emerald-400/25">
-                      LED Stage Screen
-                    </span>
-                    <span className="text-xs text-white/50">In-Hall Visuals</span>
-                  </div>
-                  <a
-                    href={`/tournament/${tournamentId}/display`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-amber-300 hover:text-amber-200 flex items-center gap-1 font-bold transition-colors"
-                  >
-                    Open Screen <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/25">
+                    LED Stage Screen
+                  </span>
+                  <span className="text-[11px] text-white/50">In-Hall Visuals</span>
                 </div>
+                <a
+                  href={`/tournament/${tournamentId}/display`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] text-amber-300 hover:text-amber-200 flex items-center gap-1 font-bold transition-colors"
+                >
+                  Open Screen <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
 
-                <div className="grid grid-cols-1 gap-2.5">
-                  {ledButtons.map((btn) => {
-                    const isSelected = btn.mode === "off" ? !ledOverlay : ledOverlay === btn.mode;
-                    const Icon = btn.icon;
-                    return (
-                      <button
-                        key={btn.mode}
-                        type="button"
-                        disabled={operatorReadOnly}
-                        onClick={() => onSelectLedOverlay(btn.mode)}
-                        className={`flex items-center justify-between p-3.5 rounded-xl border-2 text-left transition-all ${
-                          isSelected
-                            ? "bg-emerald-500/20 border-emerald-500 text-white shadow-[0_0_16px_rgba(16,185,129,0.3)] ring-1 ring-emerald-500/50"
-                            : "bg-white/[0.03] border-white/10 text-white/80 hover:bg-white/8 hover:text-white"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3.5">
-                          <div
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                              isSelected
-                                ? "bg-emerald-500 text-slate-950 font-bold"
-                                : "bg-white/10 text-white/60"
-                            }`}
-                          >
-                            <Icon className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-black leading-tight flex items-center gap-2">
-                              {btn.label}
-                              {isSelected && (
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                              )}
-                            </p>
-                            <p className="text-xs text-white/50 mt-1">{btn.desc}</p>
-                          </div>
+              <div className="grid grid-cols-1 gap-2">
+                {ledButtons.map((btn) => {
+                  const isSelected = btn.mode === "off" ? !ledOverlay : ledOverlay === btn.mode;
+                  const Icon = btn.icon;
+                  return (
+                    <button
+                      key={btn.mode}
+                      type="button"
+                      disabled={operatorReadOnly}
+                      onClick={() => onSelectLedOverlay(btn.mode)}
+                      className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
+                        isSelected
+                          ? "bg-emerald-500/20 border-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/50"
+                          : "bg-white/[0.03] border-white/10 text-white/80 hover:bg-white/8 hover:text-white"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                            isSelected
+                              ? "bg-emerald-500 text-slate-950 font-bold"
+                              : "bg-white/10 text-white/60"
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
                         </div>
-                        {isSelected ? (
-                          <span className="text-xs font-black uppercase text-emerald-300 bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/40 tracking-wider">
-                            ON AIR
-                          </span>
-                        ) : (
-                          <span className="text-xs font-bold text-white/40 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
-                            Push
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-bold leading-tight flex items-center gap-1.5">
+                            <span className="truncate">{btn.label}</span>
+                            {isSelected && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                            )}
+                          </p>
+                          <p className="text-[11px] text-white/50 mt-0.5 truncate">{btn.desc}</p>
+                        </div>
+                      </div>
+                      {isSelected ? (
+                        <span className="text-[10px] font-black uppercase text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/40 tracking-wider shrink-0">
+                          ON AIR
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-white/40 bg-white/5 px-2 py-0.5 rounded border border-white/10 shrink-0">
+                          Push
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
           {/* TAB 2: OBS STREAM & PRIZE CEREMONY */}
           {activeTab === "obs" && (
-            <div className="space-y-6">
+            <div className="space-y-3">
               {/* OBS Stream Overlays Section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black uppercase tracking-wider text-rose-400 bg-rose-400/10 px-2.5 py-1 rounded-lg border border-rose-400/25">
-                      OBS Stream
-                    </span>
-                    <span className="text-xs text-white/50">Live Feed Graphics</span>
-                  </div>
-                  <a
-                    href={`/tournament/${tournamentId}/obs`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-rose-300 hover:text-rose-200 flex items-center gap-1 font-bold transition-colors"
-                  >
-                    Open OBS <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-400 bg-rose-400/10 px-2 py-0.5 rounded border border-rose-400/25">
+                    OBS Stream
+                  </span>
+                  <span className="text-[11px] text-white/50">Live Feed Graphics</span>
                 </div>
+                <a
+                  href={`/tournament/${tournamentId}/obs`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] text-rose-300 hover:text-rose-200 flex items-center gap-1 font-bold transition-colors"
+                >
+                  Open OBS <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
 
-                <div className="grid grid-cols-1 gap-2.5">
-                  {obsButtons.map((btn) => {
-                    const isSelected = presentationContext.context === btn.context;
-                    const Icon = btn.icon;
-                    return (
-                      <button
-                        key={btn.context}
-                        type="button"
-                        disabled={operatorReadOnly}
-                        onClick={() => onSelectObsPresentation(btn.context)}
-                        className={`flex items-center justify-between p-3.5 rounded-xl border-2 text-left transition-all ${
-                          isSelected
-                            ? "bg-rose-500/20 border-rose-500 text-white shadow-[0_0_16px_rgba(239,68,68,0.3)] ring-1 ring-rose-500/50"
-                            : "bg-white/[0.03] border-white/10 text-white/80 hover:bg-white/8 hover:text-white"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3.5">
-                          <div
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                              isSelected
-                                ? "bg-rose-500 text-white font-bold"
-                                : "bg-white/10 text-white/60"
-                            }`}
-                          >
-                            <Icon className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-black leading-tight flex items-center gap-2">
-                              {btn.label}
-                              {isSelected && (
-                                <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
-                              )}
-                            </p>
-                            <p className="text-xs text-white/50 mt-1">{btn.desc}</p>
-                          </div>
+              <div className="grid grid-cols-1 gap-2">
+                {obsButtons.map((btn) => {
+                  const isSelected = presentationContext.context === btn.context;
+                  const Icon = btn.icon;
+                  return (
+                    <button
+                      key={btn.context}
+                      type="button"
+                      disabled={operatorReadOnly}
+                      onClick={() => onSelectObsPresentation(btn.context)}
+                      className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
+                        isSelected
+                          ? "bg-rose-500/20 border-rose-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.25)] ring-1 ring-rose-500/50"
+                          : "bg-white/[0.03] border-white/10 text-white/80 hover:bg-white/8 hover:text-white"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                            isSelected
+                              ? "bg-rose-500 text-white font-bold"
+                              : "bg-white/10 text-white/60"
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
                         </div>
-                        {isSelected ? (
-                          <span className="text-xs font-black uppercase text-rose-300 bg-rose-500/20 px-2.5 py-1 rounded-lg border border-rose-500/40 tracking-wider">
-                            STREAMING
-                          </span>
-                        ) : (
-                          <span className="text-xs font-bold text-white/40 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
-                            Push
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-bold leading-tight flex items-center gap-1.5">
+                            <span className="truncate">{btn.label}</span>
+                            {isSelected && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse shrink-0" />
+                            )}
+                          </p>
+                          <p className="text-[11px] text-white/50 mt-0.5 truncate">{btn.desc}</p>
+                        </div>
+                      </div>
+                      {isSelected ? (
+                        <span className="text-[10px] font-black uppercase text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded border border-rose-500/40 tracking-wider shrink-0">
+                          STREAMING
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-white/40 bg-white/5 px-2 py-0.5 rounded border border-white/10 shrink-0">
+                          Push
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Live Ceremony & Prize Plate Section */}
-              <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-2 pt-4">
-                <p className="text-sm font-bold text-white/95 flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-amber-400" />
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+                <p className="text-xs font-bold text-white/95 flex items-center gap-1.5">
+                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
                   Live Ceremony &amp; Prize Plate
                 </p>
-                <p className="text-xs text-white/50 pb-2">
-                  Broadcast award announcements or trophy reveals directly into the OBS lower-third stream.
+                <p className="text-[11px] text-white/50">
+                  Broadcast award announcements or trophy reveals directly into the OBS stream.
                 </p>
                 <AuctionObsBroadcastTools
                   tournamentId={tournamentId}
@@ -343,35 +339,35 @@ export function BroadcastStudioDrawer({
 
           {/* TAB 3: INTERMISSION & FLOOR TOOLS */}
           {activeTab === "intermission" && (
-            <div className="space-y-4">
+            <div className="space-y-2.5">
               {/* Break Timer Card */}
-              <div className="p-4 rounded-xl border border-white/10 bg-white/[0.03] space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
-                      <Timer className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-black text-white">Pre-Auction &amp; Break Timer</p>
-                      <p className="text-xs text-white/50">Shows live countdown with music on LED stage</p>
-                    </div>
+              <div className="p-2.5 sm:p-3 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.05] transition-all flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                    <Timer className="w-4 h-4" />
                   </div>
-                  {breakTimerActive && (
-                    <span className="text-xs px-2.5 py-1 rounded-lg bg-amber-400/25 text-amber-300 font-black animate-pulse border border-amber-400/40">
-                      ACTIVE
-                    </span>
-                  )}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs sm:text-sm font-bold text-white truncate">Pre-Auction &amp; Break Timer</p>
+                      {breakTimerActive && (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-400/25 text-amber-300 font-black animate-pulse border border-amber-400/40 shrink-0">
+                          ACTIVE
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-white/50 truncate">Live countdown with music on stage</p>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 pt-1">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={onOpenBreakTimer}
-                    className="flex-1 h-11 text-xs sm:text-sm font-bold bg-white/5 border-white/15 text-white hover:bg-white/10 rounded-xl"
+                    className="h-8 px-2.5 text-xs font-bold bg-white/5 border-white/15 text-white hover:bg-white/10 rounded-lg"
                   >
-                    <Timer className="w-4 h-4 mr-2 text-amber-400" />
-                    {breakTimerActive ? "Configure / Stop Timer" : "Start Break Timer"}
+                    <Timer className="w-3.5 h-3.5 mr-1 text-amber-400" />
+                    {breakTimerActive ? "Stop / Edit" : "Start Timer"}
                   </Button>
 
                   {breakTimerActive && onToggleBreakMusic && (
@@ -380,12 +376,12 @@ export function BroadcastStudioDrawer({
                       size="sm"
                       onClick={onToggleBreakMusic}
                       title={breakTimerMusicMuted ? "Resume music" : "Mute music"}
-                      className="h-11 px-3.5 text-xs bg-white/5 border-white/15 text-white hover:bg-white/10 rounded-xl"
+                      className="h-8 px-2 text-xs bg-white/5 border-white/15 text-white hover:bg-white/10 rounded-lg"
                     >
                       {breakTimerMusicMuted ? (
-                        <VolumeX className="w-4 h-4 text-rose-400" />
+                        <VolumeX className="w-3.5 h-3.5 text-rose-400" />
                       ) : (
-                        <Volume2 className="w-4 h-4 text-emerald-400" />
+                        <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
                       )}
                     </Button>
                   )}
@@ -393,58 +389,58 @@ export function BroadcastStudioDrawer({
               </div>
 
               {/* Fortune Wheel Card */}
-              <div className="p-4 rounded-xl border border-white/10 bg-white/[0.03] flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 shrink-0">
-                    <Sparkles className="w-5 h-5" />
+              <div className="p-2.5 sm:p-3 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.05] transition-all flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 shrink-0">
+                    <Sparkles className="w-4 h-4" />
                   </div>
-                  <div>
-                    <p className="text-sm font-black text-white">Fortune Wheel</p>
-                    <p className="text-xs text-white/50">Random team draw lottery animation on stage</p>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-bold text-white truncate">Fortune Wheel</p>
+                    <p className="text-[11px] text-white/50 truncate">Random team draw lottery animation</p>
                   </div>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={onOpenFortuneWheel}
-                  className="h-11 px-4 text-xs sm:text-sm font-bold bg-purple-500/15 border-purple-500/30 text-purple-200 hover:bg-purple-500/25 rounded-xl"
+                  className="h-8 px-3 text-xs font-bold bg-purple-500/15 border border-purple-500/30 text-purple-200 hover:bg-purple-500/25 rounded-lg shrink-0"
                 >
                   Open Wheel
                 </Button>
               </div>
 
               {/* Purse Booster Card */}
-              <div className="p-4 rounded-xl border border-white/10 bg-white/[0.03] flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center text-yellow-300 shrink-0">
-                    <Coins className="w-5 h-5" />
+              <div className="p-2.5 sm:p-3 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.05] transition-all flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center text-yellow-300 shrink-0">
+                    <Coins className="w-4 h-4" />
                   </div>
-                  <div>
-                    <p className="text-sm font-black text-white">Purse Booster</p>
-                    <p className="text-xs text-white/50">Inject bonus purse to all or specific teams</p>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-bold text-white truncate">Purse Booster</p>
+                    <p className="text-[11px] text-white/50 truncate">Inject bonus purse to all or specific teams</p>
                   </div>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={onOpenPurseBooster}
-                  className="h-11 px-4 text-xs sm:text-sm font-bold bg-yellow-500/15 border-yellow-500/30 text-yellow-200 hover:bg-yellow-500/25 rounded-xl"
+                  className="h-8 px-3 text-xs font-bold bg-yellow-500/15 border border-yellow-500/30 text-yellow-200 hover:bg-yellow-500/25 rounded-lg shrink-0"
                 >
                   Purse Booster
                 </Button>
               </div>
 
               {/* Bring Unsold Pool */}
-              <div className="p-4 rounded-xl border border-white/10 bg-white/[0.03] flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-300 shrink-0">
-                    <RotateCcw className="w-5 h-5" />
+              <div className="p-2.5 sm:p-3 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.05] transition-all flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-300 shrink-0">
+                    <RotateCcw className="w-4 h-4" />
                   </div>
-                  <div>
-                    <p className="text-sm font-black text-white">
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-bold text-white truncate">
                       Bring Unsold Back ({unsoldPlayersCount})
                     </p>
-                    <p className="text-xs text-white/50">Return unsold players to active draw pool</p>
+                    <p className="text-[11px] text-white/50 truncate">Return unsold players to active draw pool</p>
                   </div>
                 </div>
                 <Button
@@ -452,15 +448,15 @@ export function BroadcastStudioDrawer({
                   size="sm"
                   disabled={bringUnsoldDisabled || unsoldPlayersCount === 0}
                   onClick={onBringUnsold}
-                  className="h-11 px-4 text-xs sm:text-sm font-bold bg-orange-500/15 border-orange-500/30 text-orange-200 hover:bg-orange-500/25 disabled:opacity-40 rounded-xl"
+                  className="h-8 px-3 text-xs font-bold bg-orange-500/15 border-orange-500/30 text-orange-200 hover:bg-orange-500/25 disabled:opacity-40 rounded-lg shrink-0"
                 >
                   Bring Pool
                 </Button>
               </div>
 
               {/* Session Controls */}
-              <div className="pt-4 border-t border-white/10 space-y-2.5">
-                <p className="text-xs font-black uppercase tracking-wider text-white/40">
+              <div className="pt-2.5 border-t border-white/10 space-y-1.5">
+                <p className="text-[10px] font-black uppercase tracking-wider text-white/40">
                   Session Control
                 </p>
 
@@ -468,31 +464,31 @@ export function BroadcastStudioDrawer({
                   <Button
                     variant="outline"
                     onClick={onConcludeAuction}
-                    className="w-full h-11 text-sm font-black bg-white/10 border-white/20 text-white hover:bg-white/15 rounded-xl"
+                    className="w-full h-8.5 sm:h-9 text-xs sm:text-sm font-black bg-white/10 border-white/20 text-white hover:bg-white/15 rounded-lg"
                   >
-                    <CheckCircle className="w-4 h-4 mr-2" /> Conclude Auction
+                    <CheckCircle className="w-3.5 h-3.5 mr-1.5" /> Conclude Auction
                   </Button>
                 ) : isPreAuction ? (
                   <Button
                     onClick={onStartResumeAuction}
-                    className="w-full h-11 text-sm font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-md rounded-xl"
+                    className="w-full h-8.5 sm:h-9 text-xs sm:text-sm font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs rounded-lg"
                   >
-                    <Play className="w-4 h-4 mr-2 fill-current" /> Start Live Auction
+                    <Play className="w-3.5 h-3.5 mr-1.5 fill-current" /> Start Live Auction
                   </Button>
                 ) : isPaused ? (
                   <Button
                     onClick={onStartResumeAuction}
-                    className="w-full h-11 text-sm font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-md rounded-xl"
+                    className="w-full h-8.5 sm:h-9 text-xs sm:text-sm font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs rounded-lg"
                   >
-                    <Play className="w-4 h-4 mr-2 fill-current" /> Resume Auction
+                    <Play className="w-3.5 h-3.5 mr-1.5 fill-current" /> Resume Auction
                   </Button>
                 ) : isActive ? (
                   <Button
                     variant="outline"
                     onClick={onPauseAuction}
-                    className="w-full h-11 text-sm font-black border-yellow-500/40 bg-yellow-500/15 text-yellow-300 hover:bg-yellow-500/25 rounded-xl"
+                    className="w-full h-8.5 sm:h-9 text-xs sm:text-sm font-black border-yellow-500/40 bg-yellow-500/15 text-yellow-300 hover:bg-yellow-500/25 rounded-lg"
                   >
-                    <Pause className="w-4 h-4 mr-2" /> Pause Auction for Break
+                    <Pause className="w-3.5 h-3.5 mr-1.5" /> Pause Auction for Break
                   </Button>
                 ) : null}
               </div>

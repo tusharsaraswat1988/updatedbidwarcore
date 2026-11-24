@@ -20,6 +20,7 @@ import {
 import type { LedTeam } from "@/lib/led-view/types";
 import { LedTopBrandMark } from "./led-top-brand-mark";
 import { PurseBoosterLedOverlay } from "../purse-booster-led-overlay";
+import { FortuneWheelOverlay } from "../fortune-wheel-overlay";
 import {
   LED_AMOUNT_CLASS,
   LED_HEADLINE_CLASS,
@@ -434,27 +435,18 @@ export const EffectsLayer = memo(function EffectsLayer({
 
   // ---------- FORTUNE WHEEL ----------
   if (derivedState === "fortuneWheel") {
+    const wheelItems = wheel.items.map((it) => ({
+      label: it.label,
+      color: it.color ?? "#2563eb",
+    }));
+
     return (
-      <div className="absolute inset-0 z-30 grid place-items-center pointer-events-none">
-        <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
-        <div className="relative flex flex-col items-center gap-8" style={{ animation: "auction-sold-slam 0.6s ease-out both" }}>
-          <p className="led-label text-[clamp(0.95rem,1.3cqw,1.45rem)] font-extrabold uppercase tracking-[0.06em] text-white/80 font-['Space_Grotesk']">
-            Fortune Wheel
-          </p>
-          <FortuneWheel items={wheel.items} spinning={wheel.spinning} winner={wheel.winner} />
-          {wheel.winner ? (
-            <div className="px-8 py-3 border-4" style={{ borderColor: "var(--accent)" }}>
-              <p className="font-['Bebas_Neue'] text-5xl tracking-widest text-white">
-                {wheel.winner}
-              </p>
-            </div>
-          ) : (
-            <p className="led-status text-[clamp(0.95rem,1.3cqw,1.45rem)] font-extrabold uppercase tracking-[0.06em] text-white/85 font-['Space_Grotesk']">
-              {wheel.spinning ? "Spinning…" : "Get Ready"}
-            </p>
-          )}
-        </div>
-      </div>
+      <FortuneWheelOverlay
+        items={wheelItems}
+        wheelSpinning={wheel.spinning}
+        winner={wheel.winner}
+        teams={teams}
+      />
     );
   }
 
@@ -1257,53 +1249,6 @@ function TopSoldRow({
 }
 
 
-function FortuneWheel({
-  items,
-  spinning,
-  winner,
-}: {
-  items: { label: string; color?: string }[];
-  spinning: boolean;
-  winner: string | null;
-}) {
-  const n = Math.max(items.length, 1);
-  const slice = 360 / n;
-  const gradient = items
-    .map((it, i) => {
-      const start = i * slice;
-      const end = (i + 1) * slice;
-      return `${it.color ?? "#3B82F6"} ${start}deg ${end}deg`;
-    })
-    .join(", ");
-
-  return (
-    <div className="relative h-[clamp(16rem,32cqw,28rem)] w-[clamp(16rem,32cqw,28rem)]">
-      <div
-        className="absolute inset-0 rounded-full border-8 border-white/20 shadow-[0_0_60px_rgba(0,0,0,0.8)]"
-        style={{
-          background:
-            items.length > 0 ? `conic-gradient(${gradient})` : "conic-gradient(#3B82F6 0deg 360deg)",
-          animation: spinning
-            ? "auction-wheel-spin 1.2s linear infinite"
-            : winner
-              ? "auction-wheel-settle 0.6s ease-out both"
-              : "none",
-        }}
-      />
-      <div className="absolute inset-0 grid place-items-center">
-        <div className="h-20 w-20 rounded-full bg-black border-4 border-white/30" />
-      </div>
-      <div
-        className="absolute left-1/2 -top-3 -translate-x-1/2 w-0 h-0"
-        style={{
-          borderLeft: "14px solid transparent",
-          borderRight: "14px solid transparent",
-          borderTop: "22px solid var(--accent)",
-        }}
-      />
-    </div>
-  );
-}
 
 function Stat({
   label,

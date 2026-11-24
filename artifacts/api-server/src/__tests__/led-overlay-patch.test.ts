@@ -265,3 +265,33 @@ describe("display-overlay MAIN VIEW route wiring", () => {
     expect(handler).toContain("broadcastLedOverlayPatch(tid, overlayPatch, presentationExtra)");
   });
 });
+
+describe("break-timer route resets displayOverlay and controls session status", () => {
+  it("clears displayOverlay on break start and cancel in router handler", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const src = await readFile(new URL("../routes/auction.ts", import.meta.url), "utf8");
+    const breakStart = src.indexOf('router.post("/tournaments/:tournamentId/auction/break-timer"');
+    const breakEnd = src.indexOf('router.get("/tournaments/:tournamentId/auction/bids"');
+    expect(breakStart).toBeGreaterThan(-1);
+    expect(breakEnd).toBeGreaterThan(breakStart);
+    const handler = src.slice(breakStart, breakEnd);
+
+    // On break start: reset displayOverlay and set isBreak
+    expect(handler).toContain("sessionPatch.displayOverlay = null");
+    expect(handler).toContain("sessionPatch.isBreak = true");
+
+    // On break cancel: reset displayCountdown, isBreak, displayOverlay, and resume active
+    expect(handler).toContain("sessionPatch.displayCountdown = null");
+    expect(handler).toContain("sessionPatch.isBreak = false");
+    expect(handler).toContain('sessionPatch.status = "active"');
+  });
+
+  it("remembered break reset clears stale banner from in-flight rebuilds", () => {
+    rememberLedOverlayPatch(99, ledOverlaySessionPatch("banner"));
+    rememberLedOverlayPatch(99, { displayOverlay: null, teamPurseViewActive: false });
+    const staleSnapshot = { displayOverlay: "banner" as const, teamPurseViewActive: true };
+    applyRememberedLedOverlayPatch(99, staleSnapshot);
+    expect(staleSnapshot.displayOverlay).toBeNull();
+    expect(staleSnapshot.teamPurseViewActive).toBe(false);
+  });
+});

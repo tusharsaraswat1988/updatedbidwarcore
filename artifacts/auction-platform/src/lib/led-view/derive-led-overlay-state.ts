@@ -59,16 +59,25 @@ export function derivedStateFromOverlayKey(
   return null;
 }
 
-/** Break countdown must not hide an operator-chosen LED overlay (Top 5, Team, …). */
+/**
+ * Break countdown overrides banner so venue LED wall displays the timer.
+ * Other operator overlays (Top 5, Team, …) can still be inspected if requested,
+ * but banner must never block active break countdown.
+ */
 export function applyBreakTimingToDerivedState(
   derivedState: DerivedState,
   breakCountdown: number,
   breakMeta: { type: "break" | "pre-auction"; isBreakFlag: boolean },
 ): DerivedState {
+  if (derivedState === "banner") {
+    if (breakCountdown > 0 && breakMeta.type === "pre-auction") return "preAuction";
+    if (breakCountdown > 0 || breakMeta.isBreakFlag) return "break";
+  }
   if (OPERATOR_LED_OVERLAY_STATES.has(derivedState) || derivedState === "fortuneWheel") {
     return derivedState;
   }
   if (breakCountdown > 0 && breakMeta.type === "pre-auction") return "preAuction";
   if (breakCountdown > 0 && (breakMeta.type === "break" || breakMeta.isBreakFlag)) return "break";
+  if (breakMeta.isBreakFlag) return "break";
   return derivedState;
 }

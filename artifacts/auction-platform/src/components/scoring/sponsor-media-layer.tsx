@@ -25,6 +25,13 @@ import {
   reportSponsorMediaReadiness,
   type SponsorMediaSlotDto,
 } from "@/lib/sponsor-media-api";
+import { useBranding } from "@/hooks/use-branding";
+import {
+  getBrandLogoAlt,
+  getObsBrandMarkSrc,
+  getObsBroadcastLogoSrc,
+  OBS_BROADCAST_LOGO_FALLBACK,
+} from "@/lib/brand-assets";
 
 type Props = {
   tournamentId: number;
@@ -103,6 +110,14 @@ type LocalSlot = {
 };
 
 export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }: Props) {
+  const { logos, brandName, iconVersion } = useBranding();
+  const [logoFailed, setLogoFailed] = useState(false);
+  const logoSrc =
+    getObsBroadcastLogoSrc(logos, iconVersion) ||
+    getObsBrandMarkSrc(logos, iconVersion) ||
+    OBS_BROADCAST_LOGO_FALLBACK;
+  const logoAlt = getBrandLogoAlt(brandName);
+
   const [slots, setSlots] = useState<SponsorMediaSlotDto[]>([]);
   const [playback, setPlayback] = useState<SponsorPlaybackState>(emptySponsorPlayback);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
@@ -579,27 +594,69 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", zIndex: 1 }}
           />
           <canvas ref={canvasRef} width={1920} height={1080} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 2, opacity: 0 }} />
-          <div
-            style={{
-              position: "absolute",
-              top: 28,
-              left: 28,
-              zIndex: 5,
-              padding: "10px 16px",
-              background: "rgba(0,0,0,0.78)",
-              color: "#fff",
-              fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
-              fontSize: 24,
-              fontWeight: 700,
-              letterSpacing: "0.03em",
-              lineHeight: 1.2,
-              borderRadius: 8,
-            }}
-          >
-            Video Managed by Bidwar.in Software
-          </div>
         </>
       )}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 28,
+          right: 28,
+          zIndex: 5,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 6,
+          padding: "8px 16px",
+          background: "rgba(0, 0, 0, 0.78)",
+          borderRadius: 8,
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.6)",
+          backdropFilter: "blur(6px)",
+          pointerEvents: "none",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
+            fontSize: 12,
+            fontWeight: 600,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "rgba(255, 255, 255, 0.78)",
+            lineHeight: 1,
+          }}
+        >
+          Broadcasted by
+        </span>
+        {!logoFailed && logoSrc ? (
+          <img
+            src={logoSrc}
+            alt={logoAlt || "BidWar"}
+            onError={() => setLogoFailed(true)}
+            style={{
+              height: 34,
+              maxWidth: 160,
+              width: "auto",
+              objectFit: "contain",
+              display: "block",
+              filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.5))",
+            }}
+          />
+        ) : (
+          <span
+            style={{
+              fontFamily: "'Bebas Neue', 'Inter', sans-serif",
+              fontSize: 22,
+              fontWeight: 800,
+              letterSpacing: "0.08em",
+              color: "#fff",
+              lineHeight: 1,
+            }}
+          >
+            BIDWAR
+          </span>
+        )}
+      </div>
     </div>
   );
 }

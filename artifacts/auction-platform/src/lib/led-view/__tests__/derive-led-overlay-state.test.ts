@@ -39,4 +39,16 @@ describe("applyBreakTimingToDerivedState", () => {
       applyBreakTimingToDerivedState("bidding", 90, { type: "break", isBreakFlag: false }),
     ).toBe("break");
   });
+
+  it("overrides banner when a break countdown is running", () => {
+    expect(
+      applyBreakTimingToDerivedState("banner", 90, { type: "break", isBreakFlag: false }),
+    ).toBe("break");
+    expect(
+      applyBreakTimingToDerivedState("banner", 120, { type: "pre-auction", isBreakFlag: false }),
+    ).toBe("preAuction");
+    expect(
+      applyBreakTimingToDerivedState("banner", 0, { type: "break", isBreakFlag: true }),
+    ).toBe("break");
+  });
 });

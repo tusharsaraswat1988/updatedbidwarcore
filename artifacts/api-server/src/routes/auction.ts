@@ -4243,6 +4243,8 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
     return;
   }
   let countdown: string | null = null;
+  const sessionPatch: Record<string, unknown> = {};
+
   if (body.data.action === "start" && body.data.durationSeconds) {
     const endsAt = new Date(Date.now() + body.data.durationSeconds * 1000).toISOString();
     countdown = JSON.stringify({
@@ -4251,6 +4253,12 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
       message: body.data.message ?? null,
       musicMuted: false,
     });
+    sessionPatch.displayCountdown = countdown;
+    sessionPatch.displayOverlay = null;
+    sessionPatch.isBreak = true;
+    sessionPatch.breakEndsAt = endsAt;
+    sessionPatch.teamPurseViewActive = false;
+    rememberLedOverlayPatch(tid, { displayOverlay: null, teamPurseViewActive: false });
   } else if (body.data.action === "extend") {
     // extend is only valid for an active break countdown.
     if (!existingCountdown || existingCountdown.type !== "break") {
@@ -4268,12 +4276,19 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
       message: existingCountdown.message,
       musicMuted: existingCountdown.musicMuted ?? false,
     });
+    sessionPatch.displayCountdown = countdown;
   }
 
-  const sessionPatch: Record<string, unknown> = { displayCountdown: countdown };
-  // cancel: clear countdown and auto-resume if the break timer had paused the auction
+  // cancel: clear countdown, reset break/overlay flags, and auto-resume session back to active
   if (body.data.action === "cancel") {
-    if (session.status === "paused" && session.lastAction === "Auction paused for break") {
+    sessionPatch.displayCountdown = null;
+    sessionPatch.isBreak = false;
+    sessionPatch.breakEndsAt = null;
+    sessionPatch.displayOverlay = null;
+    sessionPatch.teamPurseViewActive = false;
+    rememberLedOverlayPatch(tid, { displayOverlay: null, teamPurseViewActive: false });
+
+    if (session.status === "paused") {
       sessionPatch.status = "active";
       sessionPatch.lastAction = "Break cancelled — auction resumed";
       if (session.pausedTimeRemaining && session.pausedTimeRemaining > 0 && session.currentPlayerId) {
