@@ -1626,6 +1626,40 @@ export default function AuctionOperatorV2() {
             toast({ title: "Failed to update LED", variant: "destructive" });
           }
         }}
+        displayPlayerFilter={state?.displayPlayerFilter}
+        onSelectPlayerFilter={async (filter) => {
+          try {
+            const res = await setDisplayPlayerFilterMut.mutateAsync({
+              tournamentId,
+              data: {
+                status: filter.status,
+                categoryId: filter.categoryId ?? null,
+                teamId: filter.teamId ?? null,
+              },
+            });
+            applyMutationResult(res);
+            if (state?.displayOverlay !== "player") {
+              const overlayRes = await setDisplayOverlay.mutateAsync({
+                tournamentId,
+                data: { mode: "player" },
+              });
+              applyMutationResult(overlayRes);
+            }
+            toast({ title: `LED Filter: ${filter.status.toUpperCase()}` });
+          } catch (err) {
+            toast({ title: "Failed to update LED filter", variant: "destructive" });
+          }
+        }}
+        teams={teams?.map((t) => ({ id: t.id, name: t.name, color: t.color, shortCode: t.shortCode }))}
+        categories={categories?.map((c) => ({ id: c.id, name: c.name }))}
+        playerPoolCounts={{
+          total: players?.length ?? 0,
+          available:
+            players?.filter((p) => p.status === "queue" || p.status === "available" || p.status === "live").length ?? 0,
+          sold: players?.filter((p) => p.status === "sold").length ?? 0,
+          unsold: players?.filter((p) => p.status === "unsold").length ?? 0,
+          retained: players?.filter((p) => p.status === "retained").length ?? 0,
+        }}
         presentationContext={presentationContext}
         onSelectObsPresentation={async (context) => {
           try {

@@ -170,6 +170,7 @@ function toLedPlayer(
     soldPrice: p.soldPrice ?? p.retainedPrice ?? null,
     achievements: p.achievements?.trim() || "",
     categoryName: categoryName ?? null,
+    categoryId: p.categoryId ?? null,
     playerTag: p.playerTag ?? null,
   };
 }
@@ -679,6 +680,9 @@ export function useLedView(
       }
       if (filter?.teamId != null && filter.status !== "queue" && filter.status !== "available") {
         if (String(p.soldToTeamId ?? "") !== String(filter.teamId)) return false;
+      }
+      if (filter?.categoryId != null && p.categoryId !== filter.categoryId) {
+        return false;
       }
       return true;
     });

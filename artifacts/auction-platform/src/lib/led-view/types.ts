@@ -57,6 +57,7 @@ export type LedPlayer = {
   soldPrice: number | null;
   achievements: string;
   categoryName: string | null;
+  categoryId?: number | null;
   /** Cosmetic tag from player profile (captain, star_player, etc.). */
   playerTag: string | null;
 };

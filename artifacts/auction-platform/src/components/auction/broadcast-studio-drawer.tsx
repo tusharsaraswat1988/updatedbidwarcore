@@ -25,6 +25,7 @@ import {
   ExternalLink,
   Volume2,
   VolumeX,
+  Filter,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AuctionObsBroadcastTools } from "./auction-obs-broadcast-tools";
@@ -41,6 +42,26 @@ export type BroadcastStudioDrawerProps = {
   // LED State
   ledOverlay: string | null;
   onSelectLedOverlay: (mode: "off" | "team" | "player" | "top5" | "banner") => void;
+  // Player Filter State for LED Broadcast
+  displayPlayerFilter?: {
+    status?: string;
+    categoryId?: number | null;
+    teamId?: number | null;
+  } | null;
+  onSelectPlayerFilter?: (filter: {
+    status: "all" | "sold" | "unsold" | "available" | "retained";
+    categoryId?: number | null;
+    teamId?: number | null;
+  }) => void;
+  teams?: { id: number; name: string; color?: string | null; shortCode?: string | null }[];
+  categories?: { id: number; name: string }[];
+  playerPoolCounts?: {
+    total: number;
+    available: number;
+    sold: number;
+    unsold: number;
+    retained: number;
+  };
   // OBS State
   presentationContext: {
     context?: PresentationContextKind;
@@ -78,6 +99,11 @@ export function BroadcastStudioDrawer({
   onTabChange,
   ledOverlay,
   onSelectLedOverlay,
+  displayPlayerFilter,
+  onSelectPlayerFilter,
+  teams,
+  categories,
+  playerPoolCounts,
   presentationContext,
   onSelectObsPresentation,
   onAppliedPresentationState,
@@ -197,6 +223,189 @@ export function BroadcastStudioDrawer({
                 {ledButtons.map((btn) => {
                   const isSelected = btn.mode === "off" ? !ledOverlay : ledOverlay === btn.mode;
                   const Icon = btn.icon;
+
+                  if (btn.mode === "player") {
+                    const currentStatus = displayPlayerFilter?.status ?? "all";
+                    const currentCategory = categories?.find((c) => c.id === displayPlayerFilter?.categoryId);
+                    const currentTeam = teams?.find((t) => t.id === displayPlayerFilter?.teamId);
+
+                    let filterSummary = "ALL PLAYERS";
+                    if (currentTeam) {
+                      filterSummary = `${currentTeam.name.toUpperCase()} SQUAD`;
+                    } else if (currentCategory && currentStatus !== "all") {
+                      filterSummary = `${currentStatus.toUpperCase()} · ${currentCategory.name.toUpperCase()}`;
+                    } else if (currentCategory) {
+                      filterSummary = currentCategory.name.toUpperCase();
+                    } else if (currentStatus !== "all") {
+                      filterSummary = `${currentStatus.toUpperCase()} POOL`;
+                    }
+
+                    return (
+                      <div
+                        key={btn.mode}
+                        className={`rounded-xl border transition-all ${
+                          isSelected
+                            ? "bg-emerald-500/10 border-emerald-500/70 shadow-[0_0_14px_rgba(16,185,129,0.2)] ring-1 ring-emerald-500/50"
+                            : "bg-white/[0.03] border-white/10 hover:bg-white/8"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          disabled={operatorReadOnly}
+                          onClick={() => onSelectLedOverlay(btn.mode)}
+                          className="w-full flex items-center justify-between p-2.5 text-left"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                isSelected
+                                  ? "bg-emerald-500 text-slate-950 font-bold"
+                                  : "bg-white/10 text-white/60"
+                              }`}
+                            >
+                              <Icon className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs sm:text-sm font-bold leading-tight flex items-center gap-1.5">
+                                <span className="truncate">{btn.label}</span>
+                                {isSelected && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                                )}
+                              </p>
+                              <p className="text-[11px] text-white/50 mt-0.5 truncate">{btn.desc}</p>
+                            </div>
+                          </div>
+                          {isSelected ? (
+                            <span className="text-[10px] font-black uppercase text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/40 tracking-wider shrink-0">
+                              ON AIR
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-white/40 bg-white/5 px-2 py-0.5 rounded border border-white/10 shrink-0">
+                              Push
+                            </span>
+                          )}
+                        </button>
+
+                        {/* Interactive Broadcast Filter Controls inside the Drawer */}
+                        <div className="px-3 pb-3 pt-1 border-t border-white/10 space-y-2 bg-black/25 rounded-b-xl">
+                          <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-white/60">
+                            <span className="flex items-center gap-1.5 text-amber-300 font-bold">
+                              <Filter className="w-3 h-3 text-amber-400" />
+                              Stage Filter
+                            </span>
+                            {isSelected && (
+                              <span className="text-emerald-400 font-bold font-mono tracking-wide truncate max-w-[200px]">
+                                ON AIR: {filterSummary}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Status Pills: ALL, AVAIL, SOLD, UNSOLD, RETAINED */}
+                          <div className="flex flex-wrap gap-1">
+                            {[
+                              { id: "all", label: "ALL", count: playerPoolCounts?.total },
+                              { id: "available", label: "AVAIL", count: playerPoolCounts?.available },
+                              { id: "sold", label: "SOLD", count: playerPoolCounts?.sold },
+                              { id: "unsold", label: "UNSOLD", count: playerPoolCounts?.unsold },
+                              { id: "retained", label: "RET", count: playerPoolCounts?.retained },
+                            ].map((st) => {
+                              const isActive =
+                                currentStatus === st.id && !displayPlayerFilter?.teamId;
+                              return (
+                                <button
+                                  key={st.id}
+                                  type="button"
+                                  disabled={operatorReadOnly}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onSelectPlayerFilter?.({
+                                      status: st.id as any,
+                                      categoryId: displayPlayerFilter?.categoryId ?? null,
+                                      teamId: null,
+                                    });
+                                  }}
+                                  className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
+                                    isActive && isSelected
+                                      ? "bg-amber-400 text-slate-950 font-black shadow-xs ring-1 ring-amber-400"
+                                      : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/10"
+                                  }`}
+                                >
+                                  <span>{st.label}</span>
+                                  {st.count !== undefined && (
+                                    <span
+                                      className={`text-[10px] font-mono ${
+                                        isActive && isSelected ? "text-slate-950/80 font-bold" : "text-white/40"
+                                      }`}
+                                    >
+                                      ({st.count})
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Category & Team Dropdowns */}
+                          <div className="grid grid-cols-2 gap-2 pt-0.5">
+                            {/* Role / Category */}
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-white/50 uppercase tracking-wider block">
+                                Category / Role
+                              </label>
+                              <select
+                                disabled={operatorReadOnly}
+                                value={displayPlayerFilter?.categoryId ?? ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  onSelectPlayerFilter?.({
+                                    status: (displayPlayerFilter?.status as any) ?? "all",
+                                    categoryId: val ? Number(val) : null,
+                                    teamId: displayPlayerFilter?.teamId ?? null,
+                                  });
+                                }}
+                                className="w-full bg-slate-900 border border-white/20 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
+                              >
+                                <option value="">All Categories</option>
+                                {categories?.map((cat) => (
+                                  <option key={cat.id} value={cat.id}>
+                                    {cat.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Team Squad Filter */}
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-white/50 uppercase tracking-wider block">
+                                Team Squad
+                              </label>
+                              <select
+                                disabled={operatorReadOnly}
+                                value={displayPlayerFilter?.teamId ?? ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  onSelectPlayerFilter?.({
+                                    status: val ? "sold" : ((displayPlayerFilter?.status as any) ?? "all"),
+                                    categoryId: displayPlayerFilter?.categoryId ?? null,
+                                    teamId: val ? Number(val) : null,
+                                  });
+                                }}
+                                className="w-full bg-slate-900 border border-white/20 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
+                              >
+                                <option value="">All Teams</option>
+                                {teams?.map((tm) => (
+                                  <option key={tm.id} value={tm.id}>
+                                    {tm.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <button
                       key={btn.mode}

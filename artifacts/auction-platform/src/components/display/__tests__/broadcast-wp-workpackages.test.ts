@@ -184,3 +184,25 @@ describe("WP-4: Right-Side Team Purse & Max Bid Simplification (Light Mode)", ()
     expect(content).toContain("ROTATION_INTERVAL_MS = 12000");
   });
 });
+
+describe("Drawer Broadcast Filters & LED Category Filtering", () => {
+  it("drawer provides player status, category, and team squad filters inside Player List", () => {
+    const drawerPath = resolve(__dirname, "../../auction/broadcast-studio-drawer.tsx");
+    const drawerContent = readFileSync(drawerPath, "utf-8");
+    expect(drawerContent).toContain("onSelectPlayerFilter");
+    expect(drawerContent).toContain("Stage Filter");
+    expect(drawerContent).toContain("Category / Role");
+    expect(drawerContent).toContain("Team Squad");
+    expect(drawerContent).toContain("ALL");
+    expect(drawerContent).toContain("AVAIL");
+    expect(drawerContent).toContain("SOLD");
+    expect(drawerContent).toContain("UNSOLD");
+    expect(drawerContent).toContain("RET");
+  });
+
+  it("useLedView filters players by categoryId when set in displayPlayerFilter", () => {
+    const useLedViewPath = resolve(__dirname, "../../../lib/led-view/use-led-view.ts");
+    const content = readFileSync(useLedViewPath, "utf-8");
+    expect(content).toContain("if (filter?.categoryId != null && p.categoryId !== filter.categoryId)");
+  });
+});
