@@ -419,7 +419,11 @@ export default function AdminTournamentDetailPage() {
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span>ID <strong className="font-mono text-foreground">#{t.id}</strong></span>
                   <span>·</span>
-                  <span>{t.venue ? `${t.venue}, ` : ""}{t.city || "Venue TBD"}</span>
+                  <span>
+                    {(t as any).tournamentVenue || t.venue ? `${(t as any).tournamentVenue || t.venue}, ` : ""}
+                    {t.city || "Venue TBD"}
+                    {(t as any).auctionVenue && (t as any).auctionVenue !== ((t as any).tournamentVenue || t.venue) ? ` (Auction: ${(t as any).auctionVenue})` : ""}
+                  </span>
                   <span>·</span>
                   <span>
                     {t.auctionDate

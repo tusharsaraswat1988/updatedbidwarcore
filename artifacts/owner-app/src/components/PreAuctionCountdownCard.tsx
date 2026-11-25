@@ -7,6 +7,8 @@ interface PreAuctionCountdownCardProps {
   auctionDate?: string | null;
   auctionTime?: string | null;
   venue?: string | null;
+  auctionVenue?: string | null;
+  tournamentVenue?: string | null;
   city?: string | null;
   sport?: string | null;
   teamColor?: string;
@@ -46,6 +48,8 @@ export function PreAuctionCountdownCard({
   auctionDate,
   auctionTime,
   venue,
+  auctionVenue,
+  tournamentVenue,
   city,
   sport = "cricket",
   teamColor = "#eab308",
@@ -109,10 +113,23 @@ export function PreAuctionCountdownCard({
     }
   }, [auctionTime]);
 
-  const locationText = useMemo(() => {
-    const parts = [venue?.trim(), city?.trim()].filter(Boolean);
-    return parts.length > 0 ? parts.join(", ") : "Venue to be announced";
-  }, [venue, city]);
+  const auctionLocation = useMemo(() => {
+    const raw = auctionVenue?.trim();
+    if (!raw) return null;
+    if (city?.trim() && !raw.toLowerCase().includes(city.trim().toLowerCase())) {
+      return `${raw}, ${city.trim()}`;
+    }
+    return raw;
+  }, [auctionVenue, city]);
+
+  const tournamentLocation = useMemo(() => {
+    const raw = (tournamentVenue || venue)?.trim();
+    if (!raw) return null;
+    if (city?.trim() && !raw.toLowerCase().includes(city.trim().toLowerCase())) {
+      return `${raw}, ${city.trim()}`;
+    }
+    return raw;
+  }, [tournamentVenue, venue, city]);
 
   const isCompact = tier === "mobile";
 
@@ -187,9 +204,46 @@ export function PreAuctionCountdownCard({
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 text-[#a8a0c4] truncate max-w-full">
-          <MapPin className="w-3.5 h-3.5 text-amber-400/80 shrink-0" />
-          <span className="truncate font-medium">{locationText}</span>
+        <div className="flex flex-wrap items-center gap-2 text-xs max-w-full">
+          {auctionLocation && tournamentLocation && auctionLocation !== tournamentLocation ? (
+            <>
+              <div className="flex items-center gap-1.5 truncate text-[#e2dff5]">
+                <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/25">
+                  Auction
+                </span>
+                <span className="truncate font-semibold">{auctionLocation}</span>
+              </div>
+              <span className="text-[#4a4478] hidden sm:inline">|</span>
+              <div className="flex items-center gap-1.5 truncate text-[#a8a0c4]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-sky-300 bg-sky-400/10 px-1.5 py-0.5 rounded border border-sky-400/25">
+                  Matches
+                </span>
+                <span className="truncate font-medium">{tournamentLocation}</span>
+              </div>
+            </>
+          ) : auctionLocation ? (
+            <div className="flex items-center gap-1.5 truncate text-[#e2dff5]">
+              <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/25">
+                Auction Venue
+              </span>
+              <span className="truncate font-medium">{auctionLocation}</span>
+            </div>
+          ) : tournamentLocation ? (
+            <div className="flex items-center gap-1.5 truncate text-[#a8a0c4]">
+              <MapPin className="w-3.5 h-3.5 text-amber-400/80 shrink-0" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-300 bg-sky-400/10 px-1.5 py-0.5 rounded border border-sky-400/25">
+                Tournament Ground
+              </span>
+              <span className="truncate font-medium">{tournamentLocation}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-[#a8a0c4] truncate">
+              <MapPin className="w-3.5 h-3.5 text-amber-400/80 shrink-0" />
+              <span className="truncate font-medium">Venue to be announced</span>
+            </div>
+          )}
         </div>
       </div>
 

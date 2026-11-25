@@ -402,7 +402,10 @@ export default function UnifiedFanPage({ routeIdentifier, theme, toggleTheme }: 
             {[
               ["Sport", tournament.sport || "General"],
               ["City", tournament.city || "—"],
-              ["Venue", tournament.venue || "—"],
+              ["Tournament Ground", (tournament as any).tournamentVenue || tournament.venue || "—"],
+              ...((tournament as any).auctionVenue
+                ? [["Auction Venue", (tournament as any).auctionVenue]]
+                : []),
             ].map(([label, value]) => (
               <div key={label} className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-white/[0.04]">
                 <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{label}</dt>

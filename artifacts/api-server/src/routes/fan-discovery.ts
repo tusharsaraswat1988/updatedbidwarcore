@@ -287,7 +287,9 @@ router.get("/fan/tournaments", async (req, res) => {
         (t) =>
           t.name.toLowerCase().includes(q) ||
           (t.city ?? "").toLowerCase().includes(q) ||
-          (t.venue ?? "").toLowerCase().includes(q),
+          (t.venue ?? "").toLowerCase().includes(q) ||
+          ((t as any).tournamentVenue ?? "").toLowerCase().includes(q) ||
+          ((t as any).auctionVenue ?? "").toLowerCase().includes(q),
       );
     }
 
@@ -372,7 +374,9 @@ router.get("/fan/tournaments", async (req, res) => {
         status: fanStatus,
         dbStatus: t.status,
         city: t.city ?? null,
-        venue: t.venue ?? null,
+        venue: t.tournamentVenue || t.venue || t.auctionVenue || null,
+        auctionVenue: t.auctionVenue ?? null,
+        tournamentVenue: t.tournamentVenue ?? t.venue ?? null,
         auctionDate: t.auctionDate ?? null,
         auctionTime: t.auctionTime ?? null,
         organizerName: t.organizerName ?? null,
@@ -510,7 +514,9 @@ router.get("/fan/tournaments", async (req, res) => {
           sport: t.sport ?? "cricket",
           status: t.status,
           city: t.city ?? null,
-          venue: t.venue ?? null,
+          venue: t.tournamentVenue || t.venue || t.auctionVenue || null,
+          auctionVenue: t.auctionVenue ?? null,
+          tournamentVenue: t.tournamentVenue ?? t.venue ?? null,
           auctionDate: t.auctionDate ?? null,
           auctionTime: t.auctionTime ?? null,
           matchDates: t.matchDates ?? null,
@@ -632,7 +638,9 @@ router.get(["/fan/trial-tournaments", "/fan/my-trial-tournaments"], async (req, 
       sport: t.sport ?? "cricket",
       status: t.status, // basic status (setup, active, completed)
       city: t.city ?? null,
-      venue: t.venue ?? null,
+      venue: t.tournamentVenue || t.venue || t.auctionVenue || null,
+      auctionVenue: t.auctionVenue ?? null,
+      tournamentVenue: t.tournamentVenue ?? t.venue ?? null,
       auctionDate: t.auctionDate ?? null,
       auctionTime: t.auctionTime ?? null,
       matchDates: t.matchDates ?? null,

@@ -9,6 +9,8 @@ export interface TournamentSummary {
   dbStatus: string | null;
   city: string | null;
   venue: string | null;
+  auctionVenue?: string | null;
+  tournamentVenue?: string | null;
   auctionDate: string | null;
   auctionTime: string | null;
   organizerName: string | null;
@@ -84,6 +86,8 @@ export interface OrganizerTrialTournament {
   status: string;
   city: string | null;
   venue: string | null;
+  auctionVenue?: string | null;
+  tournamentVenue?: string | null;
   auctionDate: string | null;
   auctionTime: string | null;
   matchDates?: string | null;

@@ -132,7 +132,14 @@ function sportEmoji(sport?: string | null) {
 
 function formatTournamentLocation(t: Tournament) {
   const city = (t.city || "").trim();
-  const venue = (t.venue || "").trim();
+  const tournamentVenue = ((t as any).tournamentVenue || t.venue || "").trim();
+  const auctionVenue = ((t as any).auctionVenue || "").trim();
+  
+  if (tournamentVenue && auctionVenue && tournamentVenue !== auctionVenue) {
+    const tLoc = city && !tournamentVenue.toLowerCase().includes(city.toLowerCase()) ? `${tournamentVenue}, ${city}` : tournamentVenue;
+    return `${tLoc} · Auction: ${auctionVenue}`;
+  }
+  const venue = tournamentVenue || auctionVenue;
   if (venue && city) {
     if (venue.toLowerCase().includes(city.toLowerCase())) {
       return venue;

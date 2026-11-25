@@ -19,6 +19,8 @@ export type TournamentCreatedTemplateParams = {
   auctionTime: string | null;
   city: string | null;
   venue: string | null;
+  auctionVenue?: string | null;
+  tournamentVenue?: string | null;
   organizerName: string | null;
   appUrl: string;
   tournamentId?: number | null;
@@ -78,9 +80,19 @@ export function tournamentCreatedEmail(params: TournamentCreatedTemplateParams):
     ? detailRow("City", escapeHtml(params.city))
     : detailRow("City", `<span style="color:${C.muted};">Not set yet</span>`);
 
-  const venueRow = params.venue
-    ? detailRow("Venue", escapeHtml(params.venue), true)
-    : detailRow("Venue", `<span style="color:${C.muted};">Not set yet</span>`, true);
+  const venueRow = (params.tournamentVenue || params.venue)
+    ? detailRow(
+        params.auctionVenue && params.auctionVenue !== (params.tournamentVenue || params.venue)
+          ? "Tournament Ground"
+          : "Venue",
+        escapeHtml((params.tournamentVenue || params.venue)!),
+        !params.auctionVenue,
+      )
+    : detailRow("Venue", `<span style="color:${C.muted};">Not set yet</span>`, !params.auctionVenue);
+
+  const auctionVenueRow = params.auctionVenue
+    ? detailRow("Auction Venue", escapeHtml(params.auctionVenue), true)
+    : "";
 
   const nextStepsHtml = NEXT_STEPS.map(
     (step) => `<tr>
@@ -152,6 +164,7 @@ export function tournamentCreatedEmail(params: TournamentCreatedTemplateParams):
               ${detailRow("Auction Date", auctionWhen)}
               ${cityRow}
               ${venueRow}
+              ${auctionVenueRow}
             </table>
           </td>
         </tr>

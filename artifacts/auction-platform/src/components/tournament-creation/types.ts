@@ -9,6 +9,8 @@ export type TournamentCreationDraft = {
   name: string;
   city: string;
   venue: string;
+  tournamentVenue: string;
+  auctionVenue: string;
   sportId: string;
   productMode: TournamentProductMode;
   /** Legacy compatibility alias */
@@ -48,6 +50,8 @@ export function emptyTournamentCreationDraft(
     name: "",
     city: "",
     venue: "",
+    tournamentVenue: "",
+    auctionVenue: "",
     sportId: "cricket",
     productMode: "auction_only",
     licenseType: "auction_only",

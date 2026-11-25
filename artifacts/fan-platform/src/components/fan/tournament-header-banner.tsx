@@ -9,6 +9,8 @@ export interface TournamentHeaderBannerProps {
     sport?: string | null;
     city?: string | null;
     venue?: string | null;
+    auctionVenue?: string | null;
+    tournamentVenue?: string | null;
     auctionCode?: string | null;
     auctionDate?: string | null;
     auctionTime?: string | null;
@@ -107,7 +109,16 @@ export function TournamentHeaderBanner({
               {tournament.city && (
                 <span className="flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>{tournament.venue ? `${tournament.venue}, ` : ""}{tournament.city}</span>
+                  <span>
+                    {tournament.tournamentVenue || tournament.venue
+                      ? `${tournament.tournamentVenue || tournament.venue}, `
+                      : ""}
+                    {tournament.city}
+                    {tournament.auctionVenue &&
+                    tournament.auctionVenue !== (tournament.tournamentVenue || tournament.venue)
+                      ? ` · Auction: ${tournament.auctionVenue}`
+                      : ""}
+                  </span>
                 </span>
               )}
               {tournament.auctionDate && (

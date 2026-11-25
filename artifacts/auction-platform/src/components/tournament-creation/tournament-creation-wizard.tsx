@@ -50,6 +50,8 @@ export type TournamentCreationPayload = {
   sport: string;
   city: string;
   venue?: string;
+  tournamentVenue?: string;
+  auctionVenue?: string;
   variantId: string;
   competitionTypeId: string;
   ruleProfileId: string;
@@ -206,11 +208,16 @@ export function TournamentCreationWizard({
     const auctionEnabled = draft.productMode === "auction_only" || draft.productMode === "both";
     const scoringEnabled = draft.productMode === "scoring_only" || draft.productMode === "both";
 
+    const effectiveTournamentVenue = (draft.tournamentVenue || draft.venue || "").trim();
+    const effectiveAuctionVenue = (draft.auctionVenue || "").trim();
+
     const payload: TournamentCreationPayload = {
       name: draft.name.trim(),
       sport: draft.sportId,
       city: draft.city.trim(),
-      venue: draft.venue.trim() || undefined,
+      venue: effectiveTournamentVenue || effectiveAuctionVenue || undefined,
+      tournamentVenue: effectiveTournamentVenue || undefined,
+      auctionVenue: effectiveAuctionVenue || undefined,
       variantId: bindings.variantId,
       competitionTypeId: bindings.competitionTypeId,
       ruleProfileId: bindings.ruleProfileId,
@@ -364,14 +371,16 @@ export function TournamentCreationWizard({
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-foreground/90">
                   <Building2 className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Venue / Ground</span>
+                  <span>Tournament Venue / Ground</span>
                   <span className="text-[10px] text-muted-foreground lowercase font-normal">(optional)</span>
                 </Label>
                 <Input
-                  value={draft.venue}
-                  onChange={(e) => patch({ venue: e.target.value })}
+                  value={draft.tournamentVenue || draft.venue}
+                  onChange={(e) => patch({ tournamentVenue: e.target.value, venue: e.target.value })}
+                  placeholder="e.g. Sigra Stadium, Varanasi"
                   className="h-11 rounded-xl bg-white border border-slate-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-slate-900 text-sm shadow-xs"
                 />
+                <p className="text-[10px] text-muted-foreground">Ground or stadium where tournament matches are played</p>
               </div>
             </div>
           </div>
@@ -580,18 +589,36 @@ export function TournamentCreationWizard({
                   </div>
                 </div>
 
-                <div className="space-y-1 pt-1">
-                  <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span>Auction Date</span>
-                    <span className="text-[10px] text-muted-foreground font-normal">(optional)</span>
-                  </Label>
-                  <Input
-                    type="date"
-                    value={draft.auctionDate}
-                    onChange={(e) => patch({ auctionDate: e.target.value })}
-                    className="h-10 text-sm font-medium max-w-xs"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>Auction Date</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">(optional)</span>
+                    </Label>
+                    <Input
+                      type="date"
+                      value={draft.auctionDate}
+                      onChange={(e) => patch({ auctionDate: e.target.value })}
+                      className="h-10 text-sm font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>Auction Venue</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">(optional)</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      value={draft.auctionVenue}
+                      onChange={(e) => patch({ auctionVenue: e.target.value })}
+                      placeholder="e.g. Hotel Taj Ganges / Banquet / Online"
+                      className="h-10 text-sm font-medium"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Where auction is held (hotel, club, online). Optional.</p>
+                  </div>
                 </div>
               </div>
             )}

@@ -137,6 +137,8 @@ interface Tournament {
   auctionDate?: string | null;
   auctionTime?: string | null;
   venue?: string | null;
+  auctionVenue?: string | null;
+  tournamentVenue?: string | null;
   city?: string | null;
   status?: string | null;
 }
@@ -3107,6 +3109,8 @@ export function LiveBid({
                 auctionDate={tournament?.auctionDate}
                 auctionTime={tournament?.auctionTime}
                 venue={tournament?.venue}
+                auctionVenue={tournament?.auctionVenue}
+                tournamentVenue={tournament?.tournamentVenue}
                 city={tournament?.city}
                 sport={tournament?.sport}
                 teamColor={teamColor}
@@ -3437,6 +3441,8 @@ export function LiveBid({
                 auctionDate={tournament?.auctionDate}
                 auctionTime={tournament?.auctionTime}
                 venue={tournament?.venue}
+                auctionVenue={tournament?.auctionVenue}
+                tournamentVenue={tournament?.tournamentVenue}
                 city={tournament?.city}
                 sport={tournament?.sport}
                 teamColor={teamColor}

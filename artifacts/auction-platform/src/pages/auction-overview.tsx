@@ -286,7 +286,9 @@ export default function AuctionOverview() {
             <span className="font-bold text-foreground">{tournament?.sport?.toUpperCase()}</span>
             {tournament?.organizerName && <span>· {tournament.organizerName}</span>}
             <span>
-              · {tournament?.venue ? (
+              · {(tournament as any)?.auctionVenue ? (
+                <span>Auction: {(tournament as any).auctionVenue}</span>
+              ) : tournament?.venue ? (
                 <span>{tournament.venue}</span>
               ) : (
                 <button
@@ -563,7 +565,7 @@ export default function AuctionOverview() {
                 label="Auction Schedule"
                 value={tournament?.auctionDate ? formatDisplayDate(tournament.auctionDate) : "Unscheduled"}
                 subtitle={tournament?.auctionDate
-                  ? (tournament.venue || (tournament.auctionTime ? `@ ${tournament.auctionTime}` : "Venue unassigned"))
+                  ? ((tournament as any)?.auctionVenue ? `Auction: ${(tournament as any).auctionVenue}` : (tournament.venue || (tournament.auctionTime ? `@ ${tournament.auctionTime}` : "Venue unassigned")))
                   : "Set date & venue →"}
                 icon={<Calendar className="w-5 h-5 text-slate-600" />}
                 iconBg="bg-slate-100 border-slate-200"

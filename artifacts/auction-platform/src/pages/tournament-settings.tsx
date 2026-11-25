@@ -195,6 +195,8 @@ export default function TournamentSettings() {
       sport: t.sport,
       city: t.city || "",
       venue: t.venue || "",
+      tournamentVenue: (t as { tournamentVenue?: string | null }).tournamentVenue || t.venue || "",
+      auctionVenue: (t as { auctionVenue?: string | null }).auctionVenue || "",
       auctionDate: t.auctionDate || "",
       auctionTime: t.auctionTime || "",
       logoUrl: t.logoUrl && !t.logoUrl.startsWith("data:") ? t.logoUrl : "",
@@ -659,7 +661,9 @@ export default function TournamentSettings() {
       season: (editForm.season as string).trim() || null,
       sport: editForm.sport as string,
       city: (editForm.city as string).trim() || undefined,
-      venue: editForm.venue as string || undefined,
+      venue: ((editForm.tournamentVenue as string) || (editForm.venue as string))?.trim() || undefined,
+      tournamentVenue: (editForm.tournamentVenue as string)?.trim() || undefined,
+      auctionVenue: (editForm.auctionVenue as string)?.trim() || undefined,
       logoUrl: editForm.logoUrl as string || undefined,
       logoPublicId: (editForm.logoPublicId as string) || undefined,
       sponsorLogos: JSON.stringify(filteredLogos),
@@ -1102,7 +1106,7 @@ export default function TournamentSettings() {
               {/* Event Details */}
               <SettingsCard
                 title="Event Details"
-                description={isAuction ? "City, venue, and auction schedule for your live event." : "City and venue for your tournament."}
+                description={isAuction ? "City, tournament stadium/ground, auction venue, and live auction schedule." : "City and tournament stadium/ground for your matches."}
                 icon={<Building2 className="w-4 h-4 text-primary" />}
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -1118,15 +1122,31 @@ export default function TournamentSettings() {
                     <p className="text-[10px] text-muted-foreground">Type at least 3 letters for suggestions</p>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-foreground/90">Venue</Label>
+                    <Label className="text-xs font-medium text-foreground/90">Tournament Venue / Ground</Label>
                     <Input
-                      value={editForm.venue as string || ""}
-                      onChange={e => setEditForm(f => ({ ...f, venue: e.target.value }))}
+                      value={(editForm.tournamentVenue as string) || (editForm.venue as string) || ""}
+                      onChange={e => setEditForm(f => ({ ...f, tournamentVenue: e.target.value, venue: e.target.value }))}
+                      placeholder="e.g. Sigra Stadium, Varanasi"
                       className="h-9 text-sm"
                     />
+                    <p className="text-[10px] text-muted-foreground">Stadium or ground where sports matches are played</p>
                   </div>
                   {isAuction && (
                     <>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label className="text-xs font-medium text-foreground/90 flex items-center gap-1.5">
+                          <Gavel className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Auction Venue</span>
+                          <span className="text-[10px] text-muted-foreground font-normal">(optional)</span>
+                        </Label>
+                        <Input
+                          value={(editForm.auctionVenue as string) || ""}
+                          onChange={e => setEditForm(f => ({ ...f, auctionVenue: e.target.value }))}
+                          placeholder="e.g. Hotel Taj Ganges, Banquet Hall A (or Virtual / Online)"
+                          className="h-9 text-sm"
+                        />
+                        <p className="text-[10px] text-muted-foreground">Where the player auction ceremony is held (hotel, club, online). Defaults to online or ground if empty.</p>
+                      </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs font-medium text-foreground/90">Auction Date</Label>
                         <DatePicker
