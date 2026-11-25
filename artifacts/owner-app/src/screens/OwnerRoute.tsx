@@ -410,7 +410,11 @@ export function OwnerRoute() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 300 }}
-              className="w-full sm:max-w-xl md:max-w-2xl h-full bg-[#1b1542] border-l border-[#4a4478] shadow-2xl flex flex-col overflow-hidden"
+              className={`w-full ${
+                screen === "warroom"
+                  ? "sm:max-w-2xl md:max-w-3xl lg:max-w-4xl"
+                  : "sm:max-w-xl md:max-w-2xl"
+              } h-full bg-[#1b1542] border-l border-[#4a4478] shadow-2xl flex flex-col overflow-hidden`}
               onClick={(e) => e.stopPropagation()}
             >
               {screen === "squad" ? (

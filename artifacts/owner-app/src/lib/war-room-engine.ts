@@ -195,14 +195,25 @@ export function computeDraftPoolScarcity({
       continue;
     }
 
+    const pluralRole = bp.role.endsWith("s") ? bp.role : `${bp.role}s`;
+    const countRoleStr = avail === 1 ? bp.role : pluralRole;
+    const teamsStr = safeTeamsCount === 1 ? "1 team" : `${safeTeamsCount} teams`;
+
     if (avail < safeTeamsCount) {
       const deficit = safeTeamsCount - avail;
+      const deficitStr =
+        deficit === 1 ? "1 team will face a deficit" : `${deficit} teams will face a deficit`;
+      const availPrefix =
+        avail === 0
+          ? `No ${pluralRole} available`
+          : `Only ${avail} ${countRoleStr} available`;
+
       alerts.push({
         role: bp.role,
         availableCount: avail,
         isCritical: true,
         deficit,
-        message: `Only ${avail} ${bp.role}s available in draft pool across ${safeTeamsCount} teams! (${deficit} teams will face a deficit).`,
+        message: `${availPrefix} in draft pool across ${teamsStr}! (${deficitStr}).`,
       });
     } else if (avail <= Math.ceil(safeTeamsCount * 1.35)) {
       alerts.push({
@@ -210,7 +221,7 @@ export function computeDraftPoolScarcity({
         availableCount: avail,
         isCritical: false,
         deficit: 0,
-        message: `Tight pool: ${avail} ${bp.role}s for ${safeTeamsCount} teams. High bidding intensity expected.`,
+        message: `Tight pool: ${avail} ${countRoleStr} for ${teamsStr}. High bidding intensity expected.`,
       });
     }
   }
@@ -287,6 +298,15 @@ export function computeBudgetSimulation({
     remainingPursePerSlot = Math.max(0, purseAfterTargets);
   }
 
+  const unfilledSlotsStr =
+    unfilledSlotsAfterTargets === 1
+      ? "1 unfilled mandatory slot"
+      : `${unfilledSlotsAfterTargets} unfilled mandatory slots`;
+  const reqStr =
+    remainingMandatorySlots === 1
+      ? "1 mandatory squad slot requirement"
+      : `${remainingMandatorySlots} mandatory squad slot requirements`;
+
   let status: BudgetStatus;
 
   if (purseAfterTargets < 0) {
@@ -305,16 +325,18 @@ export function computeBudgetSimulation({
       color: "text-amber-400 bg-amber-500/20 border-amber-500/40",
       message: `Warning: Only ${fmt(
         remainingPursePerSlot
-      )}/slot left for ${unfilledSlotsAfterTargets} unfilled mandatory slots. You risk being unable to meet minimum base prices!`,
+      )}/slot left for ${unfilledSlotsStr}. You risk being unable to meet minimum base prices!`,
     };
   } else if (unfilledSlotsAfterTargets > 0 && remainingPursePerSlot < safeMinBase * 1.5) {
+    const slotsRemainingStr =
+      unfilledSlotsAfterTargets === 1 ? "1 remaining slot" : `${unfilledSlotsAfterTargets} remaining slots`;
     status = {
       level: "tight",
       badge: "TIGHT PURSE MARGIN",
       color: "text-yellow-400 bg-yellow-500/20 border-yellow-500/40",
       message: `Tight reserve: ${fmt(
         remainingPursePerSlot
-      )}/slot available for ${unfilledSlotsAfterTargets} remaining slots. Stick strictly to walk-away prices.`,
+      )}/slot available for ${slotsRemainingStr}. Stick strictly to walk-away prices.`,
     };
   } else if (unfilledSlotsAfterTargets === 0) {
     status = {
@@ -332,7 +354,7 @@ export function computeBudgetSimulation({
       color: "text-emerald-400 bg-emerald-500/20 border-emerald-500/40",
       message: `Healthy budget: ${fmt(
         remainingPursePerSlot
-      )}/slot preserved for ${unfilledSlotsAfterTargets} unfilled mandatory slots.`,
+      )}/slot preserved for ${unfilledSlotsStr}.`,
     };
   }
 
@@ -597,11 +619,17 @@ export function computePlanBPivot({
   let recommendedAction = "";
 
   if (remainingCount > 0) {
+    const rolePluralStr =
+      remainingCount === 1
+        ? normRole
+        : normRole.endsWith("s")
+          ? normRole
+          : `${normRole}s`;
+    const remainVerb = remainingCount === 1 ? "remains" : "remain";
+
     message = `Your target ${lostName} went to ${rivalWinner} for ${fmt(
       soldAmt
-    )}. No panic! You preserved your purse (${fmt(purseRemaining)}). ${remainingCount} other ${normRole}${
-      remainingCount === 1 ? "" : "s"
-    } remain in the draft pool.`;
+    )}. No panic! You preserved your purse (${fmt(purseRemaining)}). ${remainingCount} other ${rolePluralStr} ${remainVerb} in the draft pool.`;
     recommendedAction = `Re-tune your targets in War Room or adjust headroom by +${suggestedHeadroomPct}% for upcoming ${normRole} lots.`;
   } else {
     headline = "⚠️ CRITICAL POOL EXHAUSTION";

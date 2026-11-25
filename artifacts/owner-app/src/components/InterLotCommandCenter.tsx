@@ -29,6 +29,7 @@ interface InterLotCommandCenterProps {
   } | null;
   purseRemaining?: number;
   futureMandatorySlots?: number;
+  suppressPlanBPivot?: boolean;
 }
 
 export function InterLotCommandCenter({
@@ -45,6 +46,7 @@ export function InterLotCommandCenter({
   lastSoldPlayer,
   purseRemaining,
   futureMandatorySlots,
+  suppressPlanBPivot = false,
 }: InterLotCommandCenterProps) {
   // Query squad players
   const { data: allPlayers } = useListPlayers(tournamentId, {
@@ -77,9 +79,9 @@ export function InterLotCommandCenter({
       sportName: sport ?? "cricket",
       purseRemaining: purseRemaining ?? 0,
       remainingMandatorySlots: futureMandatorySlots ?? 1,
-      formatCurrencyFn: (amt) => formatShortIndianRupee(amt),
+      formatCurrencyFn: (amt) => formatShortIndianRupee(amt, unit),
     });
-  }, [lastSoldPlayer, teamId, targetIds, allPlayers, sport, purseRemaining, futureMandatorySlots]);
+  }, [lastSoldPlayer, teamId, targetIds, allPlayers, sport, purseRemaining, futureMandatorySlots, unit]);
 
   // Compute current team role breakdown
   const roleBreakdown = useMemo(() => {
@@ -130,33 +132,14 @@ export function InterLotCommandCenter({
 
       {/* ── Top Header / Standby Beacon ── */}
       <div className="flex-shrink-0 border-b border-[#4a4478]/70 pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
-            </span>
-            <span className="text-[11px] font-black uppercase tracking-wider text-amber-300">
-              {statusHeadline}
-            </span>
-          </div>
-
-          {onViewWarRoom ? (
-            <button
-              type="button"
-              onClick={onViewWarRoom}
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#2a2458] hover:bg-[#342e6b] border border-amber-400/40 text-[10px] text-amber-300 font-semibold cursor-pointer transition-colors"
-              title="Open Pre-Auction Strategy War Room"
-            >
-              <Target className="w-3 h-3 text-amber-400" />
-              <span>WAR ROOM</span>
-            </button>
-          ) : (
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#2a2458] border border-[#4a4478] text-[10px] text-[#a8a0c4] font-semibold">
-              <Target className="w-3 h-3 text-amber-400" />
-              <span>WAR ROOM</span>
-            </div>
-          )}
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+          </span>
+          <span className="text-[11px] font-black uppercase tracking-wider text-amber-300">
+            {statusHeadline}
+          </span>
         </div>
         <p className="text-xs text-[#a8a0c4] mt-1 line-clamp-1">{statusSubline}</p>
       </div>
@@ -164,7 +147,7 @@ export function InterLotCommandCenter({
       {/* ── Center Content: Tactical Grid ── */}
       <div className="my-3 space-y-3 flex-1 flex flex-col justify-center min-h-0 overflow-hidden">
         {/* Plan-B Tactical Recovery Card (when a shortlisted target was acquired by rival) */}
-        {planBPivot?.isTargetLost && (
+        {!suppressPlanBPivot && planBPivot?.isTargetLost && (
           <div className="bg-gradient-to-r from-amber-500/20 via-purple-500/15 to-[#150f33] rounded-2xl p-3 border border-amber-400/50 shadow-lg">
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-1.5">
@@ -263,7 +246,7 @@ export function InterLotCommandCenter({
                   key={rival.id}
                   className="bg-[#241d4c] rounded-xl px-2.5 py-1.5 border border-[#4a4478]/60 flex items-center justify-between gap-2"
                 >
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <TeamLogo
                       logoUrl={rival.logoUrl}
                       shortCode={rival.shortCode}
@@ -279,7 +262,7 @@ export function InterLotCommandCenter({
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-[10px] text-[#a8a0c4]">Purse:</span>
                     <span className="text-xs font-mono font-black text-emerald-400">
-                      {formatShortIndianRupee(rival.purseRemaining)}
+                      {formatShortIndianRupee(rival.purseRemaining, unit)}
                     </span>
                   </div>
                 </div>
@@ -293,33 +276,36 @@ export function InterLotCommandCenter({
         </div>
       </div>
 
-      {/* ── Bottom Actions ── */}
-      <div className="flex-shrink-0 pt-2 border-t border-[#4a4478]/70 flex items-center gap-2">
+      {/* ── Bottom Actions: Unified Tactical Dock ── */}
+      <div className="flex-shrink-0 pt-2.5 border-t border-[#4a4478]/70 flex items-center gap-2">
         {onViewWarRoom && (
           <button
             type="button"
             onClick={onViewWarRoom}
-            className="flex-1 py-2 px-2.5 rounded-xl bg-[#2a2458] hover:bg-[#342e6b] border border-amber-400/40 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer"
+            className="flex-1 py-2.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-300 font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer shadow-sm"
+            title="Open Strategy War Room"
           >
             <Target className="w-3.5 h-3.5 text-amber-400" />
-            <span>AI Strategy</span>
+            <span>WAR ROOM</span>
           </button>
         )}
         <button
           type="button"
           onClick={onViewSquad}
-          className="flex-1 py-2 px-3 rounded-xl bg-[#2a2458] hover:bg-[#342e6b] border border-[#4a4478] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer"
+          className="flex-1 py-2.5 px-3 rounded-xl bg-[#2a2458] hover:bg-[#342e6b] border border-[#4a4478] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer"
+          title="View My Team Squad"
         >
-          <Users className="w-3.5 h-3.5 text-amber-400" />
-          <span>My Squad</span>
+          <ShieldUser className="w-3.5 h-3.5 text-sky-400" />
+          <span>MY SQUAD</span>
         </button>
         <button
           type="button"
           onClick={onViewScout}
-          className="flex-1 py-2 px-3 rounded-xl bg-[#2a2458] hover:bg-[#342e6b] border border-[#4a4478] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer"
+          className="flex-1 py-2.5 px-3 rounded-xl bg-[#2a2458] hover:bg-[#342e6b] border border-[#4a4478] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer"
+          title="Scout Rival Teams"
         >
-          <Zap className="w-3.5 h-3.5 text-purple-400" />
-          <span>Rivals</span>
+          <Radar className="w-3.5 h-3.5 text-purple-400" />
+          <span>RIVALS</span>
         </button>
       </div>
     </motion.div>

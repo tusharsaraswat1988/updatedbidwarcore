@@ -26,6 +26,7 @@ export function PlayerAvatar({
   }, [name]);
 
   const hasValidPhoto = Boolean(photoUrl && !loadFailed);
+  const isCompact = /(?:w|h)-(?:8|9|10|11|12|14)\b/.test(className);
 
   return (
     <div
@@ -44,6 +45,17 @@ export function PlayerAvatar({
           className={`w-full h-full object-cover ${grayscale ? "grayscale opacity-75" : "opacity-100"}`}
           loading="eager"
         />
+      ) : isCompact ? (
+        <div
+          className="w-8 h-8 rounded-full flex items-center justify-center border font-display font-black text-xs tracking-wider shadow-sm"
+          style={{
+            backgroundColor: `${accentColor}20`,
+            borderColor: `${accentColor}50`,
+            color: accentColor,
+          }}
+        >
+          {initials}
+        </div>
       ) : (
         <div className="flex flex-col items-center justify-center p-2 text-center">
           <div

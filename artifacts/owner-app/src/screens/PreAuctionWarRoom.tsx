@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Target,
@@ -76,6 +76,7 @@ interface TournamentProps {
   id?: number;
   name?: string;
   sport?: string | null;
+  auctionUnit?: string | null;
   auctionDate?: string | null;
   minimumSquadSize?: number | null;
   maximumSquadSize?: number | null;
@@ -111,12 +112,18 @@ export function PreAuctionWarRoom({
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [expandedHistoryPlayerId, setExpandedHistoryPlayerId] = useState<number | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const teamColor = team.color || "#F59E0B";
   const { brandName, logos, iconVersion } = useBranding();
   const brandLogoSrc = resolveHeaderBrandLogoUrl(logos, iconVersion);
 
   const { targetIds, toggleTarget, isTarget } = useOwnerTargets(tournamentId, teamId);
+
+  // Scroll to top when tab changes
+  useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0, behavior: "instant" });
+  }, [tab]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -155,13 +162,15 @@ export function PreAuctionWarRoom({
   });
 
   const sportName = tournament?.sport || "Cricket";
-  const unit = resolveAuctionUnit(undefined);
+  const displaySportName = sportName
+    ? sportName.charAt(0).toUpperCase() + sportName.slice(1).toLowerCase()
+    : "Cricket";
+  const unit = resolveAuctionUnit(tournament?.auctionUnit);
   const totalPurse = teamPurse?.effectiveCapacity ?? teamPurse?.originalPurse ?? team.purse;
   const purseRemaining = teamPurse?.purseRemaining ?? team.purse;
   const playersBought = teamPurse?.playersBought ?? 0;
   const minSquad = tournament?.minimumSquadSize ?? 11;
   const remainingMandatorySlots =
-    teamPurse?.futureSlotsRequired ??
     teamPurse?.slotsRequired ??
     Math.max(0, minSquad - playersBought);
 
@@ -326,7 +335,7 @@ export function PreAuctionWarRoom({
                 </span>
               </div>
               <p className="text-xs text-[#a8a0c4] mt-0.5 truncate">
-                {team.name} · {sportName} Blueprint & Scarcity Radar
+                {team.name} · {displaySportName} Blueprint & Scarcity Radar
               </p>
             </div>
           </div>
@@ -373,7 +382,7 @@ export function PreAuctionWarRoom({
           <Radar className="w-4 h-4" />
           <span>Scarcity Radar</span>
           {scarcityAlerts.some((a) => a.isCritical) && (
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping absolute top-2 right-4" />
+            <span className="w-2 h-2 rounded-full bg-amber-400 absolute top-2.5 right-3" />
           )}
         </button>
 
@@ -392,7 +401,10 @@ export function PreAuctionWarRoom({
       </div>
 
       {/* ── Main Tab Content ── */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y p-3 sm:p-5 space-y-4">
+      <div
+        ref={contentRef}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y p-3 sm:p-5 space-y-4"
+      >
         {/* ══════════════ TAB 1: SQUAD BLUEPRINT & 40-40-20 RULE ══════════════ */}
         {tab === "blueprint" && (
           <motion.div
@@ -436,17 +448,17 @@ export function PreAuctionWarRoom({
                   <div
                     style={{ width: "40%" }}
                     className="h-full rounded-l-full bg-gradient-to-r from-amber-500 to-yellow-400 relative group cursor-pointer"
-                    title={`Anchor Stars: ${formatShortIndianRupee(purseAnchorStars)} (40%)`}
+                    title={`Anchor Stars: ${formatShortIndianRupee(purseAnchorStars, unit)} (40%)`}
                   />
                   <div
                     style={{ width: "40%" }}
                     className="h-full bg-gradient-to-r from-sky-500 to-indigo-400 relative group cursor-pointer"
-                    title={`Core Starting XI: ${formatShortIndianRupee(purseCoreXI)} (40%)`}
+                    title={`Core Starting XI: ${formatShortIndianRupee(purseCoreXI, unit)} (40%)`}
                   />
                   <div
                     style={{ width: "20%" }}
                     className="h-full rounded-r-full bg-gradient-to-r from-emerald-500 to-teal-400 relative group cursor-pointer"
-                    title={`Value Bench: ${formatShortIndianRupee(purseValueBench)} (20%)`}
+                    title={`Value Bench: ${formatShortIndianRupee(purseValueBench, unit)} (20%)`}
                   />
                 </div>
                 <div className="flex justify-between text-[11px] font-mono font-bold text-[#a8a0c4] px-1">
@@ -461,12 +473,12 @@ export function PreAuctionWarRoom({
                 {/* 40% Anchor */}
                 <div className="rounded-2xl bg-[#1b1442] border border-amber-400/30 p-3 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[11px] font-black uppercase text-amber-300 tracking-wider">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[11px] font-black uppercase text-amber-300 tracking-wider truncate">
                         40% Anchor Stars
                       </span>
-                      <span className="text-xs font-mono font-black text-white">
-                        {formatShortIndianRupee(purseAnchorStars)}
+                      <span className="text-xs font-mono font-black text-white shrink-0">
+                        {formatShortIndianRupee(purseAnchorStars, unit)}
                       </span>
                     </div>
                     <p className="text-xs text-[#a8a0c4] leading-relaxed">
@@ -475,19 +487,19 @@ export function PreAuctionWarRoom({
                     </p>
                   </div>
                   <div className="mt-3 pt-2 border-t border-amber-400/20 text-[10px] text-amber-300/90 font-medium">
-                    Target: ₹{formatShortIndianRupee(Math.round(purseAnchorStars / 2))}/star avg
+                    Target: {formatShortIndianRupee(Math.round(purseAnchorStars / 2), unit)}/star avg
                   </div>
                 </div>
 
                 {/* 40% Core XI */}
                 <div className="rounded-2xl bg-[#1b1442] border border-sky-400/30 p-3 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[11px] font-black uppercase text-sky-300 tracking-wider">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[11px] font-black uppercase text-sky-300 tracking-wider truncate">
                         40% Core XI
                       </span>
-                      <span className="text-xs font-mono font-black text-white">
-                        {formatShortIndianRupee(purseCoreXI)}
+                      <span className="text-xs font-mono font-black text-white shrink-0">
+                        {formatShortIndianRupee(purseCoreXI, unit)}
                       </span>
                     </div>
                     <p className="text-xs text-[#a8a0c4] leading-relaxed">
@@ -496,19 +508,19 @@ export function PreAuctionWarRoom({
                     </p>
                   </div>
                   <div className="mt-3 pt-2 border-t border-sky-400/20 text-[10px] text-sky-300/90 font-medium">
-                    Target: ₹{formatShortIndianRupee(Math.round(purseCoreXI / 5))}/starter avg
+                    Target: {formatShortIndianRupee(Math.round(purseCoreXI / 5), unit)}/starter avg
                   </div>
                 </div>
 
                 {/* 20% Value Bench */}
                 <div className="rounded-2xl bg-[#1b1442] border border-emerald-400/30 p-3 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[11px] font-black uppercase text-emerald-300 tracking-wider">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[11px] font-black uppercase text-emerald-300 tracking-wider truncate">
                         20% Value Bench
                       </span>
-                      <span className="text-xs font-mono font-black text-white">
-                        {formatShortIndianRupee(purseValueBench)}
+                      <span className="text-xs font-mono font-black text-white shrink-0">
+                        {formatShortIndianRupee(purseValueBench, unit)}
                       </span>
                     </div>
                     <p className="text-xs text-[#a8a0c4] leading-relaxed">
@@ -529,7 +541,7 @@ export function PreAuctionWarRoom({
                 <div className="flex items-center gap-2">
                   <ShieldUser className="w-5 h-5 text-amber-400" />
                   <h3 className="font-display font-bold text-base text-white">
-                    {sportName} Squad Architecture Target
+                    {displaySportName} Squad Architecture Target
                   </h3>
                 </div>
                 <span className="text-xs text-[#a8a0c4]">
@@ -557,7 +569,9 @@ export function PreAuctionWarRoom({
                             Rec: {rule.min}-{rule.max}
                           </span>
                         </div>
-                        <p className="text-xs text-[#a8a0c4] mt-1 truncate">{rule.description}</p>
+                        <p className="text-[11px] text-[#a8a0c4] mt-0.5 line-clamp-2 leading-snug">
+                          {rule.description}
+                        </p>
                       </div>
 
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -608,9 +622,9 @@ export function PreAuctionWarRoom({
             <div className="rounded-3xl bg-[#1c1647] border border-[#4a4478] p-4 sm:p-5 shadow-xl space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Flame className="w-5 h-5 text-rose-400" />
+                  <Radar className="w-5 h-5 text-amber-400" />
                   <h3 className="font-display font-black text-base text-white">
-                    Draft Pool Scarcity & FOMO Radar
+                    Draft Pool Demand & Scarcity Radar
                   </h3>
                 </div>
                 <span className="text-xs text-[#a8a0c4]">
@@ -623,15 +637,15 @@ export function PreAuctionWarRoom({
                   {scarcityAlerts.map((alert, idx) => (
                     <div
                       key={idx}
-                      className={`rounded-2xl p-3 border flex items-start gap-3 ${
-                        alert.isCritical
-                          ? "bg-rose-950/40 border-rose-500/50 text-rose-200"
-                          : "bg-amber-950/40 border-amber-500/50 text-amber-200"
+                      className={`rounded-2xl p-3 border flex items-start gap-3 transition-colors ${
+                        alert.availableCount === 0
+                          ? "bg-[#221a48] border-purple-500/30 text-purple-200"
+                          : "bg-[#241c4a] border-amber-500/30 text-amber-100"
                       }`}
                     >
                       <div className="mt-0.5 flex-shrink-0">
-                        {alert.isCritical ? (
-                          <AlertTriangle className="w-4 h-4 text-rose-400 animate-bounce" />
+                        {alert.availableCount === 0 ? (
+                          <Zap className="w-4 h-4 text-purple-400" />
                         ) : (
                           <Zap className="w-4 h-4 text-amber-400" />
                         )}
@@ -639,17 +653,17 @@ export function PreAuctionWarRoom({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span
-                            className={`text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
-                              alert.isCritical
-                                ? "bg-rose-500 text-white"
-                                : "bg-amber-500 text-black font-black"
+                            className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                              alert.availableCount === 0
+                                ? "bg-purple-500/20 text-purple-300 border-purple-500/30"
+                                : "bg-amber-400/20 text-amber-300 border-amber-400/30"
                             }`}
                           >
-                            {alert.isCritical ? "CRITICAL SQUEEZE" : "HIGH DEMAND"}
+                            {alert.availableCount === 0 ? "LIMITED DEPTH" : "HIGH DEMAND"}
                           </span>
-                          <span className="font-bold text-sm">{alert.role}</span>
+                          <span className="font-bold text-sm text-white">{alert.role}</span>
                         </div>
-                        <p className="text-xs mt-1 text-white/90 leading-snug">{alert.message}</p>
+                        <p className="text-xs mt-1 text-[#d4cfe6] leading-snug">{alert.message}</p>
                       </div>
                     </div>
                   ))}
@@ -827,12 +841,15 @@ export function PreAuctionWarRoom({
                     Targets Shortlisted
                   </p>
                   <p className="font-display font-black text-lg text-amber-300 mt-0.5">
-                    {targetedAvailable.length}
+                    {targetIds.length === 0 ? "0" : targetIds.length}
                     <span className="text-xs text-[#8d85b5] font-normal">
                       {" "}
-                      / {targetIds.length} total
+                      {targetIds.length === 1 ? "Target" : "Targets"}
                     </span>
                   </p>
+                  <span className="text-[9px] text-[#a8a0c4] font-medium block mt-0.5">
+                    {targetedAvailable.length} active in pool
+                  </span>
                 </div>
 
                 <div className="rounded-2xl bg-[#1b1442] border border-[#4a4478] p-3 text-center">
@@ -840,7 +857,7 @@ export function PreAuctionWarRoom({
                     Est. Target Spend
                   </p>
                   <p className="font-display font-black text-lg text-white font-mono mt-0.5">
-                    {formatShortIndianRupee(simulation.estimatedTargetSpend)}
+                    {formatShortIndianRupee(simulation.estimatedTargetSpend, unit)}
                   </p>
                 </div>
 
@@ -853,7 +870,7 @@ export function PreAuctionWarRoom({
                       simulation.purseAfterTargets < 0 ? "text-rose-400" : "text-emerald-400"
                     }`}
                   >
-                    {formatShortIndianRupee(simulation.purseAfterTargets)}
+                    {formatShortIndianRupee(simulation.purseAfterTargets, unit)}
                   </p>
                 </div>
 
@@ -865,8 +882,8 @@ export function PreAuctionWarRoom({
                   </p>
                   <p className="font-display font-black text-lg text-sky-300 font-mono mt-0.5">
                     {simulation.unfilledSlotsAfterTargets === 0
-                      ? formatShortIndianRupee(simulation.surplusPurse)
-                      : formatShortIndianRupee(simulation.remainingPursePerSlot)}
+                      ? formatShortIndianRupee(simulation.surplusPurse, unit)
+                      : formatShortIndianRupee(simulation.remainingPursePerSlot, unit)}
                   </p>
                   {simulation.unfilledSlotsAfterTargets === 0 && (
                     <span className="text-[9px] text-emerald-400 font-semibold block mt-0.5">
@@ -887,51 +904,50 @@ export function PreAuctionWarRoom({
 
             {/* Target Filter & Search Toolbar */}
             <div className="rounded-3xl bg-[#1c1647] border border-[#4a4478] p-4 sm:p-5 shadow-xl space-y-3">
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-[#8d85b5] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search player by name, #serial, city..."
-                    className="w-full pl-10 pr-4 py-2 rounded-xl bg-[#140e2e] border border-[#4a4478] text-sm text-white placeholder-[#6b6490] focus:outline-hidden focus:border-amber-400"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8d85b5] hover:text-white cursor-pointer"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
+              {/* Search Bar - Full Width Row */}
+              <div className="relative w-full">
+                <Search className="w-4 h-4 text-[#8d85b5] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search player by name, #serial, city..."
+                  className="w-full pl-10 pr-14 py-2.5 rounded-xl bg-[#140e2e] border border-[#4a4478] text-sm text-white placeholder-[#6b6490] focus:outline-hidden focus:border-amber-400 transition-colors"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#a8a0c4] hover:text-white cursor-pointer px-2 py-0.5 rounded-md bg-[#241c56] border border-[#4a4478]"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
 
-                {/* Filter Pills */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-                  {[
-                    { id: "all", label: "All Pool" },
-                    { id: "targets", label: `⭐ Targets (${targetIds.length})` },
-                    { id: "batter", label: "Batters" },
-                    { id: "keeper", label: "Keepers" },
-                    { id: "bowler", label: "Bowlers" },
-                    { id: "all-rounder", label: "All-Rounders" },
-                  ].map((f) => (
-                    <button
-                      key={f.id}
-                      type="button"
-                      onClick={() => setRoleFilter(f.id)}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-xl border whitespace-nowrap transition-all cursor-pointer ${
-                        roleFilter === f.id
-                          ? "bg-amber-400 text-black border-amber-300 shadow-sm"
-                          : "bg-[#18123a] text-[#8d85b5] hover:text-white border-[#4a4478]"
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
+              {/* Filter Pills - Smooth Horizontal Scroll without native Windows scrollbars */}
+              <div className="flex items-center gap-1.5 overflow-x-auto py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                {[
+                  { id: "all", label: "All Pool" },
+                  { id: "targets", label: `⭐ Targets (${targetIds.length})` },
+                  { id: "batter", label: "Batters" },
+                  { id: "keeper", label: "Keepers" },
+                  { id: "bowler", label: "Bowlers" },
+                  { id: "all-rounder", label: "All-Rounders" },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setRoleFilter(f.id)}
+                    className={`text-xs font-bold px-3 py-1.5 rounded-xl border whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+                      roleFilter === f.id
+                        ? "bg-amber-400 text-black border-amber-300 shadow-sm"
+                        : "bg-[#18123a] text-[#8d85b5] hover:text-white border-[#4a4478]"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
               </div>
 
               {/* Players Grid */}

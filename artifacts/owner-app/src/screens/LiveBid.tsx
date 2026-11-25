@@ -503,19 +503,21 @@ function PlayerCard({
                 Base <span className="text-emerald-400 font-extrabold">{formatIndianRupee(player.basePrice, unit)}</span>
               </span>
             ) : null}
-            {isRecognizedRole(player.role || categoryName) && squadRoleCount !== undefined && squadRoleCount !== null && (
-              squadRoleCount === 0 ? (
+            {isRecognizedRole(player.role || categoryName) && squadRoleCount !== undefined && squadRoleCount !== null && (() => {
+              const rName = (player.role || categoryName) ?? "Player";
+              const rPlural = rName.endsWith("s") ? rName : `${rName}s`;
+              return squadRoleCount === 0 ? (
                 <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
                   <Sparkles className="w-2.5 h-2.5 text-rose-400" />
-                  High Priority: 0 {player.role || categoryName} on roster
+                  High Priority: 0 {rPlural} on roster
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
                   <Users className="w-2.5 h-2.5 text-indigo-400" />
-                  Surplus: Already hold {squadRoleCount} {player.role || categoryName}
+                  Surplus: Already hold {squadRoleCount} {squadRoleCount === 1 ? rName : rPlural}
                 </span>
-              )
-            )}
+              );
+            })()}
           </div>
 
           {(keySpecs || player.jerseyNumber) && (
@@ -585,19 +587,21 @@ function PlayerCard({
             </span>
           )}
           {player.playerTag ? <PlayerTagBadge tagKey={player.playerTag} size="md" className="shrink-0" /> : null}
-          {isRecognizedRole(player.role || categoryName) && squadRoleCount !== undefined && squadRoleCount !== null && (
-            squadRoleCount === 0 ? (
+          {isRecognizedRole(player.role || categoryName) && squadRoleCount !== undefined && squadRoleCount !== null && (() => {
+            const rName = (player.role || categoryName) ?? "Player";
+            const rPlural = rName.endsWith("s") ? rName : `${rName}s`;
+            return squadRoleCount === 0 ? (
               <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
                 <Sparkles className="w-3.5 h-3.5 text-rose-400" />
-                High Priority: 0 {player.role || categoryName} on roster
+                High Priority: 0 {rPlural} on roster
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
                 <Users className="w-3.5 h-3.5 text-indigo-400" />
-                Surplus: Already hold {squadRoleCount} {player.role || categoryName}
+                Surplus: Already hold {squadRoleCount} {squadRoleCount === 1 ? rName : rPlural}
               </span>
-            )
-          )}
+            );
+          })()}
         </div>
 
         {metaItems.length > 0 && (
@@ -2465,38 +2469,9 @@ function LiveBidHeader({
   );
 
   const actionBlock = (
-    <div className="flex items-center justify-end gap-0.5 sm:gap-1 min-w-0 shrink-0">
+    <div className="flex items-center justify-end gap-1 sm:gap-2 min-w-0 shrink-0">
       <HeaderActionButton onClick={onSync} title="Sync auction data" label="Sync" compact={actionCompact}>
         <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${syncing ? "animate-spin" : ""}`} />
-      </HeaderActionButton>
-      {onViewWarRoom && (
-        <HeaderActionButton
-          onClick={onViewWarRoom}
-          title={navBlocked ? "Unavailable during live player auction" : "Pre-Auction AI Strategy War Room"}
-          label={actionCompact ? "AI Room" : "AI Strategy"}
-          blocked={navBlocked}
-          compact={actionCompact}
-        >
-          <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" strokeWidth={2.25} />
-        </HeaderActionButton>
-      )}
-      <HeaderActionButton
-        onClick={onViewSquad}
-        title={navBlocked ? "Unavailable during live player auction" : "View my squad"}
-        label={actionCompact ? "Squad" : "My Squad"}
-        blocked={navBlocked}
-        compact={actionCompact}
-      >
-        <ShieldUser className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={2.25} />
-      </HeaderActionButton>
-      <HeaderActionButton
-        onClick={onViewScout}
-        title={navBlocked ? "Unavailable during live player auction" : "Scout rival teams"}
-        label="Rivals"
-        blocked={navBlocked}
-        compact={actionCompact}
-      >
-        <Radar className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={2.25} />
       </HeaderActionButton>
       <HeaderActionButton onClick={onLeave} title="Leave auction" label="Leave" compact={actionCompact} danger>
         <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />
@@ -3504,6 +3479,7 @@ export function LiveBid({
                 lastSoldPlayer={state?.lastSoldPlayer}
                 purseRemaining={teamPurse?.purseRemaining ?? team.purse}
                 futureMandatorySlots={futureMandatorySlots}
+                suppressPlanBPivot={showLastSoldResult}
               />
             )}
           </AnimatePresence>

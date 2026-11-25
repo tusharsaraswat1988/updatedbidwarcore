@@ -416,10 +416,9 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
       expect(liveBidSrc).toContain("if (aiRadarEnabled === false) return null;");
     });
 
-    it("integrates AI Strategy / War Room button into Header actionBlock", () => {
-      expect(liveBidSrc).toContain("onViewWarRoom");
-      expect(liveBidSrc).toContain('actionCompact ? "AI Room" : "AI Strategy"');
-      expect(liveBidSrc).toContain("Pre-Auction AI Strategy War Room");
+    it("keeps Header actionBlock streamlined for session controls without duplicate drawer triggers", () => {
+      expect(liveBidSrc).toContain("onSync");
+      expect(liveBidSrc).toContain("onLeave");
     });
   });
 
@@ -444,7 +443,7 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
       expect(scoutSrc).toContain("onViewWarRoom");
       expect(scoutSrc).toContain("AI WAR ROOM");
       expect(interLotSrc).toContain("onViewWarRoom");
-      expect(interLotSrc).toContain("AI Strategy");
+      expect(interLotSrc).toContain("WAR ROOM");
     });
 
     it("integrates target player toggling and indicators in Scout.tsx unsold list", () => {
