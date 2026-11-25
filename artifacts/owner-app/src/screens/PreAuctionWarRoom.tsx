@@ -982,11 +982,16 @@ export function PreAuctionWarRoom({
                                     ACQUIRED
                                   </span>
                                 )}
-                                {isSoldOther && (
+                                {targeted && isSoldOther ? (
+                                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-300 border border-amber-400/50 shadow-xs flex items-center gap-1">
+                                    <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                                    <span>SOLD TO RIVAL · PIVOT READY</span>
+                                  </span>
+                                ) : isSoldOther ? (
                                   <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40">
                                     SOLD
                                   </span>
-                                )}
+                                ) : null}
                               </div>
 
                               <div className="flex items-center gap-2 mt-1 text-xs text-[#a8a0c4]">

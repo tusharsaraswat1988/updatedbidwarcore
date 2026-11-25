@@ -152,6 +152,7 @@ export interface PlayerLike {
   playerTag?: string | null;
   isNonPlayingMember?: boolean | null;
   achievements?: string | null;
+  teamId?: number | null;
 }
 
 /**
@@ -344,5 +345,281 @@ export function computeBudgetSimulation({
     isQuotaCoveredByTargets,
     surplusPurse: Math.max(0, purseAfterTargets),
     status,
+  };
+}
+
+export interface BluffRadarInput {
+  currentBidTeamId?: number | null;
+  currentBidTeamName?: string | null;
+  myTeamId: number;
+  currentPlayerRole?: string | null;
+  currentPlayerBasePrice?: number | null;
+  currentBidAmount?: number | null;
+  sportName?: string;
+  allPlayers?: PlayerLike[];
+  teamPurses?: {
+    teamId: number;
+    slotsRequired?: number;
+    minimumSquadSize?: number;
+    playersBought?: number;
+    spendablePurse?: number;
+    purseRemaining?: number;
+  }[];
+  walkAwayPrice?: number;
+}
+
+export interface BluffRadarResult {
+  isBluffRisk: boolean;
+  severity: "none" | "caution" | "high";
+  rivalTeamName: string;
+  rivalRoleCount: number;
+  rivalRemainingSlots: number;
+  normalizedRole: string;
+  headline: string;
+  message: string;
+}
+
+/**
+ * Computes real-time Rival Bluff & Price-Bumping Warning.
+ * Analyzes whether the currently leading rival team is bidding on a role
+ * where they already have an over-saturated squad or negligible remaining slots.
+ *
+ * Guarantees:
+ * - NEVER leaks rival's private shortlists or secret maximum budgets.
+ * - NEVER mentions any other player's name during an active lot.
+ * - Purely inspects public roster counts and public purse states.
+ */
+export function computeBluffRadar({
+  currentBidTeamId,
+  currentBidTeamName,
+  myTeamId,
+  currentPlayerRole,
+  currentPlayerBasePrice,
+  currentBidAmount,
+  sportName = "cricket",
+  allPlayers = [],
+  teamPurses = [],
+  walkAwayPrice = 0,
+}: BluffRadarInput): BluffRadarResult {
+  const defaultNoBluff: BluffRadarResult = {
+    isBluffRisk: false,
+    severity: "none",
+    rivalTeamName: "",
+    rivalRoleCount: 0,
+    rivalRemainingSlots: 0,
+    normalizedRole: "",
+    headline: "",
+    message: "",
+  };
+
+  // If no one is leading or my own team is leading, no rival bluff against us
+  if (!currentBidTeamId || currentBidTeamId === myTeamId) {
+    return defaultNoBluff;
+  }
+
+  // If role is unrecognized (e.g. unvalidated Excel import), silently pass without crashing
+  if (!isRecognizedRole(currentPlayerRole)) {
+    return defaultNoBluff;
+  }
+
+  const normRole = normalizeSportRole(currentPlayerRole, sportName);
+  const rivalName = currentBidTeamName?.trim() || `Team #${currentBidTeamId}`;
+
+  // Analyze rival's public squad
+  const rivalSquad = allPlayers.filter(
+    (p) =>
+      p.teamId === currentBidTeamId &&
+      (p.status === "sold" || p.status === "retained") &&
+      !p.isNonPlayingMember
+  );
+
+  const rivalRoleCount = rivalSquad.filter(
+    (p) => normalizeSportRole(p.role, sportName) === normRole
+  ).length;
+
+  const rivalPurse = teamPurses.find((tp) => tp.teamId === currentBidTeamId);
+  const rivalRemainingSlots =
+    rivalPurse?.slotsRequired ??
+    Math.max(
+      0,
+      (rivalPurse?.minimumSquadSize ?? 11) - (rivalPurse?.playersBought ?? rivalSquad.length)
+    );
+
+  // Retrieve sport blueprint recommendations
+  const rules = getSportBlueprintRules(sportName);
+  const roleRule = rules.find((r) => r.role === normRole) ?? { min: 2, max: 4, role: normRole };
+
+  // ── High Severity: Quota Satiation / Over-saturation ──
+  // Rival already has >= max recommended for this role, and has very few slots left (<= 2).
+  // They do not need this role for squad balance; high likelihood of price-bumping to drain your purse!
+  if (rivalRoleCount >= roleRule.max && rivalRemainingSlots <= 2) {
+    return {
+      isBluffRisk: true,
+      severity: "high",
+      rivalTeamName: rivalName,
+      rivalRoleCount,
+      rivalRemainingSlots,
+      normalizedRole: normRole,
+      headline: "⚠️ HIGH PRICE-BUMPING RISK",
+      message: `${rivalName} already has ${rivalRoleCount} ${normRole}s with only ${rivalRemainingSlots} squad slot${
+        rivalRemainingSlots === 1 ? "" : "s"
+      } open. High likelihood of price-bumping! Recommend stopping near walk-away.`,
+    };
+  }
+
+  // ── Caution Severity: Satiation & Escalated Price ──
+  // Rival has already met their target quota for this role (>= min),
+  // and current bid is reaching walk-away territory or has inflated >= 1.5x base price.
+  const basePrice = Math.max(1, currentPlayerBasePrice || 0);
+  const currentBid = currentBidAmount || 0;
+  const isPriceInflated = currentBid >= basePrice * 1.5;
+  const isNearWalkAway = walkAwayPrice > 0 && currentBid >= walkAwayPrice * 0.85;
+
+  if (rivalRoleCount >= roleRule.min && (isPriceInflated || isNearWalkAway) && rivalRemainingSlots <= 3) {
+    return {
+      isBluffRisk: true,
+      severity: "caution",
+      rivalTeamName: rivalName,
+      rivalRoleCount,
+      rivalRemainingSlots,
+      normalizedRole: normRole,
+      headline: "⚡ RIVAL BLUFF RADAR",
+      message: `${rivalName} already met their ${normRole} quota (${rivalRoleCount} acquired). Caution: Bidding duel may artificially inflate your acquisition cost.`,
+    };
+  }
+
+  return defaultNoBluff;
+}
+
+export interface PlanBPivotInput {
+  lastSoldPlayer?: {
+    id?: number | null;
+    name?: string | null;
+    role?: string | null;
+    photoUrl?: string | null;
+    soldToTeamId?: number | null;
+    soldToTeamName?: string | null;
+    soldAmount?: number | null;
+  } | null;
+  myTeamId: number;
+  targetPlayerIds: (number | string)[];
+  allPlayers?: PlayerLike[];
+  sportName?: string;
+  purseRemaining?: number;
+  remainingMandatorySlots?: number;
+  formatCurrencyFn?: (amt: number) => string;
+}
+
+export interface PlanBPivotResult {
+  isTargetLost: boolean;
+  lostPlayerName: string;
+  lostPlayerRole: string;
+  soldToTeamName: string;
+  soldAmount: number;
+  remainingSimilarCount: number;
+  remainingSimilarPlayers: PlayerLike[];
+  suggestedHeadroomPct: number;
+  headline: string;
+  message: string;
+  recommendedAction: string;
+}
+
+/**
+ * Computes post-lot "Plan-B Pivot" when a shortlisted target is acquired by a rival.
+ * Activated between lots during the Inter-Lot window.
+ *
+ * Guarantees:
+ * - Immediate emotional reassurance (prevents panic buying).
+ * - Identifies remaining pool depth for the same role.
+ * - Suggests reallocated budget headroom without exceeding safe limits.
+ */
+export function computePlanBPivot({
+  lastSoldPlayer,
+  myTeamId,
+  targetPlayerIds = [],
+  allPlayers = [],
+  sportName = "cricket",
+  purseRemaining = 0,
+  remainingMandatorySlots = 1,
+  formatCurrencyFn,
+}: PlanBPivotInput): PlanBPivotResult {
+  const fmt = formatCurrencyFn ?? ((n: number) => `₹${n.toLocaleString("en-IN")}`);
+  const defaultNoPivot: PlanBPivotResult = {
+    isTargetLost: false,
+    lostPlayerName: "",
+    lostPlayerRole: "",
+    soldToTeamName: "",
+    soldAmount: 0,
+    remainingSimilarCount: 0,
+    remainingSimilarPlayers: [],
+    suggestedHeadroomPct: 0,
+    headline: "",
+    message: "",
+    recommendedAction: "",
+  };
+
+  if (!lastSoldPlayer || lastSoldPlayer.id == null) {
+    return defaultNoPivot;
+  }
+
+  // If won by this team, it is a target ACQUIRED, not lost!
+  if (lastSoldPlayer.soldToTeamId === myTeamId) {
+    return defaultNoPivot;
+  }
+
+  // Check if player was in target shortlist
+  const targetIdSet = new Set(targetPlayerIds.map((id) => Number(id)));
+  const wasTarget = targetIdSet.has(Number(lastSoldPlayer.id));
+
+  if (!wasTarget) {
+    return defaultNoPivot;
+  }
+
+  // The target was acquired by a rival team
+  const normRole = normalizeSportRole(lastSoldPlayer.role, sportName);
+  const lostName = lastSoldPlayer.name?.trim() || "Target Player";
+  const rivalWinner = lastSoldPlayer.soldToTeamName?.trim() || "Rival Team";
+  const soldAmt = lastSoldPlayer.soldAmount || 0;
+
+  // Find remaining unacquired players in draft pool with similar role
+  const remainingSimilar = allPlayers.filter((p) => {
+    if (p.isNonPlayingMember) return false;
+    if (p.id === lastSoldPlayer.id) return false;
+    const isAvail = p.status === "available" || p.status === "unsold" || !p.status;
+    return isAvail && normalizeSportRole(p.role, sportName) === normRole;
+  });
+
+  const remainingCount = remainingSimilar.length;
+  const suggestedHeadroomPct = remainingCount <= 2 ? 15 : 10;
+
+  let headline = "⚡ PLAN-B PIVOT ACTIVE";
+  let message = "";
+  let recommendedAction = "";
+
+  if (remainingCount > 0) {
+    message = `Your target ${lostName} went to ${rivalWinner} for ${fmt(
+      soldAmt
+    )}. No panic! You preserved your purse (${fmt(purseRemaining)}). ${remainingCount} other ${normRole}${
+      remainingCount === 1 ? "" : "s"
+    } remain in the draft pool.`;
+    recommendedAction = `Re-tune your targets in War Room or adjust headroom by +${suggestedHeadroomPct}% for upcoming ${normRole} lots.`;
+  } else {
+    headline = "⚠️ CRITICAL POOL EXHAUSTION";
+    message = `Your target ${lostName} went to ${rivalWinner}. That was the last pure ${normRole} in the available draft pool!`;
+    recommendedAction = `Pivot your remaining purse to versatile all-rounders or flex roles in the next rounds.`;
+  }
+
+  return {
+    isTargetLost: true,
+    lostPlayerName: lostName,
+    lostPlayerRole: normRole,
+    soldToTeamName: rivalWinner,
+    soldAmount: soldAmt,
+    remainingSimilarCount: remainingCount,
+    remainingSimilarPlayers: remainingSimilar.slice(0, 3),
+    suggestedHeadroomPct,
+    headline,
+    message,
+    recommendedAction,
   };
 }

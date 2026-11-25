@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy, User, LogOut,
   AlertTriangle, Coffee, RefreshCw, X, XCircle, Radar, ShieldUser, Sparkles,
-  Info, ChevronRight, Wallet, Users, Target,
+  Info, ChevronRight, Wallet, Users, Target, ShieldAlert,
 } from "lucide-react";
 import { useLiveBidLayout, type DeviceTier } from "@/hooks/useLiveBidLayout";
 import { useCountdown } from "@/hooks/useCountdown";
@@ -31,7 +31,13 @@ import { useBreakCountdownFromState } from "@/lib/break-countdown";
 import { getPlayerTagTheme } from "@/lib/player-tag-theme";
 import { OwnerPlayerAuctionHistory } from "@/components/OwnerPlayerAuctionHistory";
 import { useOwnerTargets, useAiRadarPreference } from "@/lib/owner-targets";
-import { isRecognizedRole } from "@/lib/war-room-engine";
+import {
+  isRecognizedRole,
+  computeBluffRadar,
+  computePlanBPivot,
+  type BluffRadarResult,
+  type PlanBPivotResult,
+} from "@/lib/war-room-engine";
 
 const BIDWAR_AMBER = "#F59E0B";
 
@@ -1433,6 +1439,7 @@ interface TacticalWarRoomProps {
   tier: DeviceTier;
   aiRadarEnabled?: boolean;
   onToggleAiRadar?: () => void;
+  bluffAlert?: BluffRadarResult | null;
 }
 
 function TacticalWarRoomStrip({
@@ -1443,6 +1450,7 @@ function TacticalWarRoomStrip({
   tier,
   aiRadarEnabled = true,
   onToggleAiRadar,
+  bluffAlert,
 }: TacticalWarRoomProps) {
   if (aiRadarEnabled === false) {
     return (
@@ -1484,45 +1492,77 @@ function TacticalWarRoomStrip({
   const isMobile = tier === "mobile";
 
   return (
-    <div className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-2xl bg-[#1b1542] border border-[#4a4478] shadow-xs select-none">
-      {/* Walk-Away Price Pill with Ring Indicator */}
-      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-        <div className={`w-2.5 h-2.5 rounded-full ${marginConfig.dotClass} animate-pulse shrink-0 ring-4 ${marginConfig.ringClass}`} />
-        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-wrap">
-          <span className="text-[10px] uppercase font-bold tracking-wider text-[#a8a0c4] shrink-0">
-            Walk-Away:
-          </span>
-          <span className="font-mono font-black text-white text-xs sm:text-sm shrink-0">
-            {formatIndianRupee(walkAwayPrice, unit)}
-          </span>
-          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${marginConfig.badgeClass} shrink-0`}>
-            {marginConfig.label}
-          </span>
+    <div className="w-full flex flex-col gap-1.5 select-none">
+      <div className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-2xl bg-[#1b1542] border border-[#4a4478] shadow-xs">
+        {/* Walk-Away Price Pill with Ring Indicator */}
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          <div className={`w-2.5 h-2.5 rounded-full ${marginConfig.dotClass} animate-pulse shrink-0 ring-4 ${marginConfig.ringClass}`} />
+          <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-wrap">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[#a8a0c4] shrink-0">
+              Walk-Away:
+            </span>
+            <span className="font-mono font-black text-white text-xs sm:text-sm shrink-0">
+              {formatIndianRupee(walkAwayPrice, unit)}
+            </span>
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${marginConfig.badgeClass} shrink-0`}>
+              {marginConfig.label}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Rival Outbid Capacity Radar */}
+          <div className="flex items-center gap-1 shrink-0 bg-[#241c56] border border-[#4a4478] px-2 py-0.5 rounded-xl text-[10px]">
+            <Radar className="w-3 h-3 text-sky-400 shrink-0" />
+            <span className="font-semibold text-[#a8a0c4] whitespace-nowrap">
+              <strong className="text-white font-mono font-bold mr-0.5">{rivalOutbidCount}</strong>
+              {isMobile ? "outbid" : rivalOutbidCount === 1 ? "rival can outbid" : "rivals can outbid"}
+            </span>
+          </div>
+
+          {/* 1-Click AI Radar Toggle to collapse */}
+          {onToggleAiRadar && (
+            <button
+              type="button"
+              onClick={onToggleAiRadar}
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#241c56] hover:bg-[#322774] border border-[#4a4478] text-[9px] font-bold text-amber-300 transition-all cursor-pointer active:scale-95 shrink-0"
+              title="Click to collapse AI advice into a 24px micro-pill"
+            >
+              <span>👁️ AI Radar: ON</span>
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 shrink-0">
-        {/* Rival Outbid Capacity Radar */}
-        <div className="flex items-center gap-1 shrink-0 bg-[#241c56] border border-[#4a4478] px-2 py-0.5 rounded-xl text-[10px]">
-          <Radar className="w-3 h-3 text-sky-400 shrink-0" />
-          <span className="font-semibold text-[#a8a0c4] whitespace-nowrap">
-            <strong className="text-white font-mono font-bold mr-0.5">{rivalOutbidCount}</strong>
-            {isMobile ? "outbid" : rivalOutbidCount === 1 ? "rival can outbid" : "rivals can outbid"}
-          </span>
+      {/* Rival Bluff / Price-Bumping Alert */}
+      {bluffAlert?.isBluffRisk && (
+        <div
+          className={`w-full px-2.5 py-1.5 rounded-xl border flex items-center gap-2 transition-all ${
+            bluffAlert.severity === "high"
+              ? "bg-rose-500/20 border-rose-500/50 text-rose-200"
+              : "bg-amber-500/20 border-amber-500/50 text-amber-200"
+          }`}
+        >
+          <ShieldAlert
+            className={`w-4 h-4 shrink-0 ${
+              bluffAlert.severity === "high" ? "text-rose-400 animate-pulse" : "text-amber-400"
+            }`}
+          />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider">
+                {bluffAlert.headline}
+              </span>
+              <span className="text-[9px] opacity-75 font-mono">
+                ({bluffAlert.rivalRoleCount} {bluffAlert.normalizedRole}s held)
+              </span>
+            </div>
+            <p className="text-[10px] leading-tight line-clamp-1 opacity-90 mt-0.5">
+              {bluffAlert.message}
+            </p>
+          </div>
         </div>
-
-        {/* 1-Click AI Radar Toggle to collapse */}
-        {onToggleAiRadar && (
-          <button
-            type="button"
-            onClick={onToggleAiRadar}
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#241c56] hover:bg-[#322774] border border-[#4a4478] text-[9px] font-bold text-amber-300 transition-all cursor-pointer active:scale-95 shrink-0"
-            title="Click to collapse AI advice into a 24px micro-pill"
-          >
-            <span>👁️ AI Radar: ON</span>
-          </button>
-        )}
-      </div>
+      )}
     </div>
   );
 }
@@ -1855,11 +1895,20 @@ function UnsoldPlayerCard({ name, photoUrl }: { name: string; photoUrl?: string 
 }
 
 // ── Last sold player card ─────────────────────────────────────────────────────
-function LastSoldPlayerCard({ player, teamColor, wonByThisTeam, unit }: {
+function LastSoldPlayerCard({
+  player,
+  teamColor,
+  wonByThisTeam,
+  unit,
+  planBPivot,
+  onViewWarRoom,
+}: {
   player: NonNullable<AuctionState["lastSoldPlayer"]>;
   teamColor: string;
   wonByThisTeam: boolean;
   unit: ReturnType<typeof resolveAuctionUnit>;
+  planBPivot?: PlanBPivotResult | null;
+  onViewWarRoom?: () => void;
 }) {
   const soldColor = wonByThisTeam ? teamColor : "#22c55e";
   return (
@@ -1868,45 +1917,70 @@ function LastSoldPlayerCard({ player, teamColor, wonByThisTeam, unit }: {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
-      className="flex items-center gap-5 p-5 rounded-2xl border bg-[#2a2458] relative overflow-hidden"
+      className="flex flex-col gap-3 p-4 sm:p-5 rounded-2xl border bg-[#2a2458] relative overflow-hidden"
       style={{ borderColor: `${soldColor}40` }}
     >
-      <PlayerAvatar
-        name={player.name}
-        photoUrl={player.photoUrl}
-        accentColor={wonByThisTeam ? "#10b981" : teamColor}
-        className="w-20 h-28 rounded-xl"
-      />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold uppercase tracking-widest mb-1 flex items-center gap-1.5" style={{ color: wonByThisTeam ? "#10b981" : soldColor }}>
-          {wonByThisTeam ? (
-            <>
-              <Trophy className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-emerald-400 font-black">YOUR TEAM WON!</span>
-            </>
-          ) : (
-            "LAST SOLD"
-          )}
-        </p>
-        <h2 className="font-display font-bold text-2xl leading-tight text-white truncate">{player.name}</h2>
-        {player.role && <p className="text-sm text-[#a8a0c4] capitalize mt-1">{player.role}</p>}
-        {!wonByThisTeam && player.soldToTeamName && (
-          <p className="text-sm text-[#a8a0c4] mt-1">
-            Won by <span className="text-white font-bold">{player.soldToTeamName}</span>
+      <div className="flex items-center gap-4 sm:gap-5">
+        <PlayerAvatar
+          name={player.name}
+          photoUrl={player.photoUrl}
+          accentColor={wonByThisTeam ? "#10b981" : teamColor}
+          className="w-16 h-22 sm:w-20 sm:h-28 rounded-xl shrink-0"
+        />
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold uppercase tracking-widest mb-1 flex items-center gap-1.5" style={{ color: wonByThisTeam ? "#10b981" : soldColor }}>
+            {wonByThisTeam ? (
+              <>
+                <Trophy className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-emerald-400 font-black">YOUR TEAM WON!</span>
+              </>
+            ) : (
+              "LAST SOLD"
+            )}
           </p>
+          <h2 className="font-display font-bold text-xl sm:text-2xl leading-tight text-white truncate">{player.name}</h2>
+          {player.role && <p className="text-xs sm:text-sm text-[#a8a0c4] capitalize mt-0.5">{player.role}</p>}
+          {!wonByThisTeam && player.soldToTeamName && (
+            <p className="text-xs sm:text-sm text-[#a8a0c4] mt-0.5">
+              Won by <span className="text-white font-bold">{player.soldToTeamName}</span>
+            </p>
+          )}
+        </div>
+        {player.soldAmount != null && (
+          <div className="text-right flex-shrink-0">
+            <p className="font-display font-black text-lg sm:text-xl" style={{ color: soldColor }}>
+              {formatIndianRupee(player.soldAmount, unit)}
+            </p>
+            <div
+              className="inline-flex items-center px-2 py-0.5 sm:py-1 rounded-lg mt-1 border text-[11px] sm:text-xs font-black uppercase tracking-wider"
+              style={{ backgroundColor: `${soldColor}20`, borderColor: `${soldColor}40`, color: soldColor }}
+            >
+              SOLD
+            </div>
+          </div>
         )}
       </div>
-      {player.soldAmount != null && (
-        <div className="text-right flex-shrink-0">
-          <p className="font-display font-black text-xl" style={{ color: soldColor }}>
-            {formatIndianRupee(player.soldAmount, unit)}
-          </p>
-          <div
-            className="inline-flex items-center px-2 py-1 rounded-lg mt-1 border text-xs font-black uppercase tracking-wider"
-            style={{ backgroundColor: `${soldColor}20`, borderColor: `${soldColor}40`, color: soldColor }}
-          >
-            SOLD
+
+      {/* Plan-B Pivot Active Notice */}
+      {!wonByThisTeam && planBPivot?.isTargetLost && (
+        <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-400/40 text-left space-y-1">
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
+              <span>{planBPivot.headline}</span>
+            </span>
+            {onViewWarRoom && (
+              <button
+                type="button"
+                onClick={onViewWarRoom}
+                className="px-2 py-0.5 rounded bg-amber-400 text-black text-[9px] font-black shrink-0 hover:bg-amber-300 transition-all active:scale-95 cursor-pointer"
+              >
+                Open War Room
+              </button>
+            )}
           </div>
+          <p className="text-xs text-[#e4e4e7] leading-relaxed">{planBPivot.message}</p>
+          <p className="text-[10px] text-amber-300 font-semibold">💡 {planBPivot.recommendedAction}</p>
         </div>
       )}
     </motion.div>
@@ -2478,7 +2552,7 @@ export function LiveBid({
   const isSplit = layout === "split";
 
   // Target shortlist detection & AI Radar toggle preference
-  const { isTarget } = useOwnerTargets(tournamentId, teamId);
+  const { isTarget, targetIds } = useOwnerTargets(tournamentId, teamId);
   const isTargetPlayer = isTarget(state?.currentPlayer?.id ?? 0);
   const [aiRadarEnabled, toggleAiRadar] = useAiRadarPreference();
   const feed        = useAuctionConnectionState(
@@ -2822,6 +2896,59 @@ export function LiveBid({
   const { banner: purseBoosterBanner, footerPulse: purseFooterPulse, dismiss: dismissPurseBooster, footerOverride: purseFooterOverride } =
     usePurseBoosterCelebration(teamId, teamPurse, state?.lastPurseBooster ?? null, bidActivityKey, originalPurse);
 
+  // ── Tactical Bluff & Plan-B AI Intelligence ──
+  const bluffAlert = useMemo(() => {
+    if (!hasPlayer || !state?.currentPlayer) return null;
+    return computeBluffRadar({
+      currentBidTeamId: state.currentBidTeamId,
+      currentBidTeamName: state.currentBidTeamName,
+      myTeamId: teamId,
+      currentPlayerRole: state.currentPlayer.role,
+      currentPlayerBasePrice: state.currentPlayer.basePrice,
+      currentBidAmount: state.currentBid,
+      sportName: tournament?.sport,
+      allPlayers: allPlayersData ?? [],
+      teamPurses: (allTeamPurses ?? (state as any)?.teamPurses) ?? [],
+      walkAwayPrice,
+    });
+  }, [
+    hasPlayer,
+    state?.currentPlayer,
+    state?.currentBidTeamId,
+    state?.currentBidTeamName,
+    state?.currentBid,
+    teamId,
+    tournament?.sport,
+    allPlayersData,
+    allTeamPurses,
+    state,
+    walkAwayPrice,
+  ]);
+
+  const planBPivot = useMemo(() => {
+    if (!state?.lastSoldPlayer) return null;
+    return computePlanBPivot({
+      lastSoldPlayer: state.lastSoldPlayer,
+      myTeamId: teamId,
+      targetPlayerIds: targetIds,
+      allPlayers: allPlayersData ?? [],
+      sportName: tournament?.sport,
+      purseRemaining: teamPurse?.purseRemaining ?? team.purse,
+      remainingMandatorySlots: futureMandatorySlots,
+      formatCurrencyFn: fmt,
+    });
+  }, [
+    state?.lastSoldPlayer,
+    teamId,
+    targetIds,
+    allPlayersData,
+    tournament?.sport,
+    teamPurse?.purseRemaining,
+    team.purse,
+    futureMandatorySlots,
+    fmt,
+  ]);
+
   // Only react to outcomes that arrive after mount — skip stale state from login/sync.
   useEffect(() => {
     if (!outcomeBannerKey) return;
@@ -2946,6 +3073,8 @@ export function LiveBid({
                 teamColor={teamColor}
                 wonByThisTeam={state!.lastSoldPlayer!.soldToTeamId === teamId}
                 unit={unit}
+                planBPivot={planBPivot}
+                onViewWarRoom={onViewWarRoom}
               />
             ) : (
               <motion.div
@@ -3013,6 +3142,7 @@ export function LiveBid({
               tier={tier}
               aiRadarEnabled={aiRadarEnabled}
               onToggleAiRadar={toggleAiRadar}
+              bluffAlert={bluffAlert}
             />
           )}
 
@@ -3257,6 +3387,8 @@ export function LiveBid({
                 teamColor={teamColor}
                 wonByThisTeam={state!.lastSoldPlayer!.soldToTeamId === teamId}
                 unit={unit}
+                planBPivot={planBPivot}
+                onViewWarRoom={onViewWarRoom}
               />
             ) : (
               <motion.div
@@ -3323,6 +3455,7 @@ export function LiveBid({
             tier={tier}
             aiRadarEnabled={aiRadarEnabled}
             onToggleAiRadar={toggleAiRadar}
+            bluffAlert={bluffAlert}
           />
         )}
 
@@ -3368,6 +3501,9 @@ export function LiveBid({
                 onViewScout={onViewScout}
                 onViewWarRoom={onViewWarRoom}
                 sport={tournament?.sport}
+                lastSoldPlayer={state?.lastSoldPlayer}
+                purseRemaining={teamPurse?.purseRemaining ?? team.purse}
+                futureMandatorySlots={futureMandatorySlots}
               />
             )}
           </AnimatePresence>

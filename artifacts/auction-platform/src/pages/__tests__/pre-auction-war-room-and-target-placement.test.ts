@@ -21,6 +21,8 @@ import {
   computeDraftPoolScarcity,
   detectProvenStars,
   computeBudgetSimulation,
+  computeBluffRadar,
+  computePlanBPivot,
 } from "../../../../owner-app/src/lib/war-room-engine";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -459,6 +461,199 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
 
     it("guards role breakdown in InterLotCommandCenter against raw Excel placeholders", () => {
       expect(interLotSrc).toContain("isRecognizedRole");
+    });
+  });
+
+  describe("5. Tactical Bluff Radar & Post-Lot Plan-B Recovery (Option A)", () => {
+    const mockAllPlayers = [
+      { id: 1, name: "Batter 1", role: "Batter", status: "sold", teamId: 2 },
+      { id: 2, name: "Batter 2", role: "Batter", status: "sold", teamId: 2 },
+      { id: 3, name: "Batter 3", role: "Batter", status: "sold", teamId: 2 },
+      { id: 4, name: "Batter 4", role: "Batter", status: "sold", teamId: 2 },
+      { id: 5, name: "Bowler 1", role: "Bowler", status: "sold", teamId: 2 },
+      { id: 10, name: "Target Batter", role: "Batter", status: "available" },
+      { id: 11, name: "Pool Batter B", role: "Batter", status: "available" },
+      { id: 12, name: "Pool Batter C", role: "Batter", status: "available" },
+    ];
+
+    const mockTeamPurses = [
+      { teamId: 1, slotsRequired: 5, spendablePurse: 500000 },
+      { teamId: 2, slotsRequired: 1, minimumSquadSize: 11, playersBought: 10, spendablePurse: 600000 },
+    ];
+
+    it("evaluates high-risk bluff when rival already over-saturated in role with <= 2 slots open", () => {
+      const result = computeBluffRadar({
+        currentBidTeamId: 2,
+        currentBidTeamName: "Rival Titans",
+        myTeamId: 1,
+        currentPlayerRole: "Batter",
+        currentPlayerBasePrice: 50000,
+        currentBidAmount: 180000,
+        sportName: "cricket",
+        allPlayers: mockAllPlayers,
+        teamPurses: mockTeamPurses,
+        walkAwayPrice: 200000,
+      });
+
+      expect(result.isBluffRisk).toBe(true);
+      expect(result.severity).toBe("high");
+      expect(result.rivalRoleCount).toBe(4);
+      expect(result.rivalRemainingSlots).toBe(1);
+      expect(result.headline).toContain("HIGH PRICE-BUMPING RISK");
+      expect(result.message).toContain("Rival Titans already has 4 Batters");
+    });
+
+    it("evaluates caution bluff when rival met basic quota and bid is approaching walk-away limit", () => {
+      const result = computeBluffRadar({
+        currentBidTeamId: 2,
+        currentBidTeamName: "Rival Titans",
+        myTeamId: 1,
+        currentPlayerRole: "Bowler",
+        currentPlayerBasePrice: 50000,
+        currentBidAmount: 175000,
+        sportName: "cricket",
+        allPlayers: [
+          { id: 5, name: "Bowler 1", role: "Bowler", status: "sold", teamId: 2 },
+          { id: 6, name: "Bowler 2", role: "Bowler", status: "sold", teamId: 2 },
+          { id: 7, name: "Bowler 3", role: "Bowler", status: "sold", teamId: 2 },
+          { id: 8, name: "Bowler 4", role: "Bowler", status: "sold", teamId: 2 },
+        ],
+        teamPurses: [
+          { teamId: 2, slotsRequired: 3, minimumSquadSize: 11, playersBought: 8, spendablePurse: 400000 },
+        ],
+        walkAwayPrice: 190000,
+      });
+
+      expect(result.isBluffRisk).toBe(true);
+      expect(result.severity).toBe("caution");
+      expect(result.headline).toContain("RIVAL BLUFF RADAR");
+    });
+
+    it("silently skips bluff detection when role is unrecognized or raw Excel placeholder", () => {
+      const result = computeBluffRadar({
+        currentBidTeamId: 2,
+        currentBidTeamName: "Rival Titans",
+        myTeamId: 1,
+        currentPlayerRole: "n/a",
+        currentPlayerBasePrice: 50000,
+        currentBidAmount: 100000,
+        sportName: "cricket",
+        allPlayers: mockAllPlayers,
+        teamPurses: mockTeamPurses,
+      });
+
+      expect(result.isBluffRisk).toBe(false);
+      expect(result.severity).toBe("none");
+    });
+
+    it("does not flag bluff when my own team is leading or no current bidder exists", () => {
+      const selfLeading = computeBluffRadar({
+        currentBidTeamId: 1,
+        currentBidTeamName: "My Team",
+        myTeamId: 1,
+        currentPlayerRole: "Batter",
+        currentPlayerBasePrice: 50000,
+        currentBidAmount: 100000,
+        sportName: "cricket",
+        allPlayers: mockAllPlayers,
+        teamPurses: mockTeamPurses,
+      });
+      expect(selfLeading.isBluffRisk).toBe(false);
+
+      const noBidder = computeBluffRadar({
+        currentBidTeamId: null,
+        myTeamId: 1,
+        currentPlayerRole: "Batter",
+      });
+      expect(noBidder.isBluffRisk).toBe(false);
+    });
+
+    it("computes Plan-B Pivot when a shortlisted target is sold to a rival team", () => {
+      const result = computePlanBPivot({
+        lastSoldPlayer: {
+          id: 10,
+          name: "Target Batter",
+          role: "Batter",
+          soldToTeamId: 2,
+          soldToTeamName: "Rival Titans",
+          soldAmount: 220000,
+        },
+        myTeamId: 1,
+        targetPlayerIds: [10, 99],
+        allPlayers: mockAllPlayers,
+        sportName: "cricket",
+        purseRemaining: 800000,
+        remainingMandatorySlots: 4,
+      });
+
+      expect(result.isTargetLost).toBe(true);
+      expect(result.lostPlayerName).toBe("Target Batter");
+      expect(result.lostPlayerRole).toBe("Batter");
+      expect(result.soldToTeamName).toBe("Rival Titans");
+      expect(result.remainingSimilarCount).toBe(2);
+      expect(result.remainingSimilarPlayers.length).toBe(2);
+      expect(result.headline).toContain("PLAN-B PIVOT ACTIVE");
+      expect(result.message).toContain("2 other Batters remain in the draft pool");
+      expect(result.suggestedHeadroomPct).toBe(15);
+    });
+
+    it("indicates pool exhaustion when lost target was the last available specialist of that role", () => {
+      const exhaustedPool = [
+        { id: 10, name: "Lone Wicketkeeper", role: "Wicketkeeper", status: "sold", teamId: 2 },
+        { id: 11, name: "Batter A", role: "Batter", status: "available" },
+      ];
+
+      const result = computePlanBPivot({
+        lastSoldPlayer: {
+          id: 10,
+          name: "Lone Wicketkeeper",
+          role: "Wicketkeeper",
+          soldToTeamId: 2,
+          soldToTeamName: "Rival Titans",
+          soldAmount: 150000,
+        },
+        myTeamId: 1,
+        targetPlayerIds: [10],
+        allPlayers: exhaustedPool,
+        sportName: "cricket",
+        purseRemaining: 600000,
+        remainingMandatorySlots: 3,
+      });
+
+      expect(result.isTargetLost).toBe(true);
+      expect(result.remainingSimilarCount).toBe(0);
+      expect(result.headline).toContain("CRITICAL POOL EXHAUSTION");
+      expect(result.message).toContain("last pure Wicketkeeper in the available draft pool");
+      expect(result.suggestedHeadroomPct).toBe(15);
+    });
+
+    it("does not trigger Plan-B Pivot when my team won the target or target was not shortlisted", () => {
+      const myTeamWon = computePlanBPivot({
+        lastSoldPlayer: { id: 10, name: "Target Batter", role: "Batter", soldToTeamId: 1, soldAmount: 100000 },
+        myTeamId: 1,
+        targetPlayerIds: [10],
+        allPlayers: mockAllPlayers,
+      });
+      expect(myTeamWon.isTargetLost).toBe(false);
+
+      const notTargeted = computePlanBPivot({
+        lastSoldPlayer: { id: 77, name: "Random Player", role: "Batter", soldToTeamId: 2, soldAmount: 100000 },
+        myTeamId: 1,
+        targetPlayerIds: [10],
+        allPlayers: mockAllPlayers,
+      });
+      expect(notTargeted.isTargetLost).toBe(false);
+    });
+
+    it("verifies LiveBid and InterLotCommandCenter UI integration of Bluff Radar & Plan-B Pivot", () => {
+      expect(liveBidSrc).toContain("computeBluffRadar");
+      expect(liveBidSrc).toContain("computePlanBPivot");
+      expect(liveBidSrc).toContain("bluffAlert={bluffAlert}");
+      expect(liveBidSrc).toContain("planBPivot={planBPivot}");
+      expect(liveBidSrc).toContain("ShieldAlert");
+      expect(interLotSrc).toContain("computePlanBPivot");
+      expect(interLotSrc).toContain("planBPivot?.isTargetLost");
+      expect(interLotSrc).toContain("Adjust Strategy");
     });
   });
 });

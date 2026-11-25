@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { Radar, Users, ShieldUser, ArrowRight, Zap, Target } from "lucide-react";
+import { Radar, Users, ShieldUser, ArrowRight, Zap, Target, Sparkles } from "lucide-react";
 import { useGetTeamScout, getGetTeamScoutQueryKey, useListPlayers, getListPlayersQueryKey } from "@workspace/api-client-react";
 import { formatShortIndianRupee, type resolveAuctionUnit } from "@/lib/format";
-import { isRecognizedRole } from "@/lib/war-room-engine";
+import { isRecognizedRole, computePlanBPivot } from "@/lib/war-room-engine";
+import { useOwnerTargets } from "@/lib/owner-targets";
 import { TeamLogo } from "@/components/TeamLogo";
 
 interface InterLotCommandCenterProps {
@@ -17,6 +18,17 @@ interface InterLotCommandCenterProps {
   onViewScout: () => void;
   sport?: string | null;
   onViewWarRoom?: () => void;
+  lastSoldPlayer?: {
+    id?: number | null;
+    name?: string | null;
+    role?: string | null;
+    photoUrl?: string | null;
+    soldToTeamId?: number | null;
+    soldToTeamName?: string | null;
+    soldAmount?: number | null;
+  } | null;
+  purseRemaining?: number;
+  futureMandatorySlots?: number;
 }
 
 export function InterLotCommandCenter({
@@ -28,7 +40,11 @@ export function InterLotCommandCenter({
   unit,
   onViewSquad,
   onViewScout,
+  sport,
   onViewWarRoom,
+  lastSoldPlayer,
+  purseRemaining,
+  futureMandatorySlots,
 }: InterLotCommandCenterProps) {
   // Query squad players
   const { data: allPlayers } = useListPlayers(tournamentId, {
@@ -47,6 +63,23 @@ export function InterLotCommandCenter({
       staleTime: 20_000,
     },
   });
+
+  // Owner target shortlist for Plan-B pivot detection
+  const { targetIds } = useOwnerTargets(tournamentId, teamId);
+
+  const planBPivot = useMemo(() => {
+    if (!lastSoldPlayer) return null;
+    return computePlanBPivot({
+      lastSoldPlayer,
+      myTeamId: teamId,
+      targetPlayerIds: targetIds,
+      allPlayers: allPlayers ?? [],
+      sportName: sport ?? "cricket",
+      purseRemaining: purseRemaining ?? 0,
+      remainingMandatorySlots: futureMandatorySlots ?? 1,
+      formatCurrencyFn: (amt) => formatShortIndianRupee(amt),
+    });
+  }, [lastSoldPlayer, teamId, targetIds, allPlayers, sport, purseRemaining, futureMandatorySlots]);
 
   // Compute current team role breakdown
   const roleBreakdown = useMemo(() => {
@@ -130,6 +163,44 @@ export function InterLotCommandCenter({
 
       {/* ── Center Content: Tactical Grid ── */}
       <div className="my-3 space-y-3 flex-1 flex flex-col justify-center min-h-0 overflow-hidden">
+        {/* Plan-B Tactical Recovery Card (when a shortlisted target was acquired by rival) */}
+        {planBPivot?.isTargetLost && (
+          <div className="bg-gradient-to-r from-amber-500/20 via-purple-500/15 to-[#150f33] rounded-2xl p-3 border border-amber-400/50 shadow-lg">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+                <span className="text-xs font-black uppercase tracking-wider text-amber-300">
+                  {planBPivot.headline}
+                </span>
+              </div>
+              {onViewWarRoom && (
+                <button
+                  type="button"
+                  onClick={onViewWarRoom}
+                  className="px-2 py-0.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-[10px] font-black cursor-pointer transition-colors shrink-0"
+                >
+                  Adjust Strategy
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-[#e4e4e7] leading-relaxed">
+              {planBPivot.message}
+            </p>
+            <div className="mt-2 flex items-center justify-between text-[10px] gap-2">
+              <span className="text-amber-300 font-bold truncate">
+                💡 {planBPivot.recommendedAction}
+              </span>
+              <button
+                type="button"
+                onClick={onViewScout}
+                className="text-purple-300 hover:text-white font-bold underline cursor-pointer shrink-0"
+              >
+                View Scout →
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Squad Composition Matrix */}
         <div className="bg-[#150f33]/80 rounded-2xl p-3 border border-[#3d3670]">
           <div className="flex items-center justify-between mb-2">
