@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { Clock, Pause, X, Zap, Phone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useBranding } from "@/hooks/useBranding";
-import { resolveSplashLogoUrl } from "@/lib/brand-assets";
+import { resolveSplashLogoUrl, HEADER_BRAND_LOGO_FALLBACK } from "@/lib/brand-assets";
 import { OWNER_AUTH_LOGIN, OWNER_COMPACT_MARK, OWNER_SPLASH } from "@/lib/brand-usage";
 import { TeamLogo } from "@/components/TeamLogo";
 
@@ -218,14 +218,36 @@ export function Launcher() {
   const BrandLogo = ({ splashSize = "default" }: { splashSize?: "default" | "splash" }) => {
     const splashSrc = resolveSplashLogoUrl(logos);
     const useSplash = splashSize === "splash" && splashSrc;
-    const wordmarkSrc = logos.mainReverse ?? logos.main;
+    const wordmarkSrc = logos.mainReverse ?? logos.main ?? HEADER_BRAND_LOGO_FALLBACK;
 
     return (
       <div className="flex items-center justify-center">
         {useSplash ? (
-          <img src={splashSrc} alt={brandName} className={OWNER_SPLASH.sizeClass} />
+          <img
+            src={splashSrc}
+            alt={brandName}
+            className={OWNER_SPLASH.sizeClass}
+            onError={(e) => {
+              const target = e.currentTarget;
+              if (!target.dataset.triedFallback) {
+                target.dataset.triedFallback = "1";
+                target.src = "/assets/branding/bidwar-reverse-logo-official.png";
+              }
+            }}
+          />
         ) : wordmarkSrc ? (
-          <img src={wordmarkSrc} alt={brandName} className={OWNER_AUTH_LOGIN.sizeClass} />
+          <img
+            src={wordmarkSrc}
+            alt={brandName}
+            className={OWNER_AUTH_LOGIN.sizeClass}
+            onError={(e) => {
+              const target = e.currentTarget;
+              if (!target.dataset.triedFallback) {
+                target.dataset.triedFallback = "1";
+                target.src = "/assets/branding/bidwar-reverse-logo-official.png";
+              }
+            }}
+          />
         ) : logos.mini ? (
           <img src={logos.mini} alt={brandName} className={OWNER_COMPACT_MARK.sizeClass} />
         ) : (

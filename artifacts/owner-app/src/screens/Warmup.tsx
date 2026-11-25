@@ -53,7 +53,18 @@ export function Warmup({ teamName, teamShortCode, teamColor, teamLogoUrl, onRead
         {/* Brand logo */}
         <div className="flex items-center justify-center gap-2.5">
           {splashSrc ? (
-            <img src={splashSrc} alt={brandName} className="h-12 w-auto max-w-[220px] object-contain" />
+            <img
+              src={splashSrc}
+              alt={brandName}
+              className="h-12 w-auto max-w-[220px] object-contain"
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (!target.dataset.triedFallback) {
+                  target.dataset.triedFallback = "1";
+                  target.src = "/assets/branding/bidwar-reverse-logo-official.png";
+                }
+              }}
+            />
           ) : logos.mini ? (
             <img src={logos.mini} alt={brandName} className="h-9 w-auto" />
           ) : (

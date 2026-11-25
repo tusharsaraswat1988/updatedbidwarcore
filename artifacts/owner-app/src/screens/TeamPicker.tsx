@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { ArrowLeft, Zap, Clock, Pause } from "lucide-react";
 import { useBranding } from "@/hooks/useBranding";
+import { HEADER_BRAND_LOGO_FALLBACK } from "@/lib/brand-assets";
 import { TeamLogo } from "@/components/TeamLogo";
 import {
   loadOnboardingEntries,
@@ -124,12 +125,18 @@ export function TeamPicker() {
           {logos.mini ? (
             <img src={logos.mini} alt={brandName} className="h-7 w-auto" />
           ) : (
-            <>
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-display font-black text-xs bg-amber-400/20 text-amber-400 border border-amber-400/30">
-                {miniBrandText}
-              </div>
-              <span className="font-display font-black text-lg text-white">{brandName}</span>
-            </>
+            <img
+              src={HEADER_BRAND_LOGO_FALLBACK}
+              alt={brandName}
+              className="h-7 w-auto"
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (!target.dataset.triedFallback) {
+                  target.dataset.triedFallback = "1";
+                  target.src = "/assets/branding/bidwar-reverse-logo-official.png";
+                }
+              }}
+            />
           )}
         </div>
         <h1 className="font-display font-black text-2xl text-white">Select your team</h1>

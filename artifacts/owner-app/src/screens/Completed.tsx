@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { useBranding } from "@/hooks/useBranding";
+import { HEADER_BRAND_LOGO_FALLBACK } from "@/lib/brand-assets";
 
 interface Props {
   teamName: string;
@@ -35,12 +36,18 @@ export function Completed({ teamName, teamColor, tournamentName, auctionDate, pl
           {logos.mini ? (
             <img src={logos.mini} alt={brandName} className="h-8 w-auto opacity-60" />
           ) : (
-            <>
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-display font-black text-xs bg-amber-400/20 text-amber-400 border border-amber-400/30 opacity-60">
-                {miniBrandText}
-              </div>
-              <span className="font-display font-black text-lg text-white/60 tracking-wide">{brandName}</span>
-            </>
+            <img
+              src={HEADER_BRAND_LOGO_FALLBACK}
+              alt={brandName}
+              className="h-8 w-auto opacity-60"
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (!target.dataset.triedFallback) {
+                  target.dataset.triedFallback = "1";
+                  target.src = "/assets/branding/bidwar-reverse-logo-official.png";
+                }
+              }}
+            />
           )}
         </div>
 

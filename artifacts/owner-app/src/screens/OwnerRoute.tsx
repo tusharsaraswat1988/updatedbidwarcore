@@ -305,7 +305,21 @@ export function OwnerRoute() {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-background gap-6">
         {splashSrc ? (
-          <img src={splashSrc} alt={brandName} className="h-16 w-auto max-w-[240px] object-contain" />
+          <img
+            src={splashSrc}
+            alt={brandName}
+            className="h-16 w-auto max-w-[240px] object-contain"
+            onError={(e) => {
+              const target = e.currentTarget;
+              if (!target.dataset.triedFallback) {
+                target.dataset.triedFallback = "1";
+                target.src = "/assets/branding/bidwar-reverse-logo-official.png";
+              } else if (target.dataset.triedFallback === "1") {
+                target.dataset.triedFallback = "2";
+                target.src = "/bidwar-reverse-logo.png";
+              }
+            }}
+          />
         ) : logos.mini ? (
           <img src={logos.mini} alt={brandName} className="h-10 w-auto" />
         ) : (

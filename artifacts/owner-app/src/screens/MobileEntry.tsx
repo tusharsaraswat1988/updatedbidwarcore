@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useBranding } from "@/hooks/useBranding";
+import { HEADER_BRAND_LOGO_FALLBACK } from "@/lib/brand-assets";
 import { OWNER_AUTH_LOGIN } from "@/lib/brand-usage";
 import { parseOwnerDeepLink, submitOwnerMobile } from "@/lib/owner-flow";
 
@@ -56,11 +57,20 @@ export function MobileEntry() {
               ) : logos.main ? (
                 <img src={logos.main} alt={brandName} className={OWNER_AUTH_LOGIN.sizeClass} />
               ) : logos.mini ? (
-                <img src={logos.mini} alt={brandName} className="h-16 w-auto mx-auto" />
+                <img src={logos.mini} alt={brandName} className={OWNER_AUTH_LOGIN.sizeClass} />
               ) : (
-                <div className="w-[8.4rem] h-[8.4rem] rounded-2xl flex items-center justify-center font-display font-black text-3xl bg-amber-400/20 text-amber-400 border border-amber-400/30">
-                  {miniBrandText}
-                </div>
+                <img
+                  src={HEADER_BRAND_LOGO_FALLBACK}
+                  alt={brandName}
+                  className={OWNER_AUTH_LOGIN.sizeClass}
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (!target.dataset.triedFallback) {
+                      target.dataset.triedFallback = "1";
+                      target.src = "/assets/branding/bidwar-reverse-logo-official.png";
+                    }
+                  }}
+                />
               )}
             </div>
             <div>

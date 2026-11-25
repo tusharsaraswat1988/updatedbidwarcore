@@ -66,9 +66,9 @@ export function resolveAppleTouchIconUrl(_logos?: BrandLogos, version?: number |
   return withBrandingAssetVersion(BRANDING_ICON_PATHS.appleTouchIcon, version);
 }
 
-/** SPLASH_LOGO → REVERSE → PRIMARY → SYMBOL on dark owner surfaces */
-export function resolveSplashLogoUrl(logos: BrandLogos): string | null {
-  return logos.splash ?? logos.mainReverse ?? logos.main ?? logos.mini ?? null;
+/** SPLASH_LOGO → REVERSE → PRIMARY → SYMBOL on dark owner surfaces, falling back to official reverse logo */
+export function resolveSplashLogoUrl(logos: BrandLogos): string {
+  return logos.splash ?? logos.mainReverse ?? logos.main ?? logos.mini ?? HEADER_BRAND_LOGO_FALLBACK;
 }
 
 function upsertLink(rel: string, href: string, extra?: Record<string, string>): void {
