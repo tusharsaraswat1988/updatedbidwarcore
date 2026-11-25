@@ -49,7 +49,7 @@ export function PreAuctionCountdownCard({
   city,
   sport = "cricket",
   teamColor = "#eab308",
-  tier = "desktop",
+  tier = "laptop",
   onOpenWarRoom,
 }: PreAuctionCountdownCardProps) {
   // Parse target auction timestamp

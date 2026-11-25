@@ -655,4 +655,36 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
       expect(interLotSrc).toContain("Adjust Strategy");
     });
   });
+
+  describe("Pre-Auction Strategy Hub & Intelligent Orientation", () => {
+    const countdownCardSrc = readFileSync(
+      path.resolve(__dirname, "../../../../owner-app/src/components/PreAuctionCountdownCard.tsx"),
+      "utf8"
+    );
+
+    it("verifies PreAuctionCountdownCard exists and implements live ticking countdown and event schedule", () => {
+      expect(countdownCardSrc).toContain("export function PreAuctionCountdownCard");
+      expect(countdownCardSrc).toContain("calculateTimeRemaining");
+      expect(countdownCardSrc).toContain("Time Remaining Until Auction Starts");
+      expect(countdownCardSrc).toContain("formattedDate");
+      expect(countdownCardSrc).toContain("formattedTime");
+      expect(countdownCardSrc).toContain("OPEN PRE-AUCTION WAR ROOM");
+    });
+
+    it("verifies LiveBid detects pre-auction state and avoids misleading LIVE badge or waiting spinner", () => {
+      expect(liveBidSrc).toContain("const hasAuctionCommenced =");
+      expect(liveBidSrc).toContain("const isFutureSchedule =");
+      expect(liveBidSrc).toContain("const isPreAuction =");
+      expect(liveBidSrc).toContain("isPreAuction ? \"PRE-AUCTION\"");
+      expect(liveBidSrc).toContain("<PreAuctionCountdownCard");
+      expect(liveBidSrc).toContain("key=\"pre-auction-countdown\"");
+      expect(liveBidSrc).toContain("key=\"pre-auction-countdown-split\"");
+    });
+
+    it("verifies InterLotCommandCenter switches to Pre-Auction Strategy HQ during pre-auction mode", () => {
+      expect(interLotSrc).toContain("isPreAuction");
+      expect(interLotSrc).toContain("PRE-AUCTION STRATEGY HQ");
+      expect(interLotSrc).toContain("formattedAuctionDate");
+    });
+  });
 });

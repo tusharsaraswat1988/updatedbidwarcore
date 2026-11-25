@@ -82,6 +82,9 @@ interface AuctionState {
     message?: string | null;
   } | null;
   lastAction?: string | null;
+  soldPlayersCount?: number;
+  unsoldPlayersCount?: number;
+  remainingPlayersCount?: number;
   outcome?: {
     type?: string | null;
     playerId?: number | null;
@@ -1621,7 +1624,7 @@ function BidButton({
   ownerBiddingEnabled = true,
   canBid, isLeading, timerExpired, timerActive, hasPlayer, isActive, isPaused, isIdle, isOnBreak,
   hasLiveCountdown, breakMins, breakSecs, breakMessage, breakLabel,
-  bidding, bidFeedback, nextBidAmount, teamColor, onBid, layout, tier, unit, dock = false,
+  bidding, bidFeedback, nextBidAmount, teamColor, onBid, layout, tier, unit, dock = false, isPreAuction = false,
 }: {
   ownerBiddingEnabled?: boolean;
   canBid: boolean;

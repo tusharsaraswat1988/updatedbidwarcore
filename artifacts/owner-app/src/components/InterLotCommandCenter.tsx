@@ -130,10 +130,10 @@ export function InterLotCommandCenter({
 
   const statusHeadline = isPaused
     ? "AUCTION PAUSED BY OPERATOR"
-    : isIdle
-      ? "AUCTION STANDBY"
-      : isPreAuction
-        ? "PRE-AUCTION STRATEGY HQ"
+    : isPreAuction
+      ? "PRE-AUCTION STRATEGY HQ"
+      : isIdle
+        ? "AUCTION STANDBY"
         : "AWAITING NEXT LOT DRAW";
 
   const statusSubline = isPaused

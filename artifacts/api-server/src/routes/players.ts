@@ -9,7 +9,8 @@ import {
 } from "../lib/player-delete-guard";
 import { recalcTeamPurseUsed } from "../lib/player-purse";
 import { db } from "@workspace/db";
-import { playersTable, teamsTable, tournamentsTable, categoriesTable, playerImportLogsTable, waConsentEventsTable, organizersTable } from "@workspace/db";
+import { playersTable, teamsTable, tournamentsTable, categoriesTable, playerImportLogsTable, waConsentEventsTable, organizersTable, sportsTable, sportRolesTable } from "@workspace/db";
+import { buildPlayerTemplateExcel, buildPlayerTemplateCsv } from "../lib/bulk-import/player-template-builder";
 import { CURRENT_CONSENT_NOTICE_VERSION } from "@workspace/api-base";
 import { recordConsentGranted, recordConsentWithdrawal, handlePhoneNumberChange } from "../lib/communication/consent-service";
 import { eq, and, or, ne, inArray, desc, asc, sql } from "drizzle-orm";
@@ -1338,12 +1339,23 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
           continue;
         }
       }
+      let validatedTeamId: number | null = null;
+      if (pd.teamId != null) {
+        const teamCheck = await validateTeamBelongsToTournament(tid, pd.teamId);
+        if (!teamCheck.ok) {
+          failed++;
+          errors.push(`${pd.name}: ${teamCheck.error}`);
+          continue;
+        }
+        validatedTeamId = pd.teamId;
+      }
       const bulkLegacySpecFields = await resolveLegacyFieldsForInsert(tid, pd.role, pd);
       const bulkConsent = pd.whatsappConsent !== false;
       const [inserted] = await db.insert(playersTable).values({
         tournamentId: tid,
         serialNo: nextSerial++,
         categoryId: pd.categoryId ?? null,
+        teamId: validatedTeamId,
         name: pd.name,
         city: pd.city ?? null,
         role: pd.role ?? null,
@@ -1366,6 +1378,9 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         availabilityDates: pd.availabilityDates ?? null,
         retainedPrice: pd.retainedPrice ?? null,
         status: (pd.status ?? "available") as "available" | "sold" | "unsold" | "retained",
+        playerTag: pd.playerTag ?? null,
+        playerTagTeamId: pd.playerTagTeamId ?? validatedTeamId ?? null,
+        isNonPlayingMember: pd.isNonPlayingMember ?? false,
         whatsappConsent: bulkConsent,
         whatsappConsentAt: bulkConsent ? new Date() : null,
         whatsappConsentMethod: bulkConsent ? "organizer_declaration" : null,
@@ -1373,6 +1388,9 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
       if (inserted) {
         await persistPlayerSpecificationsDualWrite(tid, inserted.id, pd.role, pd);
         syncAuctionPlayerToMasterAsync(inserted.id, tid);
+        if (pd.status === "retained" && validatedTeamId) {
+          await recalcTeamPurseUsed(tid, validatedTeamId);
+        }
         if (bulkConsent && bulkMobile) {
           await recordConsentGranted({
             recipientType: "player",
@@ -1395,6 +1413,99 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
 
   if (created > 0) afterPlayerDataChanged(tid, req.log);
   res.json({ created, failed, errors });
+});
+
+router.get("/tournaments/:tournamentId/players/template", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      name: tournamentsTable.name,
+      sport: tournamentsTable.sport,
+      minBid: tournamentsTable.minBid,
+      currency: tournamentsTable.currency,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+
+  const categories = await db
+    .select({
+      id: categoriesTable.id,
+      name: categoriesTable.name,
+      minBid: categoriesTable.minBid,
+    })
+    .from(categoriesTable)
+    .where(eq(categoriesTable.tournamentId, tid))
+    .orderBy(asc(categoriesTable.sortOrder), asc(categoriesTable.name));
+
+  const teams = await db
+    .select({
+      id: teamsTable.id,
+      name: teamsTable.name,
+      shortCode: teamsTable.shortCode,
+    })
+    .from(teamsTable)
+    .where(eq(teamsTable.tournamentId, tid))
+    .orderBy(asc(teamsTable.name));
+
+  const sportSlug = (tournament.sport || "cricket").toLowerCase();
+  const [sport] = await db
+    .select()
+    .from(sportsTable)
+    .where(and(eq(sportsTable.slug, sportSlug), eq(sportsTable.active, true)));
+
+  let sportRoles: Array<{ id: number; roleName: string }> = [];
+  if (sport) {
+    sportRoles = await db
+      .select({ id: sportRolesTable.id, roleName: sportRolesTable.roleName })
+      .from(sportRolesTable)
+      .where(and(eq(sportRolesTable.sportId, sport.id), eq(sportRolesTable.active, true)))
+      .orderBy(sportRolesTable.displayOrder, sportRolesTable.roleName);
+  }
+  if (sportRoles.length === 0) {
+    if (sportSlug === "cricket") {
+      sportRoles = [
+        { id: 1, roleName: "Batsman" },
+        { id: 2, roleName: "Bowler" },
+        { id: 3, roleName: "All Rounder" },
+        { id: 4, roleName: "Wicket Keeper" },
+      ];
+    } else {
+      sportRoles = [{ id: 0, roleName: "Player" }];
+    }
+  }
+
+  const format = String(req.query.format || "xlsx").toLowerCase();
+  const safeName = tournament.name.replace(/[^a-zA-Z0-9_-]/g, "_");
+
+  if (format === "csv") {
+    const csvContent = buildPlayerTemplateCsv({
+      tournament,
+      categories,
+      teams,
+      sportRoles,
+    });
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="BidWar_Players_${safeName}.csv"`);
+    res.send(csvContent);
+    return;
+  }
+
+  const excelBuffer = await buildPlayerTemplateExcel({
+    tournament,
+    categories,
+    teams,
+    sportRoles,
+  });
+
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="BidWar_Players_Template_${safeName}.xlsx"`);
+  res.send(excelBuffer);
 });
 
 router.get("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
