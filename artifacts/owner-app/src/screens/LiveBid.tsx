@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy, User, LogOut,
   AlertTriangle, Coffee, RefreshCw, X, XCircle, Radar, ShieldUser, Sparkles,
-  Info, ChevronRight, Wallet, Users, Target, ShieldAlert,
+  Info, ChevronRight, Wallet, Users, Target, ShieldAlert, Calendar,
 } from "lucide-react";
 import { useLiveBidLayout, type DeviceTier } from "@/hooks/useLiveBidLayout";
 import { useCountdown } from "@/hooks/useCountdown";
@@ -18,6 +18,7 @@ import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { InterLotCommandCenter } from "@/components/InterLotCommandCenter";
+import { PreAuctionCountdownCard } from "@/components/PreAuctionCountdownCard";
 import { PlayerTagBadge } from "@/components/PlayerTagBadge";
 import { Toast } from "@/components/Toast";
 import { AuctionConnectionBanner, AuctionFeedIndicator } from "@/components/AuctionConnectionBanner";
@@ -125,10 +126,16 @@ interface Team {
 }
 
 interface Tournament {
+  id?: number;
   name?: string;
   sport?: string;
   auctionUnit?: string | null;
   ownerBiddingEnabled?: boolean;
+  auctionDate?: string | null;
+  auctionTime?: string | null;
+  venue?: string | null;
+  city?: string | null;
+  status?: string | null;
 }
 
 interface TeamPurse {
@@ -1640,6 +1647,7 @@ function BidButton({
   tier: DeviceTier;
   unit: ReturnType<typeof resolveAuctionUnit>;
   dock?: boolean;
+  isPreAuction?: boolean;
 }) {
   const isSplit = layout === "split";
   const buttonH = dock
@@ -1774,9 +1782,11 @@ function BidButton({
     if (dock) {
       const idleMessage = isPaused
         ? "Auction paused"
-        : isIdle
-          ? "Auction not started"
-          : "Waiting for player";
+        : isPreAuction
+          ? "Pre-auction preparation"
+          : isIdle
+            ? "Auction not started"
+            : "Waiting for player";
       return (
         <motion.div
           key="waiting-dock"
@@ -1796,13 +1806,19 @@ function BidButton({
         animate={{ opacity: 1 }}
         className={`w-full ${buttonH} rounded-3xl border border-dashed border-[#3d3670] bg-[#2a2458] flex flex-col items-center justify-center gap-3`}
       >
-        <div className="w-10 h-10 border-2 border-[#3d3670] border-t-[#a8a0c4] rounded-full animate-spin" />
-        <p className="text-base text-[#a8a0c4] font-semibold">
+        {isPreAuction ? (
+          <Calendar className="w-8 h-8 text-amber-400 opacity-60" />
+        ) : (
+          <div className="w-10 h-10 border-2 border-[#3d3670] border-t-[#a8a0c4] rounded-full animate-spin" />
+        )}
+        <p className="text-base text-[#a8a0c4] font-semibold text-center px-4">
           {isPaused
             ? "Auction paused by operator."
-            : isIdle
-              ? "Waiting for auction to start..."
-              : "Waiting for next player..."}
+            : isPreAuction
+              ? "Auction scheduled · Bidding opens when lot 1 starts"
+              : isIdle
+                ? "Waiting for auction to start..."
+                : "Waiting for next player..."}
         </p>
       </motion.div>
     );
@@ -2380,6 +2396,7 @@ function LiveBidHeader({
   layout,
   tier,
   iconVersion,
+  isPreAuction = false,
 }: {
   team: Team;
   teamColor: string;
@@ -2401,6 +2418,7 @@ function LiveBidHeader({
   layout: "stacked" | "split";
   tier: DeviceTier;
   iconVersion?: number;
+  isPreAuction?: boolean;
 }) {
   const showTournamentLine = layout === "stacked" && tier !== "mobile";
   const actionCompact = tier !== "laptop";
@@ -2422,20 +2440,26 @@ function LiveBidHeader({
             {team.name}
           </p>
           <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border flex-shrink-0 ${
-            isActive
-              ? "bg-emerald-500/15 border-emerald-500/35 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
-              : isPaused
-                ? "bg-amber-500/20 border-amber-500/35 text-amber-400"
-                : "bg-[#4a4478] border-[#5d568e] text-[#a8a0c4]"
+            isPreAuction
+              ? "bg-amber-500/15 border-amber-500/35 text-amber-300"
+              : isActive
+                ? "bg-emerald-500/15 border-emerald-500/35 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+                : isPaused
+                  ? "bg-amber-500/20 border-amber-500/35 text-amber-400"
+                  : "bg-[#4a4478] border-[#5d568e] text-[#a8a0c4]"
           }`}>
-            {isActive && (
+            {isPreAuction ? (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+            ) : isActive ? (
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
               </span>
-            )}
-            <span className="text-[9px] font-black uppercase tracking-wider">{statusLabel}</span>
-            {isActive && (
+            ) : null}
+            <span className="text-[9px] font-black uppercase tracking-wider">
+              {isPreAuction ? "PRE-AUCTION" : statusLabel}
+            </span>
+            {!isPreAuction && isActive && (
               <span className="inline-flex items-end gap-[2px] h-2.5 ml-0.5">
                 <motion.span
                   animate={{ height: ["30%", "100%", "45%", "85%", "30%"] }}
@@ -2563,6 +2587,27 @@ export function LiveBid({
   const isActive  = state?.status === "active";
   const hasPlayer = !!state?.currentPlayer;
   const navBlocked = isPlayerOnAuctionStage(state);
+
+  const hasAuctionCommenced =
+    hasPlayer ||
+    (state?.soldPlayersCount ?? 0) > 0 ||
+    (state?.unsoldPlayersCount ?? 0) > 0 ||
+    Boolean(state?.lastSoldPlayer);
+
+  const isFutureSchedule = tournament?.auctionDate
+    ? new Date(
+        tournament.auctionDate.includes("T")
+          ? tournament.auctionDate
+          : `${tournament.auctionDate}T${tournament.auctionTime && tournament.auctionTime.trim() ? tournament.auctionTime.trim() : "23:59:59"}`
+      ).getTime() > Date.now()
+    : false;
+
+  const isPreAuction =
+    !hasAuctionCommenced &&
+    (isFutureSchedule ||
+      state?.status === "idle" ||
+      tournament?.status === "upcoming" ||
+      (!hasPlayer && (state?.soldPlayersCount ?? 0) === 0 && (state?.unsoldPlayersCount ?? 0) === 0));
 
   const expired     = useTimerExpired(state?.timerEndsAt);
   const timerActive = !!state?.timerEndsAt && !expired;
@@ -2788,6 +2833,7 @@ export function LiveBid({
   const statusLabel =
     isTrialRestricted ? "TRIAL" :
     isOnBreak ? "BREAK" :
+    isPreAuction ? "PRE-AUCTION" :
     state?.status === "active"  ? "LIVE" :
     state?.status === "paused"  ? "PAUSED" :
     state?.status               ? state.status.toUpperCase() : "IDLE";
@@ -2991,6 +3037,7 @@ export function LiveBid({
           layout="stacked"
           tier={tier}
           iconVersion={iconVersion}
+          isPreAuction={isPreAuction}
         />
 
         {/* Sync error banner */}
@@ -3051,6 +3098,18 @@ export function LiveBid({
                 planBPivot={planBPivot}
                 onViewWarRoom={onViewWarRoom}
               />
+            ) : isPreAuction ? (
+              <PreAuctionCountdownCard
+                key="pre-auction-countdown"
+                auctionDate={tournament?.auctionDate}
+                auctionTime={tournament?.auctionTime}
+                venue={tournament?.venue}
+                city={tournament?.city}
+                sport={tournament?.sport}
+                teamColor={teamColor}
+                tier={tier}
+                onOpenWarRoom={onViewWarRoom}
+              />
             ) : (
               <motion.div
                 key="no-player"
@@ -3066,15 +3125,17 @@ export function LiveBid({
             )}
           </AnimatePresence>
 
-          <BidAmount
-            amount={state?.currentBid || 0}
-            isLeading={isLeading}
-            teamColor={teamColor}
-            leadingTeam={state?.currentBidTeamName}
-            unit={unit}
-            tier={tier}
-            hasPlayer={hasPlayer}
-          />
+          {!isPreAuction && (
+            <BidAmount
+              amount={state?.currentBid || 0}
+              isLeading={isLeading}
+              teamColor={teamColor}
+              leadingTeam={state?.currentBidTeamName}
+              unit={unit}
+              tier={tier}
+              hasPlayer={hasPlayer}
+            />
+          )}
 
           <TeamSquadSnapshot
             teamColor={teamColor}
@@ -3150,6 +3211,7 @@ export function LiveBid({
               tier={tier}
               unit={unit}
               dock
+              isPreAuction={isPreAuction}
             />
           </AnimatePresence>
 
@@ -3310,6 +3372,7 @@ export function LiveBid({
           layout="split"
           tier={tier}
           iconVersion={iconVersion}
+          isPreAuction={isPreAuction}
         />
 
         {syncFailed && (
@@ -3365,6 +3428,18 @@ export function LiveBid({
                 planBPivot={planBPivot}
                 onViewWarRoom={onViewWarRoom}
               />
+            ) : isPreAuction ? (
+              <PreAuctionCountdownCard
+                key="pre-auction-countdown-split"
+                auctionDate={tournament?.auctionDate}
+                auctionTime={tournament?.auctionTime}
+                venue={tournament?.venue}
+                city={tournament?.city}
+                sport={tournament?.sport}
+                teamColor={teamColor}
+                tier={tier}
+                onOpenWarRoom={onViewWarRoom}
+              />
             ) : (
               <motion.div
                 key="no-player-ls"
@@ -3379,15 +3454,17 @@ export function LiveBid({
               </motion.div>
             )}
           </AnimatePresence>
-          <BidAmount
-            amount={state?.currentBid || 0}
-            isLeading={isLeading}
-            teamColor={teamColor}
-            leadingTeam={state?.currentBidTeamName}
-            unit={unit}
-            tier={tier}
-            hasPlayer={hasPlayer}
-          />
+          {!isPreAuction && (
+            <BidAmount
+              amount={state?.currentBid || 0}
+              isLeading={isLeading}
+              teamColor={teamColor}
+              leadingTeam={state?.currentBidTeamName}
+              unit={unit}
+              tier={tier}
+              hasPlayer={hasPlayer}
+            />
+          )}
           <TeamSquadSnapshot
             teamColor={teamColor}
             teamPurse={teamPurse}
@@ -3462,6 +3539,7 @@ export function LiveBid({
                 layout="split"
                 tier={tier}
                 unit={unit}
+                isPreAuction={isPreAuction}
               />
             ) : (
               <InterLotCommandCenter
@@ -3480,6 +3558,9 @@ export function LiveBid({
                 purseRemaining={teamPurse?.purseRemaining ?? team.purse}
                 futureMandatorySlots={futureMandatorySlots}
                 suppressPlanBPivot={showLastSoldResult}
+                isPreAuction={isPreAuction}
+                auctionDate={tournament?.auctionDate}
+                auctionTime={tournament?.auctionTime}
               />
             )}
           </AnimatePresence>

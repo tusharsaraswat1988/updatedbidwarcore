@@ -177,6 +177,10 @@ export function PreAuctionWarRoom({
   const teamsCount = Math.max(1, teamsList?.length || scoutData?.teams?.length || 8);
   const minBasePrice = tournament?.basePrice ?? teamPurse?.lowestBasePrice ?? 100000;
 
+  // Dynamic sport-aware labels
+  const isCricket11 = sportName.toLowerCase().includes("cricket") && minSquad >= 11;
+  const mainTeamLabel = isCricket11 ? "Main XI" : "Main Squad";
+
   // 40-40-20 Purse Distribution Rule calculations
   const {
     anchorStars: purseAnchorStars,
@@ -335,7 +339,7 @@ export function PreAuctionWarRoom({
                 </span>
               </div>
               <p className="text-xs text-[#a8a0c4] mt-0.5 truncate">
-                {team.name} · {displaySportName} Blueprint & Scarcity Radar
+                {team.name} · {displaySportName} Team Plan & Demand Alerts
               </p>
             </div>
           </div>
@@ -367,7 +371,7 @@ export function PreAuctionWarRoom({
           }`}
         >
           <ShieldUser className="w-4 h-4" />
-          <span>Squad Blueprint</span>
+          <span>Team Plan</span>
         </button>
 
         <button
@@ -380,7 +384,7 @@ export function PreAuctionWarRoom({
           }`}
         >
           <Radar className="w-4 h-4" />
-          <span>Scarcity Radar</span>
+          <span>Player Demand</span>
           {scarcityAlerts.some((a) => a.isCritical) && (
             <span className="w-2 h-2 rounded-full bg-amber-400 absolute top-2.5 right-3" />
           )}
@@ -396,7 +400,7 @@ export function PreAuctionWarRoom({
           }`}
         >
           <Star className="w-4 h-4" />
-          <span>Targets ({targetIds.length})</span>
+          <span>My Targets ({targetIds.length})</span>
         </button>
       </div>
 
@@ -438,7 +442,7 @@ export function PreAuctionWarRoom({
                   </div>
                 </div>
                 <span className="hidden sm:inline-block text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded bg-[#332a68] text-amber-300 border border-[#50468e]">
-                  NEW OWNER GUIDE
+                  AUCTION GUIDE
                 </span>
               </div>
 
@@ -448,88 +452,88 @@ export function PreAuctionWarRoom({
                   <div
                     style={{ width: "40%" }}
                     className="h-full rounded-l-full bg-gradient-to-r from-amber-500 to-yellow-400 relative group cursor-pointer"
-                    title={`Anchor Stars: ${formatShortIndianRupee(purseAnchorStars, unit)} (40%)`}
+                    title={`Star Players: ${formatShortIndianRupee(purseAnchorStars, unit)} (40%)`}
                   />
                   <div
                     style={{ width: "40%" }}
                     className="h-full bg-gradient-to-r from-sky-500 to-indigo-400 relative group cursor-pointer"
-                    title={`Core Starting XI: ${formatShortIndianRupee(purseCoreXI, unit)} (40%)`}
+                    title={`${mainTeamLabel}: ${formatShortIndianRupee(purseCoreXI, unit)} (40%)`}
                   />
                   <div
                     style={{ width: "20%" }}
                     className="h-full rounded-r-full bg-gradient-to-r from-emerald-500 to-teal-400 relative group cursor-pointer"
-                    title={`Value Bench: ${formatShortIndianRupee(purseValueBench, unit)} (20%)`}
+                    title={`Backup Fund: ${formatShortIndianRupee(purseValueBench, unit)} (20%)`}
                   />
                 </div>
                 <div className="flex justify-between text-[11px] font-mono font-bold text-[#a8a0c4] px-1">
-                  <span className="text-amber-400">40% Anchor Stars</span>
-                  <span className="text-sky-400">40% Core XI</span>
-                  <span className="text-emerald-400">20% Value Bench</span>
+                  <span className="text-amber-400">40% Star Players</span>
+                  <span className="text-sky-400">40% {mainTeamLabel}</span>
+                  <span className="text-emerald-400">20% Backup Fund</span>
                 </div>
               </div>
 
               {/* 3 Tier Cards Breakdown */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                {/* 40% Anchor */}
+                {/* 40% Star Players */}
                 <div className="rounded-2xl bg-[#1b1442] border border-amber-400/30 p-3 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <span className="text-[11px] font-black uppercase text-amber-300 tracking-wider truncate">
-                        40% Anchor Stars
+                        40% Star Players
                       </span>
                       <span className="text-xs font-mono font-black text-white shrink-0">
                         {formatShortIndianRupee(purseAnchorStars, unit)}
                       </span>
                     </div>
                     <p className="text-xs text-[#a8a0c4] leading-relaxed">
-                      Reserve for <strong>2-3 proven match winners</strong>. Avoid blowing over 40%
-                      of purse on a single player.
+                      Reserve for <strong>2–3 match winners</strong>. Avoid spending over 40%
+                      of your purse on a single player.
                     </p>
                   </div>
                   <div className="mt-3 pt-2 border-t border-amber-400/20 text-[10px] text-amber-300/90 font-medium">
-                    Target: {formatShortIndianRupee(Math.round(purseAnchorStars / 2), unit)}/star avg
+                    Target: ~{formatShortIndianRupee(Math.round(purseAnchorStars / 2), unit)} / star player
                   </div>
                 </div>
 
-                {/* 40% Core XI */}
+                {/* 40% Main Squad / XI */}
                 <div className="rounded-2xl bg-[#1b1442] border border-sky-400/30 p-3 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <span className="text-[11px] font-black uppercase text-sky-300 tracking-wider truncate">
-                        40% Core XI
+                        40% {mainTeamLabel}
                       </span>
                       <span className="text-xs font-mono font-black text-white shrink-0">
                         {formatShortIndianRupee(purseCoreXI, unit)}
                       </span>
                     </div>
                     <p className="text-xs text-[#a8a0c4] leading-relaxed">
-                      Spread across <strong>4-6 regular starters</strong>. Disciplined bidding
-                      prevents weak links in lineup.
+                      Spread across <strong>4–6 regular starters</strong>. Builds a strong,
+                      balanced playing team without weak links.
                     </p>
                   </div>
                   <div className="mt-3 pt-2 border-t border-sky-400/20 text-[10px] text-sky-300/90 font-medium">
-                    Target: {formatShortIndianRupee(Math.round(purseCoreXI / 5), unit)}/starter avg
+                    Target: ~{formatShortIndianRupee(Math.round(purseCoreXI / 5), unit)} / starter
                   </div>
                 </div>
 
-                {/* 20% Value Bench */}
+                {/* 20% Backup Fund */}
                 <div className="rounded-2xl bg-[#1b1442] border border-emerald-400/30 p-3 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <span className="text-[11px] font-black uppercase text-emerald-300 tracking-wider truncate">
-                        20% Value Bench
+                        20% Backup Fund
                       </span>
                       <span className="text-xs font-mono font-black text-white shrink-0">
                         {formatShortIndianRupee(purseValueBench, unit)}
                       </span>
                     </div>
                     <p className="text-xs text-[#a8a0c4] leading-relaxed">
-                      Guaranteed buffer for <strong>3-5 bench depth</strong> and mandatory minimum
-                      base-price slots.
+                      Keep safe for <strong>3–5 extra players</strong>. Guarantees purse for
+                      mandatory base-price slots in late rounds.
                     </p>
                   </div>
                   <div className="mt-3 pt-2 border-t border-emerald-400/20 text-[10px] text-emerald-300/90 font-medium">
-                    Protects from late-round lockouts
+                    Protects from late-round budget lockouts
                   </div>
                 </div>
               </div>
@@ -541,7 +545,7 @@ export function PreAuctionWarRoom({
                 <div className="flex items-center gap-2">
                   <ShieldUser className="w-5 h-5 text-amber-400" />
                   <h3 className="font-display font-bold text-base text-white">
-                    {displaySportName} Squad Architecture Target
+                    {displaySportName} Team Requirements
                   </h3>
                 </div>
                 <span className="text-xs text-[#a8a0c4]">
@@ -599,7 +603,7 @@ export function PreAuctionWarRoom({
                                 : "bg-rose-500/20 text-rose-300"
                           }`}
                         >
-                          {isMaxMet ? "Full" : isMet ? "Secured" : "Need Priority"}
+                          {isMaxMet ? "Full" : isMet ? "Ready" : "Needed"}
                         </span>
                       </div>
                     </div>
@@ -624,7 +628,7 @@ export function PreAuctionWarRoom({
                 <div className="flex items-center gap-2">
                   <Radar className="w-5 h-5 text-amber-400" />
                   <h3 className="font-display font-black text-base text-white">
-                    Draft Pool Demand & Scarcity Radar
+                    Auction Pool Player Demand & Shortage
                   </h3>
                 </div>
                 <span className="text-xs text-[#a8a0c4]">
@@ -659,7 +663,7 @@ export function PreAuctionWarRoom({
                                 : "bg-amber-400/20 text-amber-300 border-amber-400/30"
                             }`}
                           >
-                            {alert.availableCount === 0 ? "LIMITED DEPTH" : "HIGH DEMAND"}
+                            {alert.availableCount === 0 ? "SHORTAGE ALERT" : "HIGH DEMAND"}
                           </span>
                           <span className="font-bold text-sm text-white">{alert.role}</span>
                         </div>
@@ -671,10 +675,9 @@ export function PreAuctionWarRoom({
               ) : (
                 <div className="rounded-2xl bg-[#241c56] border border-[#4a4478] p-4 text-center">
                   <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto mb-1.5" />
-                  <p className="text-sm font-semibold text-white">Draft Pool is Well-Balanced</p>
+                  <p className="text-sm font-semibold text-white">Player Pool is Well-Balanced</p>
                   <p className="text-xs text-[#a8a0c4] mt-0.5">
-                    No critical role deficits detected. Supply matches tournament demand across all
-                    positions.
+                    Plenty of players available across all positions. No critical shortage detected.
                   </p>
                 </div>
               )}
@@ -686,11 +689,11 @@ export function PreAuctionWarRoom({
                 <div className="flex items-center gap-2">
                   <Award className="w-5 h-5 text-amber-400" />
                   <h3 className="font-display font-black text-base text-white">
-                    Proven Stars & High-Impact Targets ({provenStars.length})
+                    Top Star Players & Key Targets ({provenStars.length})
                   </h3>
                 </div>
                 <span className="text-xs text-[#a8a0c4]">
-                  Past Top-5 badges, mobile-deduped history & valuations
+                  Past top performers, star badges & auction history
                 </span>
               </div>
 
@@ -730,7 +733,7 @@ export function PreAuctionWarRoom({
                                   <PlayerTagBadge tagKey={player.playerTag} size="sm" />
                                 ) : (
                                   <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                                    ⭐ PROVEN STAR
+                                    ⭐ STAR PLAYER
                                   </span>
                                 )}
                                 {isRecognizedRole(player.role) && (
@@ -794,7 +797,7 @@ export function PreAuctionWarRoom({
                 </div>
               ) : (
                 <div className="py-6 text-center text-xs text-[#a8a0c4]">
-                  No specifically tagged marquee stars in pool. Use the Targets tab to shortlist any
+                  No specifically tagged star players in pool. Use the My Targets tab to shortlist any
                   player.
                 </div>
               )}
@@ -819,10 +822,10 @@ export function PreAuctionWarRoom({
                   </div>
                   <div>
                     <h3 className="font-display font-black text-base text-white">
-                      Live Budget & Shortlist Simulator
+                      Target Spending & Budget Calculator
                     </h3>
                     <p className="text-xs text-[#a8a0c4]">
-                      Simulates purse impact if all shortlisted targets are acquired
+                      Shows purse remaining if you win all selected target players
                     </p>
                   </div>
                 </div>
@@ -838,7 +841,7 @@ export function PreAuctionWarRoom({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div className="rounded-2xl bg-[#1b1442] border border-[#4a4478] p-3 text-center">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-[#a8a0c4]">
-                    Targets Shortlisted
+                    Selected Targets
                   </p>
                   <p className="font-display font-black text-lg text-amber-300 mt-0.5">
                     {targetIds.length === 0 ? "0" : targetIds.length}
@@ -848,13 +851,13 @@ export function PreAuctionWarRoom({
                     </span>
                   </p>
                   <span className="text-[9px] text-[#a8a0c4] font-medium block mt-0.5">
-                    {targetedAvailable.length} active in pool
+                    {targetedAvailable.length} available in auction
                   </span>
                 </div>
 
                 <div className="rounded-2xl bg-[#1b1442] border border-[#4a4478] p-3 text-center">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-[#a8a0c4]">
-                    Est. Target Spend
+                    Estimated Spend
                   </p>
                   <p className="font-display font-black text-lg text-white font-mono mt-0.5">
                     {formatShortIndianRupee(simulation.estimatedTargetSpend, unit)}
@@ -863,7 +866,7 @@ export function PreAuctionWarRoom({
 
                 <div className="rounded-2xl bg-[#1b1442] border border-[#4a4478] p-3 text-center">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-[#a8a0c4]">
-                    Purse After Targets
+                    Purse Left After Targets
                   </p>
                   <p
                     className={`font-display font-black text-lg font-mono mt-0.5 ${
@@ -877,8 +880,8 @@ export function PreAuctionWarRoom({
                 <div className="rounded-2xl bg-[#1b1442] border border-[#4a4478] p-3 text-center">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-[#a8a0c4]">
                     {simulation.unfilledSlotsAfterTargets === 0
-                      ? "Surplus Reserve"
-                      : "Remaining / Unfilled Slot"}
+                      ? "Surplus Balance"
+                      : "Purse Left Per Slot"}
                   </p>
                   <p className="font-display font-black text-lg text-sky-300 font-mono mt-0.5">
                     {simulation.unfilledSlotsAfterTargets === 0
@@ -928,8 +931,8 @@ export function PreAuctionWarRoom({
               {/* Filter Pills - Smooth Horizontal Scroll without native Windows scrollbars */}
               <div className="flex items-center gap-1.5 overflow-x-auto py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {[
-                  { id: "all", label: "All Pool" },
-                  { id: "targets", label: `⭐ Targets (${targetIds.length})` },
+                  { id: "all", label: "All Players" },
+                  { id: "targets", label: `⭐ My Targets (${targetIds.length})` },
                   { id: "batter", label: "Batters" },
                   { id: "keeper", label: "Keepers" },
                   { id: "bowler", label: "Bowlers" },
@@ -1001,7 +1004,7 @@ export function PreAuctionWarRoom({
                                 {targeted && isSoldOther ? (
                                   <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-300 border border-amber-400/50 shadow-xs flex items-center gap-1">
                                     <Sparkles className="w-2.5 h-2.5 text-amber-400" />
-                                    <span>SOLD TO RIVAL · PIVOT READY</span>
+                                    <span>SOLD TO RIVAL · BACKUP READY</span>
                                   </span>
                                 ) : isSoldOther ? (
                                   <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40">

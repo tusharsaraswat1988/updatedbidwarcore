@@ -97,10 +97,10 @@ export function getSportBlueprintRules(sport = "cricket"): SquadRoleRecommendati
   const s = (sport || "cricket").toLowerCase();
   if (s.includes("cricket")) {
     return [
-      { role: "Batter", min: 3, max: 4, description: "Top order anchors & power hitters" },
-      { role: "Wicketkeeper", min: 1, max: 2, description: "Primary specialist + reliable backup" },
-      { role: "All-Rounder", min: 3, max: 4, description: "Critical team balance & flexible overs" },
-      { role: "Bowler", min: 4, max: 5, description: "Pace & spin wicket-taking core" },
+      { role: "Batter", min: 3, max: 4, description: "Top order batters & power hitters" },
+      { role: "Wicketkeeper", min: 1, max: 2, description: "Main wicketkeeper & backup keeper" },
+      { role: "All-Rounder", min: 3, max: 4, description: "Key all-rounders for batting & bowling balance" },
+      { role: "Bowler", min: 4, max: 5, description: "Fast bowlers & spin attack" },
     ];
   }
   if (s.includes("football") || s.includes("soccer")) {
@@ -119,9 +119,9 @@ export function getSportBlueprintRules(sport = "cricket"): SquadRoleRecommendati
     ];
   }
   return [
-    { role: "Anchor Stars", min: 2, max: 3, description: "Match-winning marquee pillars" },
-    { role: "Core Starters", min: 4, max: 6, description: "Dependable primary starting lineup" },
-    { role: "Value Bench", min: 3, max: 5, description: "Depth & impact replacements" },
+    { role: "Star Players", min: 2, max: 3, description: "Match-winning key pillars" },
+    { role: "Main Squad", min: 4, max: 6, description: "Dependable primary playing lineup" },
+    { role: "Backup Players", min: 3, max: 5, description: "Reserve depth & impact replacements" },
   ];
 }
 

@@ -30,6 +30,9 @@ interface InterLotCommandCenterProps {
   purseRemaining?: number;
   futureMandatorySlots?: number;
   suppressPlanBPivot?: boolean;
+  isPreAuction?: boolean;
+  auctionDate?: string | null;
+  auctionTime?: string | null;
 }
 
 export function InterLotCommandCenter({
@@ -47,6 +50,9 @@ export function InterLotCommandCenter({
   purseRemaining,
   futureMandatorySlots,
   suppressPlanBPivot = false,
+  isPreAuction = false,
+  auctionDate,
+  auctionTime: _auctionTime,
 }: InterLotCommandCenterProps) {
   // Query squad players
   const { data: allPlayers } = useListPlayers(tournamentId, {
@@ -107,15 +113,36 @@ export function InterLotCommandCenter({
       .slice(0, 3);
   }, [scoutData, teamId]);
 
+  // Format auction schedule date for pre-auction state
+  const formattedAuctionDate = useMemo(() => {
+    if (!auctionDate) return null;
+    try {
+      const d = new Date(auctionDate.includes("T") ? auctionDate : `${auctionDate}T12:00:00`);
+      if (isNaN(d.getTime())) return auctionDate;
+      return new Intl.DateTimeFormat("en-IN", {
+        day: "numeric",
+        month: "short",
+      }).format(d);
+    } catch {
+      return auctionDate;
+    }
+  }, [auctionDate]);
+
   const statusHeadline = isPaused
     ? "AUCTION PAUSED BY OPERATOR"
     : isIdle
       ? "AUCTION STANDBY"
-      : "AWAITING NEXT LOT DRAW";
+      : isPreAuction
+        ? "PRE-AUCTION STRATEGY HQ"
+        : "AWAITING NEXT LOT DRAW";
 
   const statusSubline = isPaused
     ? "Bidding suspended temporarily. Review squad & purse tactics."
-    : "Stage is clear. Prepare strategy for the upcoming lot.";
+    : isPreAuction
+      ? formattedAuctionDate
+        ? `Auction scheduled for ${formattedAuctionDate}. Review draft pool & build target shortlist.`
+        : "Review draft pool & build target shortlist before bidding opens."
+      : "Stage is clear. Prepare strategy for the upcoming lot.";
 
   return (
     <motion.div
@@ -134,7 +161,9 @@ export function InterLotCommandCenter({
       <div className="flex-shrink-0 border-b border-[#4a4478]/70 pb-3">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+            {!isPreAuction && (
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+            )}
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
           </span>
           <span className="text-[11px] font-black uppercase tracking-wider text-amber-300">
