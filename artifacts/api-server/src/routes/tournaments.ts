@@ -134,6 +134,8 @@ const tournamentInputSchema = z.object({
   sport: z.string().default("cricket"),
   city: z.string().trim().min(1, "City is required"),
   venue: z.string().optional(),
+  auctionVenue: z.string().optional(),
+  tournamentVenue: z.string().optional(),
   auctionDate: z.string().optional(),
   auctionTime: z.string().nullable().optional(),
   organizerName: z.string().optional(),
@@ -298,7 +300,9 @@ router.post("/tournaments", async (req, res) => {
       auctionCode,
       season: d.season ? d.season.trim() : null,
       city: d.city,
-      venue: d.venue ?? null,
+      venue: (d.tournamentVenue ?? d.venue ?? d.auctionVenue ?? null)?.trim() || null,
+      tournamentVenue: (d.tournamentVenue ?? d.venue ?? null)?.trim() || null,
+      auctionVenue: (d.auctionVenue ?? (isAuction && !isScoring ? (d.venue ?? null) : null))?.trim() || null,
       auctionDate: d.auctionDate ?? null,
       auctionTime: d.auctionTime ?? null,
       organizerId,
@@ -384,6 +388,8 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     sport: z.string().optional(),
     city: z.string().trim().min(1).optional(),
     venue: z.string().optional(),
+    auctionVenue: z.string().optional(),
+    tournamentVenue: z.string().optional(),
     auctionDate: z.string().optional(),
     auctionTime: z.string().nullable().optional(),
     organizerName: z.string().optional(),
@@ -580,7 +586,21 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     updates.sport = d.sport;
     updates.sportId = await resolveSportIdBySlug(d.sport);
   }
-  if (d.venue !== undefined) updates.venue = d.venue;
+  if (d.tournamentVenue !== undefined) {
+    const val = d.tournamentVenue ? d.tournamentVenue.trim() : null;
+    updates.tournamentVenue = val;
+    updates.venue = val;
+  }
+  if (d.auctionVenue !== undefined) {
+    updates.auctionVenue = d.auctionVenue ? d.auctionVenue.trim() : null;
+  }
+  if (d.venue !== undefined) {
+    const val = d.venue ? d.venue.trim() : null;
+    updates.venue = val;
+    if (d.tournamentVenue === undefined) {
+      updates.tournamentVenue = val;
+    }
+  }
   if (d.city !== undefined) updates.city = d.city;
   if (d.auctionDate !== undefined) updates.auctionDate = d.auctionDate;
   if (d.auctionTime !== undefined) updates.auctionTime = d.auctionTime;

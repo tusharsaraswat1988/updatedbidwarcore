@@ -119,4 +119,54 @@ describe("csv-player-import", () => {
     expect(rows[0]?.battingStyle).toBe("Right Hand");
     expect(rows[0]?.bowlingStyle).toBe("Medium");
   });
+
+  it("resolves Category and Team by name and shortCode", () => {
+    const csv = [
+      "Name,Mobile Number,Category,Team,Role,Jersey Size,Lower Size,Gender,Player Tag",
+      'Virat Kohli,9876543210,Diamond,RCB,Batsman,M,32,Male,Captain',
+    ].join("\n");
+
+    const rows = parsePlayerCsv(csv, null, {
+      categories: [{ id: 42, name: "Diamond" }, { id: 43, name: "Gold" }],
+      teams: [{ id: 10, name: "Royal Challengers", shortCode: "RCB" }],
+    });
+
+    expect(rows[0]?.name).toBe("Virat Kohli");
+    expect(rows[0]?.categoryId).toBe(42);
+    expect(rows[0]?.categoryName).toBe("Diamond");
+    expect(rows[0]?.teamId).toBe(10);
+    expect(rows[0]?.status).toBe("retained");
+    expect(rows[0]?.jerseySize).toBe("M");
+    expect(rows[0]?.lowerSize).toBe("32");
+    expect(rows[0]?.gender).toBe("M");
+    expect(rows[0]?.playerTag).toBe("captain");
+    expect(rows[0]?.validationErrors).toBeUndefined();
+  });
+
+  it("handles commas inside quoted text in achievements and availability", () => {
+    const csv = [
+      'Name,Mobile Number,Achievements,Availability Dates',
+      'Jasprit Bumrah,9876543210,"Man of the match, best bowler","18, 19, 20 March"',
+    ].join("\n");
+
+    const rows = parsePlayerCsv(csv, null);
+    expect(rows[0]?.name).toBe("Jasprit Bumrah");
+    expect(rows[0]?.achievements).toBe("Man of the match, best bowler");
+    expect(rows[0]?.availabilityDates).toBe("18, 19, 20 March");
+    expect(rows[0]?.mobileNumber).toBe("9876543210");
+  });
+
+  it("flags invalid phone numbers and duplicate phones in upload batch", () => {
+    const csv = [
+      "Name,Mobile Number",
+      "Player One,9876543210",
+      "Player Two,123", // invalid
+      "Player Three,9876543210", // duplicate
+    ].join("\n");
+
+    const rows = parsePlayerCsv(csv, null);
+    expect(rows[0]?.validationErrors).toBeUndefined();
+    expect(rows[1]?.validationErrors?.[0]).toContain("Invalid mobile");
+    expect(rows[2]?.validationErrors?.[0]).toContain("Duplicate mobile");
+  });
 });

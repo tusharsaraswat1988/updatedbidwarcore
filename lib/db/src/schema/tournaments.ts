@@ -12,7 +12,12 @@ export const tournamentsTable = pgTable("tournaments", {
   // Unique 8-char auction code e.g. "RC732504" (Phase 1)
   auctionCode: text("auction_code"),
   season: text("season"),
+  /** Legacy / fallback venue */
   venue: text("venue"),
+  /** Dedicated venue for the player auction event (e.g. Hotel banquet hall, club house, virtual). */
+  auctionVenue: text("auction_venue"),
+  /** Dedicated venue for tournament matches (e.g. Cricket ground, stadium, sports complex). */
+  tournamentVenue: text("tournament_venue"),
   /** City where the tournament / auction is held — separate from venue (stadium/ground). */
   city: text("city"),
   auctionDate: text("auction_date"),

@@ -8,6 +8,8 @@ type OrganizerListTournamentSource = {
   licenseStatus: string;
   city: string | null;
   venue: string | null;
+  auctionVenue?: string | null;
+  tournamentVenue?: string | null;
   auctionDate: string | null;
   auctionTime: string | null;
   createdAt: Date;
@@ -37,7 +39,9 @@ export function toOrganizerTournamentListItem(t: OrganizerListTournamentSource) 
     status: t.status,
     licenseStatus: t.licenseStatus,
     city: t.city ?? null,
-    venue: t.venue ?? null,
+    venue: t.tournamentVenue ?? t.venue ?? t.auctionVenue ?? null,
+    auctionVenue: t.auctionVenue ?? null,
+    tournamentVenue: t.tournamentVenue ?? t.venue ?? null,
     auctionDate: t.auctionDate ?? null,
     auctionTime: t.auctionTime ?? null,
     createdAt: t.createdAt.toISOString(),

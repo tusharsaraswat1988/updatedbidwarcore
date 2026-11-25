@@ -123,7 +123,9 @@ export async function buildTeamOwnerWelcomeMergeData(
       )
     : "";
   const tournamentDates = formatMatchDatesDdMmYyyy(tournament?.matchDates);
-  const venueDisplay = formatVenueDisplay(tournament?.venue, tournament?.city);
+  const auctionVenueDisplay = formatVenueDisplay(tournament?.auctionVenue || tournament?.venue, tournament?.city);
+  const tournamentVenueDisplay = formatVenueDisplay(tournament?.tournamentVenue || tournament?.venue, tournament?.city);
+  const venueDisplay = auctionVenueDisplay || tournamentVenueDisplay;
 
   const loginLink = isAuction ? buildPublicUrl(ownerJoinPath(team.tournamentId, team.id)) : "";
 
@@ -137,6 +139,8 @@ export async function buildTeamOwnerWelcomeMergeData(
     tournament_name: stringOrEmpty(tournament?.name),
     sport_name: formatSportName(tournament?.sport),
     venue: venueDisplay,
+    auction_venue: auctionVenueDisplay,
+    tournament_venue: tournamentVenueDisplay,
     auction_name: isAuction ? stringOrEmpty(tournament?.name) : "",
     auction_date: auctionDateDisplay,
     tournament_dates: tournamentDates,

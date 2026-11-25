@@ -1,10 +1,11 @@
 /**
- * Sport-aware CSV import/export helpers for bulk player upload.
+ * Sport-aware CSV and Excel import/export helpers for bulk player upload.
  * Supports dynamic role_spec_groups columns with legacy header aliases.
  */
 
 import { parseIndianMobile } from "@workspace/api-base/mobile";
 import { jerseySizeLabel, normalizeJerseySize, type JerseySize } from "@workspace/api-base/jersey-size";
+import { normalizeLowerSize, type LowerSize } from "@workspace/api-base/lower-size";
 import { getSportCapabilities } from "@workspace/platform-core";
 
 export type SpecGroupDef = {
@@ -21,6 +22,25 @@ export type SportSpecCatalog = {
   groupsByRole: Map<string, SpecGroupDef[]>;
   allGroupNames: string[];
 };
+
+export interface CategoryOption {
+  id: number;
+  name: string;
+  minBid?: number | null;
+}
+
+export interface TeamOption {
+  id: number;
+  name: string;
+  shortCode?: string | null;
+}
+
+export interface ParsePlayerFileOptions {
+  catalog?: SportSpecCatalog | null;
+  categories?: CategoryOption[];
+  teams?: TeamOption[];
+  defaultMinBid?: number;
+}
 
 /** Shared identity/contact columns — cricket-only fields are added separately. */
 const BASE_HEADERS = [
@@ -195,11 +215,11 @@ const EXAMPLE_BY_SPORT: Record<string, ExampleProfile> = {
   },
 };
 
-function normalizeHeader(h: string): string {
-  return h.trim().toLowerCase().replace(/\s+/g, " ");
+export function normalizeHeader(h: string): string {
+  return h.trim().toLowerCase().replace(/[*_]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function slugifyHeader(name: string): string {
+export function slugifyHeader(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, "_");
 }
 
@@ -313,21 +333,34 @@ export function buildCsvTemplateExampleRow(catalog: SportSpecCatalog | null): st
 export type ParsedBulkPlayer = {
   name: string;
   basePrice: number;
+  mobileNumber?: string;
+  categoryId?: number;
+  categoryName?: string;
+  teamId?: number;
+  teamName?: string;
   role?: string;
   city?: string;
   age?: number;
   gender?: "M" | "F";
   jerseyNumber?: string;
   jerseySize?: JerseySize;
+  lowerSize?: LowerSize;
   achievements?: string;
-  mobileNumber?: string;
   email?: string;
   availabilityDates?: string;
   cricheroUrl?: string;
   battingStyle?: string;
   bowlingStyle?: string;
   specialization?: string;
+  playerTag?: string;
+  status?: "available" | "retained" | "sold" | "unsold";
+  retainedPrice?: number;
+  photoUrl?: string;
+  isNonPlayingMember?: boolean;
   specifications?: { specGroupId: number; value: string }[];
+  rowNumber?: number;
+  validationErrors?: string[];
+  validationWarnings?: string[];
 };
 
 function resolveSpecValueForGroup(
@@ -352,24 +385,196 @@ function resolveSpecValueForGroup(
   return undefined;
 }
 
-export function parsePlayerCsv(
-  raw: string,
-  catalog: SportSpecCatalog | null,
+function normalizeGender(raw?: string): "M" | "F" | undefined {
+  if (!raw?.trim()) return undefined;
+  const s = raw.trim().toLowerCase();
+  if (s === "m" || s === "male" || s.startsWith("m")) return "M";
+  if (s === "f" || s === "female" || s.startsWith("f")) return "F";
+  return undefined;
+}
+
+function normalizePlayerTag(raw?: string): string | undefined {
+  if (!raw?.trim()) return undefined;
+  const clean = raw.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (["captain", "vice_captain", "owner", "co_owner", "booster", "icon", "star_player"].includes(clean)) {
+    return clean;
+  }
+  return undefined;
+}
+
+function normalizeStatus(raw?: string): "available" | "retained" | "sold" | "unsold" | undefined {
+  if (!raw?.trim()) return undefined;
+  const lower = raw.trim().toLowerCase();
+  if (lower === "retained" || lower === "retain") return "retained";
+  if (lower === "available") return "available";
+  if (lower === "sold") return "sold";
+  if (lower === "unsold") return "unsold";
+  return undefined;
+}
+
+function getRowField(row: Record<string, string>, ...aliases: string[]): string {
+  for (const a of aliases) {
+    const val = row[a] || row[normalizeHeader(a)] || row[slugifyHeader(a)];
+    if (val != null && String(val).trim() !== "") {
+      return String(val).trim();
+    }
+  }
+  return "";
+}
+
+/**
+ * Standard RFC-4180 CSV parser that properly preserves commas inside quotes.
+ */
+export function parseCsvRows(raw: string): string[][] {
+  const result: string[][] = [];
+  let row: string[] = [];
+  let inQuotes = false;
+  let current = "";
+
+  const text = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (inQuotes) {
+      if (char === '"' && next === '"') {
+        current += '"';
+        i++;
+      } else if (char === '"') {
+        inQuotes = false;
+      } else {
+        current += char;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === ",") {
+        row.push(current.trim());
+        current = "";
+      } else if (char === "\n") {
+        row.push(current.trim());
+        if (row.some((c) => c.length > 0)) {
+          result.push(row);
+        }
+        row = [];
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+  }
+
+  if (current.length > 0 || row.length > 0) {
+    row.push(current.trim());
+    if (row.some((c) => c.length > 0)) {
+      result.push(row);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Parses structured row objects (from Excel sheet_to_json or CSV) into typed ParsedBulkPlayer items.
+ */
+export function parsePlayerSpreadsheetRows(
+  rawRows: Record<string, unknown>[],
+  options?: ParsePlayerFileOptions,
 ): ParsedBulkPlayer[] {
-  const lines = raw.trim().split("\n").map((l) => l.trim()).filter(Boolean);
-  if (lines.length < 2) return [];
-
-  const headers = lines[0]!.split(",").map(normalizeHeader);
+  const catalog = options?.catalog ?? null;
   const allowCrichero = getSportCapabilities(catalog?.sportSlug).hasLegacyCricketSpecs;
+  const defaultMinBid = options?.defaultMinBid ?? 100000;
+  const seenMobiles = new Set<string>();
 
-  return lines.slice(1).map((line) => {
-    const vals = line.split(",").map((v) => v.trim());
+  return rawRows.map((rawRow, index) => {
+    const rowNumber = index + 2; // header is row 1
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // Normalize keys in row
     const row: Record<string, string> = {};
-    headers.forEach((h, i) => {
-      row[h] = vals[i] || "";
-    });
+    for (const [k, v] of Object.entries(rawRow)) {
+      if (v == null) continue;
+      const cleanVal = String(v).trim();
+      row[normalizeHeader(k)] = cleanVal;
+      row[slugifyHeader(k)] = cleanVal;
+    }
 
-    const role = row["role"] || undefined;
+    const name = getRowField(row, "name", "player name", "player");
+    if (!name) {
+      errors.push("Player name is required");
+    }
+
+    const mobileRaw = getRowField(row, "mobile number", "mobile", "mobile_number", "phone", "contact");
+    let mobileNormalized: string | undefined = undefined;
+    if (!mobileRaw) {
+      errors.push("Mobile number is required");
+    } else {
+      const mobileParsed = parseIndianMobile(mobileRaw);
+      if (!mobileParsed.ok) {
+        errors.push(`Invalid mobile "${mobileRaw}": ${mobileParsed.error}`);
+      } else if (seenMobiles.has(mobileParsed.normalized)) {
+        errors.push(`Duplicate mobile ${mobileParsed.normalized} in upload file`);
+      } else {
+        seenMobiles.add(mobileParsed.normalized);
+        mobileNormalized = mobileParsed.normalized;
+      }
+    }
+
+    // Category Resolution
+    const categoryRaw = getRowField(row, "category", "category name", "category_name", "cat");
+    let categoryId: number | undefined;
+    let categoryName: string | undefined;
+    if (categoryRaw && options?.categories && options.categories.length > 0) {
+      const catClean = categoryRaw.toLowerCase().trim();
+      const matched = options.categories.find((c) => c.name.toLowerCase().trim() === catClean);
+      if (matched) {
+        categoryId = matched.id;
+        categoryName = matched.name;
+      } else {
+        warnings.push(`Category "${categoryRaw}" not found in tournament; player will be unassigned`);
+      }
+    }
+
+    // Team Resolution
+    const teamRaw = getRowField(row, "team", "team name", "team_name", "team code", "team_code");
+    let teamId: number | undefined;
+    let teamName: string | undefined;
+    if (teamRaw && options?.teams && options.teams.length > 0) {
+      const tClean = teamRaw.toLowerCase().trim();
+      const matched = options.teams.find(
+        (t) =>
+          t.name.toLowerCase().trim() === tClean ||
+          (t.shortCode && t.shortCode.toLowerCase().trim() === tClean),
+      );
+      if (matched) {
+        teamId = matched.id;
+        teamName = matched.name;
+      } else {
+        warnings.push(`Team "${teamRaw}" not found in tournament`);
+      }
+    }
+
+    // Base Price
+    const basePriceRaw = getRowField(row, "base price", "base_price", "baseprice", "base value", "price");
+    const basePriceNum = basePriceRaw ? parseInt(basePriceRaw.replace(/[^0-9]/g, ""), 10) : NaN;
+    const basePrice = !isNaN(basePriceNum) && basePriceNum > 0 ? basePriceNum : defaultMinBid;
+
+    // Retained Price & Status
+    const statusRaw = getRowField(row, "status", "auction status");
+    let status = normalizeStatus(statusRaw);
+    if (!status && teamId) {
+      status = "retained";
+    } else if (!status) {
+      status = "available";
+    }
+
+    const retainedPriceRaw = getRowField(row, "retained price", "retained_price", "retention price");
+    const retainedPrice = retainedPriceRaw ? parseInt(retainedPriceRaw.replace(/[^0-9]/g, ""), 10) : undefined;
+
+    // Role & Specifications
+    const role = getRowField(row, "role", "player role") || undefined;
     const roleKey = role?.toLowerCase().trim() ?? "";
     const roleGroups = catalog?.groupsByRole.get(roleKey) ?? [];
 
@@ -377,45 +582,134 @@ export function parsePlayerCsv(
     const legacySlots: string[] = ["", "", ""];
 
     roleGroups.forEach((group, idx) => {
-      const value = resolveSpecValueForGroup(group, idx, row, headers);
+      const value = resolveSpecValueForGroup(group, idx, row, Object.keys(row));
       if (!value) return;
       specifications.push({ specGroupId: group.id, value });
       if (idx < 3) legacySlots[idx] = value;
     });
 
     if (specifications.length === 0 && !catalog) {
-      legacySlots[0] = row["battingstyle"] || row["batting_style"] || "";
-      legacySlots[1] = row["bowlingstyle"] || row["bowling_style"] || "";
-      legacySlots[2] = row["specialization"] || "";
+      legacySlots[0] = getRowField(row, "batting hand", "batting style", "battingstyle", "batting_style");
+      legacySlots[1] = getRowField(row, "bowling arm", "bowling style", "bowlingstyle", "bowling_style");
+      legacySlots[2] = getRowField(row, "specialization");
     }
 
-    const mobileRaw = row["mobilenumber"] || row["mobile_number"] || row["mobile"] || "";
-    const mobileParsed = mobileRaw ? parseIndianMobile(mobileRaw) : null;
+    // Apparel sizes
+    const jerseySizeRaw = getRowField(row, "jersey size", "jerseysize", "jersey_size");
+    const jerseySize = normalizeJerseySize(jerseySizeRaw) ?? undefined;
 
-    const genderRaw = (row["gender"] || "").trim().toUpperCase();
-    const cricheroRaw =
-      row["cricherourl"] || row["crichero_url"] || row["crichero"] || undefined;
+    const lowerSizeRaw = getRowField(row, "lower size", "lowersize", "lower_size", "pant size");
+    const lowerSize = normalizeLowerSize(lowerSizeRaw) ?? undefined;
+
+    // Other attributes
+    const city = getRowField(row, "city", "location") || undefined;
+    const ageRaw = getRowField(row, "age");
+    const age = ageRaw ? parseInt(ageRaw.replace(/[^0-9]/g, ""), 10) || undefined : undefined;
+    const gender = normalizeGender(getRowField(row, "gender", "sex"));
+    const jerseyNumber = getRowField(row, "jersey number", "jersey #", "jersey_number", "jersey no") || undefined;
+    const achievements = getRowField(row, "achievements", "bio", "notes") || undefined;
+    const email = getRowField(row, "email", "email address") || undefined;
+    const availabilityDates = getRowField(row, "availability dates", "availability_dates", "availability") || undefined;
+    const cricheroRaw = getRowField(row, "crichero url", "cricherourl", "crichero_url", "crichero") || undefined;
+    const photoUrl = getRowField(row, "photo url", "photourl", "photo_url", "photo", "image") || undefined;
+    const playerTag = normalizePlayerTag(getRowField(row, "player tag", "playertag", "player_tag", "tag"));
 
     return {
-      name: row["name"] || "Unknown",
-      basePrice: parseInt(row["baseprice"] || row["base_price"] || "100000", 10) || 100000,
+      name: name || "Unknown",
+      mobileNumber: mobileNormalized || mobileRaw || undefined,
+      basePrice,
+      categoryId,
+      categoryName,
+      teamId,
+      teamName,
       role,
-      city: row["city"] || undefined,
-      age: row["age"] ? parseInt(row["age"], 10) : undefined,
-      gender: genderRaw === "M" || genderRaw === "F" ? genderRaw : undefined,
-      jerseyNumber: row["jerseynumber"] || row["jersey_number"] || undefined,
-      jerseySize: normalizeJerseySize(row["jerseysize"] || row["jersey_size"]) ?? undefined,
-      achievements: row["achievements"] || undefined,
-      mobileNumber:
-        mobileParsed?.ok ? mobileParsed.normalized : mobileRaw || undefined,
-      email: row["email"] || undefined,
-      availabilityDates:
-        row["availabilitydates"] || row["availability_dates"] || row["availability"] || undefined,
+      city,
+      age,
+      gender,
+      jerseyNumber,
+      jerseySize,
+      lowerSize,
+      achievements,
+      email,
+      availabilityDates,
       cricheroUrl: allowCrichero ? cricheroRaw : undefined,
       battingStyle: legacySlots[0] || undefined,
       bowlingStyle: legacySlots[1] || undefined,
       specialization: legacySlots[2] || undefined,
+      status,
+      retainedPrice,
+      playerTag,
+      photoUrl,
       specifications: specifications.length > 0 ? specifications : undefined,
+      rowNumber,
+      validationErrors: errors.length > 0 ? errors : undefined,
+      validationWarnings: warnings.length > 0 ? warnings : undefined,
     };
   });
+}
+
+/**
+ * Parses raw CSV text into ParsedBulkPlayer items.
+ */
+export function parsePlayerCsv(
+  raw: string,
+  catalog: SportSpecCatalog | null,
+  options?: ParsePlayerFileOptions,
+): ParsedBulkPlayer[] {
+  const lines = parseCsvRows(raw);
+  if (lines.length < 2) return [];
+
+  const headers = lines[0]!.map((h) => h.trim());
+  const rawRows: Record<string, unknown>[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const vals = lines[i]!;
+    const rowObj: Record<string, string> = {};
+    headers.forEach((h, hIdx) => {
+      rowObj[h] = vals[hIdx] ?? "";
+    });
+    rawRows.push(rowObj);
+  }
+
+  return parsePlayerSpreadsheetRows(rawRows, {
+    ...options,
+    catalog: catalog ?? options?.catalog ?? null,
+  });
+}
+
+/**
+ * Parses any uploaded File (.xlsx, .xls, .csv) into ParsedBulkPlayer items.
+ */
+export async function parsePlayerFile(
+  file: File,
+  options?: ParsePlayerFileOptions,
+): Promise<ParsedBulkPlayer[]> {
+  const isExcel =
+    file.name.endsWith(".xlsx") ||
+    file.name.endsWith(".xls") ||
+    file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    file.type === "application/vnd.ms-excel";
+
+  if (isExcel) {
+    const XLSX = await import("xlsx");
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: "array" });
+
+    // Pick first non-reference sheet
+    const sheetName =
+      wb.SheetNames.find(
+        (s) => !s.startsWith("_REF") && !s.toLowerCase().includes("instruction"),
+      ) || wb.SheetNames[0];
+
+    if (!sheetName) throw new Error("No readable worksheet found in the uploaded file.");
+    const ws = wb.Sheets[sheetName];
+    if (!ws) throw new Error("Worksheet could not be read.");
+
+    const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
+    return parsePlayerSpreadsheetRows(rawRows, options);
+  }
+
+  // Fallback to text CSV reading
+  const text = await file.text();
+  return parsePlayerCsv(text, options?.catalog ?? null, options);
 }

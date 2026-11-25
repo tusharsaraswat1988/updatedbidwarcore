@@ -81,7 +81,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, MoreHorizontal, Copy, Check, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle, MessageSquare, ListOrdered, Shirt, Coins, Trophy, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, MoreHorizontal, Copy, Check, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle, MessageSquare, ListOrdered, Shirt, Coins, Trophy, FileText, FileSpreadsheet, AlertCircle, XCircle } from "lucide-react";
 import { formatIndianRupee, normalizeAuctionUnit, type AuctionUnit } from "@/lib/format";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { cldUrl } from "@/lib/cloudinary";
@@ -90,6 +90,8 @@ import {
   buildCsvTemplateHeaders,
   fetchSportSpecCatalog,
   parsePlayerCsv,
+  parsePlayerFile,
+  type ParsedBulkPlayer,
   type SportSpecCatalog,
 } from "@/lib/csv-player-import";
 import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES, PLAYER_TAG_OPTIONS, playerTagLabel } from "@/lib/tag-theme";
@@ -1944,17 +1946,32 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
 
 // ─── Bulk Upload Dialog ────────────────────────────────────────────────────────
 
-function BulkUploadDialog({ tournamentId, sportSlug, categories, onClose }: {
+function BulkUploadDialog({
+  tournamentId,
+  sportSlug,
+  categories = [],
+  teams = [],
+  tournament,
+  onClose,
+}: {
   tournamentId: number;
   sportSlug: string;
-  categories: any[];
+  categories?: any[];
+  teams?: any[];
+  tournament?: any;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
   const bulkCreate = useBulkCreatePlayers();
+  const [activeTab, setActiveTab] = useState<"file" | "paste">("file");
   const [csv, setCsv] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<SportSpecCatalog | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [downloadingFormat, setDownloadingFormat] = useState<"xlsx" | "csv" | null>(null);
+  const [isParsing, setIsParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [parsedPlayers, setParsedPlayers] = useState<ParsedBulkPlayer[]>([]);
   const [result, setResult] = useState<{ created: number; failed: number; errors: string[] } | null>(null);
   const [confirmConsent, setConfirmConsent] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -1971,28 +1988,96 @@ function BulkUploadDialog({ tournamentId, sportSlug, categories, onClose }: {
 
   const templateHeaders = buildCsvTemplateHeaders(catalog);
 
-  function downloadTemplate() {
-    const content = `${templateHeaders}\n${buildCsvTemplateExampleRow(catalog)}`;
-    const blob = new Blob([content], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `players_template_${sportSlug}.csv`;
-    a.click();
+  async function handleDownloadTemplate(format: "xlsx" | "csv") {
+    setDownloadingFormat(format);
+    try {
+      const res = await fetch(`/api/tournaments/${tournamentId}/players/template?format=${format}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Server template failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeName = (tournament?.name || "Tournament").replace(/[^a-zA-Z0-9_-]/g, "_");
+      a.download =
+        format === "xlsx"
+          ? `BidWar_${safeName}_Players_Template.xlsx`
+          : `BidWar_${safeName}_Players_Template.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback to client-side CSV download if server endpoint unavailable
+      const content = `${templateHeaders}\n${buildCsvTemplateExampleRow(catalog)}`;
+      const blob = new Blob([content], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `players_template_${sportSlug}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloadingFormat(null);
+    }
   }
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => setCsv(ev.target?.result as string || "");
-    reader.readAsText(file);
+    setFileName(file.name);
+    setIsParsing(true);
+    setParseError(null);
+    try {
+      const players = await parsePlayerFile(file, {
+        catalog,
+        categories,
+        teams,
+        defaultMinBid: tournament?.minBid ?? 100000,
+      });
+      setParsedPlayers(players);
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : "Failed to parse file.");
+      setParsedPlayers([]);
+    } finally {
+      setIsParsing(false);
+    }
   }
 
+  function handleCsvTextChange(val: string) {
+    setCsv(val);
+    setParseError(null);
+    if (!val.trim()) {
+      if (!fileName) setParsedPlayers([]);
+      return;
+    }
+    try {
+      const players = parsePlayerCsv(val, catalog, {
+        categories,
+        teams,
+        defaultMinBid: tournament?.minBid ?? 100000,
+      });
+      setParsedPlayers(players);
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : "Failed to parse CSV text.");
+    }
+  }
+
+  function handleClearFile() {
+    setFileName(null);
+    setParsedPlayers([]);
+    setParseError(null);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  const validPlayers = parsedPlayers.filter((p) => !p.validationErrors?.length);
+  const errorPlayers = parsedPlayers.filter((p) => p.validationErrors?.length);
+  const warningCount = parsedPlayers.filter((p) => p.validationWarnings?.length).length;
+
   async function handleUpload() {
-    const rawPlayers = parsePlayerCsv(csv, catalog);
-    if (!rawPlayers.length) return;
-    const players = rawPlayers.map(p => ({
+    if (!validPlayers.length) return;
+    const players = validPlayers.map((p) => ({
       ...p,
       whatsappConsent: confirmConsent,
     }));
@@ -2001,59 +2086,299 @@ function BulkUploadDialog({ tournamentId, sportSlug, categories, onClose }: {
     qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
   }
 
-  const parsed = csv ? parsePlayerCsv(csv, catalog) : [];
-
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      {/* Header & Download Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 rounded-xl border border-border bg-card/60">
         <div>
-          <p className="text-sm text-muted-foreground">
-            Upload a CSV with sport-specific specification columns for{" "}
-            <span className="font-medium capitalize">{sportSlug}</span>.
+          <p className="text-sm font-medium text-foreground">
+            Bulk Player Upload for <span className="text-primary capitalize">{sportSlug}</span>
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Download our formatted Excel template with built-in dropdowns for categories, roles, and apparel sizes.
           </p>
           {catalogError && (
-            <p className="text-xs text-amber-500 mt-1">Spec catalog unavailable — legacy columns used as fallback.</p>
+            <p className="text-xs text-amber-500 mt-1">Spec catalog unavailable — using legacy columns as fallback.</p>
           )}
         </div>
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={downloadTemplate}>
-          <Download className="w-3.5 h-3.5" /> Template
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="default"
+            size="sm"
+            className="gap-1.5 h-8 text-xs font-semibold shadow-sm"
+            disabled={downloadingFormat !== null}
+            onClick={() => void handleDownloadTemplate("xlsx")}
+          >
+            {downloadingFormat === "xlsx" ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+            )}
+            Excel Template (.xlsx)
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 h-8 text-xs"
+            disabled={downloadingFormat !== null}
+            onClick={() => void handleDownloadTemplate("csv")}
+          >
+            {downloadingFormat === "csv" ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+            )}
+            CSV
+          </Button>
+        </div>
       </div>
 
       {!result && (
         <>
-          <div
-            className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => fileRef.current?.click()}
-          >
-            <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-            <p className="font-semibold text-sm">Click to upload CSV</p>
-            <p className="text-xs text-muted-foreground mt-1">or paste CSV data below</p>
-            <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFile} />
+          {/* Mode Switcher Tabs */}
+          <div className="flex items-center gap-2 border-b border-border pb-2">
+            <button
+              type="button"
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                activeTab === "file"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-card"
+              }`}
+              onClick={() => setActiveTab("file")}
+            >
+              <Upload className="w-3.5 h-3.5" /> Upload File (.xlsx / .csv)
+            </button>
+            <button
+              type="button"
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                activeTab === "paste"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-card"
+              }`}
+              onClick={() => setActiveTab("paste")}
+            >
+              <FileText className="w-3.5 h-3.5" /> Paste CSV / Text
+            </button>
           </div>
-          <textarea
-            className="w-full h-36 bg-card border border-border rounded-lg p-3 text-xs font-mono text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder={`Paste CSV here:\n${templateHeaders}\n...`}
-            value={csv}
-            onChange={e => setCsv(e.target.value)}
-          />
-          {parsed.length > 0 && (
-            <div className="bg-card/50 border border-border rounded-lg p-3">
-              <p className="text-xs text-muted-foreground mb-1">{parsed.length} player(s) ready to upload:</p>
-              <div className="flex flex-wrap gap-1">
-                {parsed.slice(0, 10).map((p, i) => (
-                  <span key={i} className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">{p.name}</span>
-                ))}
-                {parsed.length > 10 && <span className="text-xs text-muted-foreground">+{parsed.length - 10} more</span>}
-              </div>
+
+          {/* Tab 1: Upload File */}
+          {activeTab === "file" && (
+            <div>
+              {!fileName ? (
+                <div
+                  className="border-2 border-dashed border-border rounded-xl p-7 text-center cursor-pointer hover:border-primary/60 hover:bg-card/40 transition-all"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <FileSpreadsheet className="w-9 h-9 text-primary/70 mx-auto mb-2.5" />
+                  <p className="font-semibold text-sm text-foreground">Click to upload or drag & drop</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Excel (.xlsx, .xls) or Comma-Separated Values (.csv)
+                  </p>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                    onChange={(e) => void handleFile(e)}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-3.5 rounded-xl border border-primary/30 bg-primary/5">
+                  <div className="flex items-center gap-3">
+                    <FileSpreadsheet className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="text-xs font-semibold text-foreground">{fileName}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {parsedPlayers.length} row(s) read from spreadsheet
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={handleClearFile}>
+                    <X className="w-3.5 h-3.5 mr-1" /> Change file
+                  </Button>
+                </div>
+              )}
             </div>
           )}
+
+          {/* Tab 2: Paste CSV */}
+          {activeTab === "paste" && (
+            <textarea
+              className="w-full h-32 bg-card border border-border rounded-lg p-3 text-xs font-mono text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder={`Paste CSV data here:\nname,mobileNumber,category,role,basePrice,gender,jerseyNumber,jerseySize,lowerSize,team,status...\nRohit Sharma,9876543210,Diamond,Batsman,1000000,Male,45,L,34,RCB,Available`}
+              value={csv}
+              onChange={(e) => handleCsvTextChange(e.target.value)}
+            />
+          )}
+
+          {/* Parsing Spinner */}
+          {isParsing && (
+            <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              Parsing spreadsheet rows and validating data...
+            </div>
+          )}
+
+          {/* Parse Error */}
+          {parseError && (
+            <div className="p-3 rounded-lg border border-destructive/40 bg-destructive/10 text-xs text-destructive flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {parseError}
+            </div>
+          )}
+
+          {/* Validation & Preview Section */}
+          {parsedPlayers.length > 0 && (
+            <div className="space-y-3">
+              {/* Stats Bar */}
+              <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+                <span className="font-medium text-foreground">
+                  File Preview ({parsedPlayers.length} player{parsedPlayers.length !== 1 ? "s" : ""})
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-medium">
+                    ✓ {validPlayers.length} Ready
+                  </span>
+                  {warningCount > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-medium">
+                      ⚠️ {warningCount} with notices
+                    </span>
+                  )}
+                  {errorPlayers.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-destructive/15 text-destructive font-medium">
+                      ✕ {errorPlayers.length} Error{errorPlayers.length !== 1 ? "s" : ""} (will be skipped)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="max-h-60 overflow-y-auto border border-border rounded-lg text-xs">
+                <table className="w-full border-collapse">
+                  <thead className="bg-muted/70 sticky top-0 text-muted-foreground border-b border-border text-[11px]">
+                    <tr>
+                      <th className="py-2 px-2.5 text-left font-medium w-8">#</th>
+                      <th className="py-2 px-2.5 text-left font-medium">Player</th>
+                      <th className="py-2 px-2.5 text-left font-medium">Mobile</th>
+                      <th className="py-2 px-2.5 text-left font-medium">Category</th>
+                      <th className="py-2 px-2.5 text-left font-medium">Role</th>
+                      <th className="py-2 px-2.5 text-left font-medium">Base Price</th>
+                      <th className="py-2 px-2.5 text-left font-medium">Team & Status</th>
+                      <th className="py-2 px-2.5 text-left font-medium">Kit Size</th>
+                      <th className="py-2 px-2.5 text-center font-medium w-16">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {parsedPlayers.map((p, idx) => {
+                      const hasErr = Boolean(p.validationErrors?.length);
+                      const hasWarn = Boolean(p.validationWarnings?.length);
+                      return (
+                        <tr
+                          key={idx}
+                          className={`hover:bg-card/60 transition-colors ${
+                            hasErr ? "bg-destructive/5" : hasWarn ? "bg-amber-500/5" : ""
+                          }`}
+                        >
+                          <td className="py-1.5 px-2.5 text-muted-foreground font-mono text-[10px]">
+                            {p.rowNumber ?? idx + 1}
+                          </td>
+                          <td className="py-1.5 px-2.5 font-medium text-foreground">
+                            <div>{p.name}</div>
+                            {p.city && <span className="text-[10px] text-muted-foreground">{p.city}</span>}
+                          </td>
+                          <td className="py-1.5 px-2.5 font-mono text-[11px]">
+                            {p.mobileNumber ? (
+                              <span className={hasErr ? "text-destructive font-semibold" : "text-foreground"}>
+                                {p.mobileNumber}
+                              </span>
+                            ) : (
+                              <span className="text-destructive font-semibold">Missing</span>
+                            )}
+                          </td>
+                          <td className="py-1.5 px-2.5">
+                            {p.categoryName ? (
+                              <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium text-[11px]">
+                                {p.categoryName}
+                              </span>
+                            ) : p.categoryId ? (
+                              <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-[11px]">
+                                Cat #{p.categoryId}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground italic text-[11px]">Unassigned</span>
+                            )}
+                          </td>
+                          <td className="py-1.5 px-2.5 text-muted-foreground text-[11px]">
+                            {p.role || "—"}
+                          </td>
+                          <td className="py-1.5 px-2.5 font-mono text-[11px]">
+                            {p.basePrice?.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-1.5 px-2.5 text-[11px]">
+                            {p.teamName ? (
+                              <span className="font-medium text-foreground">
+                                {p.teamName}{" "}
+                                <span className="text-[10px] text-emerald-500 uppercase">({p.status})</span>
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground capitalize">{p.status || "Available"}</span>
+                            )}
+                          </td>
+                          <td className="py-1.5 px-2.5 text-muted-foreground text-[11px]">
+                            {p.jerseySize || p.lowerSize ? (
+                              <span>
+                                {p.jerseySize ?? "—"} / {p.lowerSize ?? "—"}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="py-1.5 px-2.5 text-center">
+                            {hasErr ? (
+                              <span title={p.validationErrors?.join("; ")} className="inline-block cursor-help">
+                                <XCircle className="w-4 h-4 text-destructive mx-auto" />
+                              </span>
+                            ) : hasWarn ? (
+                              <span title={p.validationWarnings?.join("; ")} className="inline-block cursor-help">
+                                <AlertTriangle className="w-4 h-4 text-amber-500 mx-auto" />
+                              </span>
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500 mx-auto" />
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Error messages box if any */}
+              {errorPlayers.length > 0 && (
+                <div className="p-2.5 rounded-lg border border-destructive/30 bg-destructive/5 text-[11px] text-destructive space-y-1">
+                  <div className="font-semibold flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {errorPlayers.length} row(s) cannot be uploaded due to validation errors:
+                  </div>
+                  <ul className="list-disc list-inside space-y-0.5 max-h-24 overflow-y-auto pl-1">
+                    {errorPlayers.map((p, i) => (
+                      <li key={i}>
+                        Row {p.rowNumber ?? i + 1} ({p.name}): {p.validationErrors?.join(", ")}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* WhatsApp Consent Box */}
           <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
             <label className="flex items-start gap-2.5 cursor-pointer text-xs">
               <input
                 type="checkbox"
                 checked={confirmConsent}
-                onChange={e => setConfirmConsent(e.target.checked)}
+                onChange={(e) => setConfirmConsent(e.target.checked)}
                 className="w-4 h-4 rounded border-border bg-input accent-emerald-500 cursor-pointer mt-0.5"
               />
               <div>
@@ -2068,34 +2393,55 @@ function BulkUploadDialog({ tournamentId, sportSlug, categories, onClose }: {
             </label>
           </div>
 
+          {/* Actions */}
           <div className="flex gap-3">
             <Button
-              className="flex-1"
-              disabled={parsed.length === 0 || bulkCreate.isPending}
+              className="flex-1 font-semibold"
+              disabled={validPlayers.length === 0 || bulkCreate.isPending}
               onClick={() => void handleUpload()}
             >
               <Upload className="w-4 h-4 mr-2" />
-              {bulkCreate.isPending ? "Uploading..." : `Upload ${parsed.length} Players`}
+              {bulkCreate.isPending
+                ? "Uploading players..."
+                : validPlayers.length > 0
+                ? `Upload ${validPlayers.length} Player${validPlayers.length !== 1 ? "s" : ""}`
+                : "Upload Players"}
             </Button>
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
           </div>
         </>
       )}
 
+      {/* Result View */}
       {result && (
         <div className="space-y-4">
-          <div className={`p-4 rounded-lg border ${result.failed === 0 ? "border-green-500/40 bg-green-500/10" : "border-yellow-500/40 bg-yellow-500/10"}`}>
-            <p className="font-bold text-lg">{result.created} players uploaded successfully</p>
+          <div
+            className={`p-4 rounded-xl border ${
+              result.failed === 0
+                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100"
+                : "border-amber-500/40 bg-amber-500/10"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+              <p className="font-bold text-base">{result.created} player(s) uploaded successfully</p>
+            </div>
             {result.failed > 0 && (
-              <p className="text-sm text-destructive mt-1">{result.failed} failed</p>
+              <p className="text-xs text-destructive mt-1 font-medium">{result.failed} failed to insert</p>
             )}
             {result.errors.length > 0 && (
-              <ul className="text-xs text-muted-foreground mt-2 space-y-1">
-                {result.errors.map((e, i) => <li key={i}>· {e}</li>)}
+              <ul className="text-xs text-muted-foreground mt-2 space-y-1 max-h-36 overflow-y-auto">
+                {result.errors.map((e, i) => (
+                  <li key={i}>· {e}</li>
+                ))}
               </ul>
             )}
           </div>
-          <Button className="w-full" onClick={onClose}>Done</Button>
+          <Button className="w-full" onClick={onClose}>
+            Done
+          </Button>
         </div>
       )}
     </div>
@@ -4381,15 +4727,17 @@ export default function Players() {
 
       {/* Bulk Upload Dialog */}
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
           <OrganizerFormDialogHeader
             tournament={tournament}
-            title={<span className="flex items-center gap-2"><Upload className="w-5 h-5" /> Bulk Player Upload</span>}
+            title={<span className="flex items-center gap-2"><Upload className="w-5 h-5 text-primary" /> Bulk Player Upload</span>}
           />
           <BulkUploadDialog
             tournamentId={tournamentId}
             sportSlug={tournament?.sport ?? "cricket"}
             categories={categories || []}
+            teams={teams || []}
+            tournament={tournament}
             onClose={() => setBulkOpen(false)}
           />
         </DialogContent>

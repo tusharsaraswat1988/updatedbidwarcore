@@ -18,6 +18,8 @@ export type TournamentIdentity = {
   sport: string | null;
   city: string | null;
   venue: string | null;
+  auctionVenue?: string | null;
+  tournamentVenue?: string | null;
   organizerName: string | null;
   logoUrl: string | null;
   /** Raw sponsor logos payload (JSON string or structured — consumers parse). */
@@ -37,6 +39,8 @@ export type TournamentIdentitySource = {
   sport?: string | null;
   city?: string | null;
   venue?: string | null;
+  auctionVenue?: string | null;
+  tournamentVenue?: string | null;
   organizerName?: string | null;
   logoUrl?: string | null;
   sponsorLogos?: unknown;
@@ -65,7 +69,9 @@ export function normalizeTournamentIdentity(
     name: (source?.name ?? "").trim() || "Tournament",
     sport: source?.sport ?? null,
     city: source?.city ?? null,
-    venue: source?.venue ?? null,
+    venue: source?.tournamentVenue ?? source?.venue ?? null,
+    auctionVenue: source?.auctionVenue ?? null,
+    tournamentVenue: source?.tournamentVenue ?? source?.venue ?? null,
     organizerName: source?.organizerName ?? null,
     logoUrl: source?.logoUrl ?? null,
     sponsorLogos: source?.sponsorLogos ?? null,

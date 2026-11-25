@@ -107,6 +107,8 @@ export type AuctionRulesPdfDocumentModel = {
   organizerName: string | null;
   city: string | null;
   venue: string | null;
+  auctionVenue?: string | null;
+  tournamentVenue?: string | null;
   auctionDate: string | null;
   auctionTime: string | null;
   auctionUnit: AuctionUnit;
@@ -210,6 +212,8 @@ export function buildAuctionRulesPdfDocumentModel(input: {
   organizerName?: string | null;
   city?: string | null;
   venue?: string | null;
+  auctionVenue?: string | null;
+  tournamentVenue?: string | null;
   auctionDate?: string | null;
   auctionTime?: string | null;
   auctionUnit?: string | null;
@@ -247,7 +251,9 @@ export function buildAuctionRulesPdfDocumentModel(input: {
     sport: formatSportLabel(input.sport),
     organizerName: input.organizerName?.trim() || null,
     city: input.city?.trim() || null,
-    venue: input.venue?.trim() || null,
+    venue: (input.tournamentVenue || input.venue || input.auctionVenue)?.trim() || null,
+    auctionVenue: input.auctionVenue?.trim() || null,
+    tournamentVenue: (input.tournamentVenue || input.venue)?.trim() || null,
     auctionDate: formatAuctionDateForPdf(input.auctionDate),
     auctionTime: formatAuctionTimeForPdf(input.auctionTime),
     auctionUnit: unit,

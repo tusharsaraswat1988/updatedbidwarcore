@@ -2274,6 +2274,12 @@ components:
           description: "Tournament season, edition or year e.g. Season 2026-27"
         venue:
           type: ["string", "null"]
+        auctionVenue:
+          type: ["string", "null"]
+          description: "Dedicated venue for the player auction event"
+        tournamentVenue:
+          type: ["string", "null"]
+          description: "Dedicated venue for tournament matches"
         city:
           type: ["string", "null"]
           description: "City where the tournament is held (separate from venue)"
@@ -2493,6 +2499,12 @@ components:
           type: string
         venue:
           type: string
+        auctionVenue:
+          type: string
+          description: "Dedicated venue for the player auction event"
+        tournamentVenue:
+          type: string
+          description: "Dedicated venue for tournament matches"
         city:
           type: string
           description: "City where the tournament is held (required on create)"
@@ -2584,6 +2596,12 @@ components:
           type: string
         venue:
           type: string
+        auctionVenue:
+          type: string
+          description: "Dedicated venue for the player auction event"
+        tournamentVenue:
+          type: string
+          description: "Dedicated venue for tournament matches"
         city:
           type: string
           description: "City where the tournament is held"

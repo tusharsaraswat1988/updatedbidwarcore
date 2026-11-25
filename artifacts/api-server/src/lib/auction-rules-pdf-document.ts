@@ -221,7 +221,16 @@ export function pipeAuctionRulesPdf(
   drawPageHeader();
 
   sectionTitle("Tournament");
-  const identityBits = [model.sport, model.city, model.venue].filter(Boolean) as string[];
+  const venuePieces: string[] = [];
+  if (model.auctionVenue) {
+    venuePieces.push(`Auction: ${model.auctionVenue}`);
+  }
+  if (model.tournamentVenue && model.tournamentVenue !== model.auctionVenue) {
+    venuePieces.push(`Matches: ${model.tournamentVenue}`);
+  } else if (!model.auctionVenue && model.venue) {
+    venuePieces.push(model.venue);
+  }
+  const identityBits = [model.sport, model.city, ...venuePieces].filter(Boolean) as string[];
   if (identityBits.length > 0) {
     row("Sport / venue", identityBits.join("  |  "));
   }

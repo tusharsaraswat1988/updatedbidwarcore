@@ -160,6 +160,16 @@ export interface Tournament {
   /** @nullable */
   venue?: string | null;
   /**
+   * Dedicated venue for the player auction event
+   * @nullable
+   */
+  auctionVenue?: string | null;
+  /**
+   * Dedicated venue for tournament matches
+   * @nullable
+   */
+  tournamentVenue?: string | null;
+  /**
    * City where the tournament is held (separate from venue)
    * @nullable
    */
@@ -340,6 +350,10 @@ export interface TournamentInput {
   season?: string | null;
   sport: string;
   venue?: string;
+  /** Dedicated venue for the player auction event */
+  auctionVenue?: string;
+  /** Dedicated venue for tournament matches */
+  tournamentVenue?: string;
   /** City where the tournament is held (required on create) */
   city: string;
   auctionDate?: string;
@@ -467,6 +481,10 @@ export interface TournamentUpdate {
   season?: string | null;
   sport?: string;
   venue?: string;
+  /** Dedicated venue for the player auction event */
+  auctionVenue?: string;
+  /** Dedicated venue for tournament matches */
+  tournamentVenue?: string;
   /** City where the tournament is held */
   city?: string;
   auctionDate?: string;

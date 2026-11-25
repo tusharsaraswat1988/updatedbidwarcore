@@ -51,6 +51,14 @@ export const ListTournamentsResponseItem = zod.object({
     .nullish()
     .describe("Tournament season, edition or year e.g. Season 2026-27"),
   venue: zod.string().nullish(),
+  auctionVenue: zod
+    .string()
+    .nullish()
+    .describe("Dedicated venue for the player auction event"),
+  tournamentVenue: zod
+    .string()
+    .nullish()
+    .describe("Dedicated venue for tournament matches"),
   city: zod
     .string()
     .nullish()
@@ -245,6 +253,14 @@ export const CreateTournamentBody = zod.object({
   season: zod.string().nullish().describe("Tournament season, edition or year"),
   sport: zod.string(),
   venue: zod.string().optional(),
+  auctionVenue: zod
+    .string()
+    .optional()
+    .describe("Dedicated venue for the player auction event"),
+  tournamentVenue: zod
+    .string()
+    .optional()
+    .describe("Dedicated venue for tournament matches"),
   city: zod
     .string()
     .describe("City where the tournament is held (required on create)"),
@@ -316,6 +332,14 @@ export const GetTournamentResponse = zod.object({
     .nullish()
     .describe("Tournament season, edition or year e.g. Season 2026-27"),
   venue: zod.string().nullish(),
+  auctionVenue: zod
+    .string()
+    .nullish()
+    .describe("Dedicated venue for the player auction event"),
+  tournamentVenue: zod
+    .string()
+    .nullish()
+    .describe("Dedicated venue for tournament matches"),
   city: zod
     .string()
     .nullish()
@@ -513,6 +537,14 @@ export const UpdateTournamentBody = zod.object({
   season: zod.string().nullish().describe("Tournament season, edition or year"),
   sport: zod.string().optional(),
   venue: zod.string().optional(),
+  auctionVenue: zod
+    .string()
+    .optional()
+    .describe("Dedicated venue for the player auction event"),
+  tournamentVenue: zod
+    .string()
+    .optional()
+    .describe("Dedicated venue for tournament matches"),
   city: zod.string().optional().describe("City where the tournament is held"),
   auctionDate: zod.string().optional(),
   auctionTime: zod.string().nullish(),
@@ -619,6 +651,14 @@ export const UpdateTournamentResponse = zod.object({
     .nullish()
     .describe("Tournament season, edition or year e.g. Season 2026-27"),
   venue: zod.string().nullish(),
+  auctionVenue: zod
+    .string()
+    .nullish()
+    .describe("Dedicated venue for the player auction event"),
+  tournamentVenue: zod
+    .string()
+    .nullish()
+    .describe("Dedicated venue for tournament matches"),
   city: zod
     .string()
     .nullish()
@@ -848,6 +888,14 @@ export const ExportTournamentForLocalResponse = zod.object({
       .nullish()
       .describe("Tournament season, edition or year e.g. Season 2026-27"),
     venue: zod.string().nullish(),
+    auctionVenue: zod
+      .string()
+      .nullish()
+      .describe("Dedicated venue for the player auction event"),
+    tournamentVenue: zod
+      .string()
+      .nullish()
+      .describe("Dedicated venue for tournament matches"),
     city: zod
       .string()
       .nullish()
