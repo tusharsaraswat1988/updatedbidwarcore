@@ -649,7 +649,11 @@ export default function AuctionOperatorV2() {
       applyMutationResult(result);
       toast({ title: "Player marked Unsold", description: "Moved to unsold pool" });
     } catch (err) {
-      toast({ title: "Could not mark unsold", variant: "destructive" });
+      toast({
+        title: "Could not mark unsold",
+        description: mutationErrorMessage(err, "Unsold failed"),
+        variant: "destructive",
+      });
     }
   }
 

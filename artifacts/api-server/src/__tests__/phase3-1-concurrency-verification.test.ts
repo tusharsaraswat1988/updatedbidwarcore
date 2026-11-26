@@ -185,7 +185,7 @@ const {
   return {
     mockBroadcast: vi.fn().mockResolvedValue({ status: "active" }),
     tournamentsTableMock: { id: "tournaments.id", organizerId: "tournaments.organizerId", status: "tournaments.status" },
-    auctionSessionsTableMock: { tournamentId: "auction_sessions.tournamentId", revision: "auction_sessions.revision", currentBid: "auction_sessions.currentBid", currentPlayerId: "auction_sessions.currentPlayerId" },
+    auctionSessionsTableMock: { tournamentId: "auction_sessions.tournamentId", revision: "auction_sessions.revision", currentBid: "auction_sessions.currentBid", currentBidTeamId: "auction_sessions.currentBidTeamId", currentPlayerId: "auction_sessions.currentPlayerId" },
     playersTableMock: { id: "players.id", tournamentId: "players.tournamentId", status: "players.status" },
     teamsTableMock: { id: "teams.id", tournamentId: "teams.tournamentId" },
     bidsTableMock: { id: "bids.id", tournamentId: "bids.tournamentId", playerId: "bids.playerId", timestamp: "bids.timestamp" },
@@ -640,6 +640,31 @@ describe("SEC-2026-07: Real Production Auction Route & Concurrency Verification"
 
     expect(subsequentUnsold.status).toBe(400);
     expect(subsequentUnsold.body.error).toBe("No current player");
+  });
+
+  it("Scenario C: Unsold succeeds when player is on block with opening base price and currentBidTeamId is null", async () => {
+    resetStore();
+    const app = createAuctionTestApp("organizer");
+    const session = store.auctionSessions.get(TOURNAMENT_ID);
+    session.currentBid = 100_000; // Base price loaded by next-player
+    session.currentBidTeamId = null; // No bid placed
+    session.currentPlayerId = 100;
+    session.revision = 10;
+
+    const unsoldRes = await request(app)
+      .post(`/tournaments/${TOURNAMENT_ID}/auction/unsold`)
+      .send({ expectedRevision: 10 });
+
+    expect(unsoldRes.status).toBe(200);
+
+    const updatedSession = store.auctionSessions.get(TOURNAMENT_ID);
+    expect(updatedSession.currentPlayerId).toBeNull();
+    expect(updatedSession.currentBid).toBeNull();
+    expect(updatedSession.currentBidTeamId).toBeNull();
+    expect(updatedSession.revision).toBe(11);
+
+    const player = store.players.get(100);
+    expect(player.status).toBe("unsold");
   });
 });
 

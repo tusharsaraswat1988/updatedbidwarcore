@@ -274,7 +274,7 @@ describe("SEC-2026-07: Auction Unsold CAS Revision Guard Hardening", () => {
         revision: 5,
       };
 
-      if (session.currentBid !== null) {
+      if (session.currentBidTeamId !== null) {
         return res.status(409).json({
           error: "Cannot mark player unsold: an active bid has been placed.",
           currentBid: session.currentBid,
@@ -317,7 +317,7 @@ describe("SEC-2026-07: Auction Unsold CAS Revision Guard Hardening", () => {
         revision: 6, // Current revision is 6!
       };
 
-      if (session.currentBid !== null) {
+      if (session.currentBidTeamId !== null) {
         return res.status(409).json({
           error: "Cannot mark player unsold: an active bid has been placed.",
           hint: "bid_in_progress",
@@ -344,7 +344,7 @@ describe("SEC-2026-07: Auction Unsold CAS Revision Guard Hardening", () => {
     expect(response.body.currentRevision).toBe(6);
   });
 
-  it("Unsold succeeds when currentBid is null and expectedRevision matches", async () => {
+  it("Unsold succeeds when currentBidTeamId is null (even with basePrice currentBid) and expectedRevision matches", async () => {
     const app = express();
     app.use(express.json());
 
@@ -353,12 +353,12 @@ describe("SEC-2026-07: Auction Unsold CAS Revision Guard Hardening", () => {
       const session = {
         tournamentId: 1,
         currentPlayerId: 10,
-        currentBid: null,
-        currentBidTeamId: null,
+        currentBid: 100_000, // Player's base price
+        currentBidTeamId: null, // NO TEAM HAS BID YET
         revision: 5,
       };
 
-      if (session.currentBid !== null) {
+      if (session.currentBidTeamId !== null) {
         return res.status(409).json({
           error: "Cannot mark player unsold: an active bid has been placed.",
           hint: "bid_in_progress",
@@ -379,6 +379,7 @@ describe("SEC-2026-07: Auction Unsold CAS Revision Guard Hardening", () => {
         session: {
           currentPlayerId: null,
           currentBid: null,
+          currentBidTeamId: null,
           revision: session.revision + 1,
           lastAction: "UNSOLD: Player 10",
         },
@@ -400,7 +401,7 @@ describe("SEC-2026-07: Auction Unsold CAS Revision Guard Hardening", () => {
     let state = {
       revision: 4,
       currentPlayerId: 10,
-      currentBid: null as number | null,
+      currentBid: 100_000 as number | null, // Base price loaded on block
       currentBidTeamId: null as number | null,
       playerStatus: "available",
     };
@@ -414,10 +415,10 @@ describe("SEC-2026-07: Auction Unsold CAS Revision Guard Hardening", () => {
     };
 
     const simulateUnsoldCAS = async (expectedRevision: number) => {
-      // CAS condition: revision = expectedRevision AND currentBid IS NULL AND currentPlayerId = 10
+      // CAS condition: revision = expectedRevision AND currentBidTeamId IS NULL AND currentPlayerId = 10
       if (
         state.revision === expectedRevision &&
-        state.currentBid === null &&
+        state.currentBidTeamId === null &&
         state.currentPlayerId === 10
       ) {
         state.currentPlayerId = null as any;
@@ -425,7 +426,7 @@ describe("SEC-2026-07: Auction Unsold CAS Revision Guard Hardening", () => {
         state.revision += 1;
         return { ok: true, revision: state.revision };
       } else {
-        const hint = state.currentBid !== null ? "bid_in_progress" : "stale_unsold";
+        const hint = state.currentBidTeamId !== null ? "bid_in_progress" : "stale_unsold";
         return { ok: false, hint, currentRevision: state.revision };
       }
     };

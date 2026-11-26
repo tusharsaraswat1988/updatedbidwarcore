@@ -2681,7 +2681,7 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
     ? new Date(session.currentPlayerStartedAt)
     : null;
 
-  if (session.currentBid !== null) {
+  if (session.currentBidTeamId !== null) {
     res.status(409).json({
       error: "Cannot mark player unsold: an active bid has been placed.",
       currentBid: session.currentBid,
@@ -2732,7 +2732,7 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
         throw new UnsoldTransactionAbortError("stale_unsold");
       }
 
-      if (currentSession.currentBid !== null) {
+      if (currentSession.currentBidTeamId !== null) {
         throw new UnsoldTransactionAbortError("bid_in_progress");
       }
 
@@ -2764,7 +2764,7 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
           and(
             eq(auctionSessionsTable.tournamentId, tid),
             eq(auctionSessionsTable.currentPlayerId, currentPlayerId),
-            isNull(auctionSessionsTable.currentBid),
+            isNull(auctionSessionsTable.currentBidTeamId),
             sql`COALESCE(${auctionSessionsTable.revision}, 0) = ${expectedRevision}`,
           ),
         )
