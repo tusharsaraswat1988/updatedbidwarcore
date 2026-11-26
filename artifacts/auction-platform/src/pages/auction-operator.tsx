@@ -1350,7 +1350,7 @@ export default function AuctionOperator() {
           }
           break;
         case "s": if (!timerActive && hasBid && isActive && !sellPlayer.isPending) handleSell(); break;
-        case "u": if (!timerActive && hasPlayer && isActive && !markUnsold.isPending) handleUnsold(); break;
+        case "u": if (!timerActive && hasPlayer && !hasBid && isActive && !markUnsold.isPending) handleUnsold(); break;
         case "d": if (!timerActive && hasPlayer && isActive && !deferPlayerMut.isPending) handleDeferPlayer(); break;
         case "m": if (!timerActive && hasPlayer && !isPaused) openManualSellDialog(); break;
         case "n": if (!timerActive && !hasPlayer && isActive && !nextPlayer.isPending) handleNextPlayer(selectionMode === "random" ? "random" : "sequential"); break;
@@ -1766,9 +1766,9 @@ export default function AuctionOperator() {
           label: "UNSOLD",
           shortLabel: "UNSOLD",
           icon: XCircle,
-          sub: isPaused ? "Resume first [U]" : timerActive ? "Pause bid first [U]" : "No bid [U]",
-          title: isPaused ? "Resume auction before concluding a player" : timerActive ? "Pause current bid first" : undefined,
-          disabled: controlsLocked || isPaused || !hasPlayer || timerActive || markUnsold.isPending,
+          sub: isPaused ? "Resume first [U]" : timerActive ? "Pause bid first [U]" : hasBid ? "Bid active [U]" : "No bid [U]",
+          title: isPaused ? "Resume auction before concluding a player" : timerActive ? "Pause current bid first" : hasBid ? "Cannot mark unsold while a bid is active. Mark SOLD or DEFER." : undefined,
+          disabled: controlsLocked || isPaused || !hasPlayer || timerActive || hasBid || markUnsold.isPending,
           onClick: handleUnsold,
           bg: "bg-red-600/10", border: "border-red-600/45", text: "text-red-400",
         },

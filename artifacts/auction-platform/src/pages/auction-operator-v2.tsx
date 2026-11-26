@@ -54,6 +54,8 @@ import {
   type PresentationContextKind,
 } from "@/lib/presentation-context";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
+import { useTimerExpired } from "@/hooks/use-timer-expired";
+import { resolveSquadMetrics } from "@/lib/led-view/squad-metrics";
 import { ServerCountdown } from "@/components/server-countdown";
 import { OperatorLayout } from "@/components/operator-layout";
 import { LocalOperatorPinBar } from "@/components/local-operator-pin-bar";
@@ -487,7 +489,13 @@ export default function AuctionOperatorV2() {
   const currentBid = state?.currentBid || 0;
   const hasBid = Boolean(state?.currentBidTeamId && state.currentBidTeamId > 0);
   const timerEndsAt = state?.timerEndsAt;
-  const timerActive = Boolean(timerEndsAt && new Date(timerEndsAt).getTime() > Date.now());
+  const timerExpired = useTimerExpired(timerEndsAt);
+  const timerActive = Boolean(timerEndsAt && !timerExpired);
+
+  const lastSoldPlayer = (state as {
+    lastSoldPlayer?: { id: number; name: string; soldAmount: number } | null;
+  } | undefined)?.lastSoldPlayer ?? null;
+  const canReauctionLastSale = !!lastSoldPlayer?.id && !hasPlayer && isActive && !isPaused;
 
   // Player Lists
   const allPlayers = players || [];
@@ -709,11 +717,23 @@ export default function AuctionOperatorV2() {
   }
 
   async function handleStartBiddingClick() {
-    if (controlsLocked || startTimerMut.isPending || !hasPlayer) return;
+    if (controlsLocked) {
+      toast({
+        title: "Controls locked",
+        description: operatorReadOnly
+          ? "Another operator session has control. Click 'Take Over' in the top header to take control."
+          : "Auction controls are locked.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (startTimerMut.isPending || !hasPlayer) return;
+    if (currentBidPaused && hasPlayer && hasBid) {
+      setResumeBidDialogOpen(true);
+      return;
+    }
     try {
-      const dur = currentBidPaused
-        ? parseInt(bidTimerSecs, 10) || 15
-        : hasBid
+      const dur = hasBid
         ? parseInt(bidTimerSecs, 10) || 15
         : parseInt(openingTimerSecs, 10) || 30;
       const result = await startTimerMut.mutateAsync({
@@ -725,6 +745,96 @@ export default function AuctionOperatorV2() {
     } catch (err) {
       toast({ title: "Could not start timer", variant: "destructive" });
     }
+  }
+
+  async function handleExtendTimer() {
+    if (controlsLocked) {
+      toast({
+        title: "Controls locked",
+        description: operatorReadOnly ? "Another operator session has control." : "Auction controls locked.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!hasPlayer || startTimerMut.isPending) return;
+    const inBidPhase = !!state?.currentBidTeamId || state?.timerType === "bid";
+    const baseSecs = inBidPhase
+      ? parseOperatorTimerSeconds(bidTimerSecs, state?.bidTimerSeconds ?? 15)
+      : parseOperatorTimerSeconds(openingTimerSecs, state?.timerSeconds ?? 30);
+    const secs = baseSecs + 30;
+    try {
+      const result = await startTimerMut.mutateAsync({ tournamentId, data: { seconds: secs } });
+      applyMutationResult(result);
+      setCurrentBidPaused(false);
+      toast({ title: "Timer extended (+30s)" });
+    } catch (err) {
+      toast({ title: "Could not extend timer", variant: "destructive" });
+    }
+  }
+
+  async function handleResumeBidContinue() {
+    setResumeBidDialogOpen(false);
+    setCurrentBidPaused(false);
+    try {
+      const dur = parseInt(bidTimerSecs, 10) || 15;
+      const result = await startTimerMut.mutateAsync({ tournamentId, data: { seconds: dur } });
+      applyMutationResult(result);
+    } catch (err) {
+      toast({ title: "Could not resume timer", variant: "destructive" });
+    }
+  }
+
+  async function handleResumeBidRestart() {
+    const playerId = state?.currentPlayer?.id;
+    if (!playerId) return;
+    setResumeBidDialogOpen(false);
+    await handleReAuction(playerId, true);
+  }
+
+  async function handleReAuction(playerId: number, startFromBase: boolean, reason?: string) {
+    if (controlsLocked || reAuction.isPending) return;
+    const currentId = state?.currentPlayer?.id;
+    if (currentId && currentId !== playerId) {
+      toast({
+        title: "Player on block",
+        description: "Finish or defer the current player before starting a re-auction.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const result = await reAuction.mutateAsync({
+        tournamentId,
+        data: {
+          playerId,
+          startFromBase,
+          ...(reason?.trim() ? { reason: reason.trim() } : {}),
+        },
+      });
+      setCurrentBidPaused(false);
+      applyMutationResult(result);
+      toast({ title: "Player placed back on block" });
+    } catch (err) {
+      toast({
+        title: "Could not re-auction player",
+        description: mutationErrorMessage(err, "Re-auction failed"),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleInstantReauction(playerId?: number) {
+    if (state?.currentPlayer) {
+      toast({
+        title: "Player on block",
+        description: "Finish or defer the current player before re-auctioning the last sale.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const targetId = playerId ?? lastSoldPlayer?.id;
+    if (!targetId || controlsLocked || reAuction.isPending || isPaused) return;
+    await handleReAuction(targetId, true);
   }
 
   async function handleStopTimer() {
@@ -756,7 +866,7 @@ export default function AuctionOperatorV2() {
           if (!timerActive && hasBid && isActive && !sellPlayer.isPending) handleSell();
           break;
         case "u":
-          if (!timerActive && hasPlayer && isActive && !markUnsold.isPending) handleUnsold();
+          if (!timerActive && hasPlayer && !hasBid && isActive && !markUnsold.isPending) handleUnsold();
           break;
         case "d":
           if (!timerActive && hasPlayer && isActive && !deferPlayerMut.isPending) handleDeferPlayer();
@@ -769,6 +879,9 @@ export default function AuctionOperatorV2() {
             handleNextPlayer(selectionMode === "random" ? "random" : "sequential");
           }
           break;
+        case "z":
+          if (canReauctionLastSale && !reAuction.isPending) void handleInstantReauction();
+          break;
         case " ":
           e.preventDefault();
           if (isActive && hasPlayer) {
@@ -779,7 +892,7 @@ export default function AuctionOperatorV2() {
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [isActive, hasPlayer, timerActive, hasBid, controlsLocked, isPreAuction, selectionMode]);
+  }, [isActive, hasPlayer, timerActive, hasBid, controlsLocked, isPreAuction, selectionMode, canReauctionLastSale]);
 
   const tournamentCode = (tournament as any)?.auctionCode ?? (tournament as any)?.code;
 
@@ -1034,6 +1147,46 @@ export default function AuctionOperatorV2() {
         </div>
       </header>
 
+      {/* Nuanced lock-state banners (fail-closed, retrying, locked with takeover) */}
+      {operatorLockStatus === "retrying" && (
+        <div className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs border-b z-20 bg-yellow-500/10 border-yellow-500/25 text-yellow-300">
+          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 animate-pulse" />
+          Acquiring operator lock… (network issue — retrying)
+        </div>
+      )}
+
+      {operatorLockStatus === "locked" && (
+        <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 text-xs border-b z-20 bg-orange-500/10 border-orange-500/25 text-orange-300">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+            Read-only — another operator tab is controlling this auction.
+          </div>
+          <button
+            onClick={() => { void operatorTakeover(); }}
+            className="ml-2 px-2.5 py-1 rounded text-xs font-bold bg-orange-500/20 hover:bg-orange-500/40 border border-orange-500/40 transition-colors cursor-pointer"
+            title="Force-take control of this auction (use only if the other tab is unresponsive)"
+          >
+            Take Over
+          </button>
+        </div>
+      )}
+
+      {operatorLockStatus === "unavailable" && (
+        <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 text-xs border-b z-20 bg-yellow-500/10 border-yellow-500/25 text-yellow-300">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+            Read-only — could not verify operator lock (network issue).
+          </div>
+          <button
+            onClick={() => { void operatorTakeover(); }}
+            className="ml-2 px-2.5 py-1 rounded text-xs font-bold bg-yellow-500/20 hover:bg-yellow-500/40 border border-yellow-500/40 transition-colors cursor-pointer"
+            title="Retry taking control of this auction"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* ════════════ 3-ZONE MAIN WORKSPACE (BALANCED GRID) ════════════ */}
       <div className={`flex-1 grid grid-cols-1 min-h-0 overflow-hidden ${
         rightCollapsed
@@ -1193,13 +1346,35 @@ export default function AuctionOperatorV2() {
                           Go
                         </button>
                       ) : isSold ? (
-                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-md">
-                          SOLD
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-md">
+                            SOLD
+                          </span>
+                          <button
+                            type="button"
+                            disabled={controlsLocked || !isActive || isPaused || reAuction.isPending}
+                            onClick={() => void handleReAuction(player.id, true)}
+                            title="Put player back on block for re-auction"
+                            className="h-6 px-1.5 rounded bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 text-[10px] font-bold border border-orange-500/30 flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                          >
+                            <RotateCcw className="w-2.5 h-2.5" /> ↺
+                          </button>
+                        </div>
                       ) : isUnsold ? (
-                        <span className="text-[10px] font-bold text-rose-400 bg-rose-400/10 px-2 py-0.5 rounded-md">
-                          UNSOLD
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-bold text-rose-400 bg-rose-400/10 px-2 py-0.5 rounded-md">
+                            UNSOLD
+                          </span>
+                          <button
+                            type="button"
+                            disabled={controlsLocked || !isActive || isPaused || reAuction.isPending}
+                            onClick={() => void handleReAuction(player.id, true)}
+                            title="Put unsold player on block for re-auction"
+                            className="h-6 px-1.5 rounded bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 text-[10px] font-bold border border-orange-500/30 flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                          >
+                            <RotateCcw className="w-2.5 h-2.5" /> ↺
+                          </button>
+                        </div>
                       ) : isRet ? (
                         <span className="text-[10px] font-bold text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded-md">
                           RET
@@ -1397,6 +1572,21 @@ export default function AuctionOperatorV2() {
                 </p>
               </div>
             )}
+            {/* Reauction Last Player banner */}
+            {canReauctionLastSale && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => void handleInstantReauction()}
+                  disabled={controlsLocked || reAuction.isPending}
+                  className="w-full h-8.5 rounded-xl border border-orange-500/40 bg-orange-500/15 hover:bg-orange-500/25 text-orange-300 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+                  title={`Reverse ${lastSoldPlayer?.name}'s sale and re-auction [Z]`}
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-orange-400" />
+                  <span>↺ Re-auction Last Player ({lastSoldPlayer?.name}) [Z]</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Action Row: Hammer Buttons (Balanced Mid-Way Height: 40-42px / h-10 sm:h-10.5) */}
@@ -1409,8 +1599,13 @@ export default function AuctionOperatorV2() {
               <CheckCircle className="w-3.5 h-3.5 mr-1.5" /> SOLD (Enter)
             </Button>
             <Button
-              disabled={controlsLocked || !hasPlayer || timerActive || markUnsold.isPending}
+              disabled={controlsLocked || !hasPlayer || timerActive || hasBid || markUnsold.isPending}
               onClick={handleUnsold}
+              title={
+                hasBid
+                  ? "Cannot mark unsold while a bid is active. Conclude by marking SOLD or deferring."
+                  : undefined
+              }
               variant="outline"
               className="h-10 sm:h-10.5 font-bold text-xs border border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 disabled:opacity-35 rounded-xl transition-all"
             >
@@ -1435,11 +1630,17 @@ export default function AuctionOperatorV2() {
           </div>
 
           {/* Big CTA Row: Next Player & Start Bidding (Tactical Proportion: 44-46px / h-11 sm:h-11.5) */}
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-6 gap-2">
             <button
               disabled={controlsLocked || !isActive || hasPlayer || timerActive || nextPlayer.isPending || isRandomRevealing}
               onClick={() => handleNextPlayer(selectionMode === "random" ? "random" : "sequential")}
-              title={isPreAuction ? "Click START LIVE AUCTION above to begin session" : undefined}
+              title={
+                controlsLocked
+                  ? (operatorReadOnly ? "Locked by another session - click Take Over above" : "Auction controls locked")
+                  : isPreAuction
+                  ? "Click START LIVE AUCTION above to begin session"
+                  : undefined
+              }
               className="sm:col-span-3 h-11 sm:h-11.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 bg-amber-400 text-slate-950 hover:bg-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.25)] transition-all disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer"
             >
               {selectionMode === "random" ? <Shuffle className="w-4 h-4" /> : <SkipForward className="w-4 h-4" />}
@@ -1450,23 +1651,51 @@ export default function AuctionOperatorV2() {
             </button>
 
             {timerActive ? (
-              <button
-                onClick={handleStopTimer}
-                disabled={stopTimerMut.isPending}
-                className="sm:col-span-2 h-11 sm:h-11.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 bg-yellow-500/15 border border-yellow-400/50 text-yellow-300 hover:bg-yellow-500/25 transition-all cursor-pointer shadow-xs"
-              >
-                <Pause className="w-4 h-4" /> PAUSE CURRENT BID
-              </button>
+              <>
+                <button
+                  onClick={handleStopTimer}
+                  disabled={controlsLocked || stopTimerMut.isPending}
+                  className="sm:col-span-2 h-11 sm:h-11.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 bg-yellow-500/15 border border-yellow-400/50 text-yellow-300 hover:bg-yellow-500/25 transition-all cursor-pointer shadow-xs"
+                >
+                  <Pause className="w-4 h-4" /> PAUSE CURRENT BID
+                </button>
+                <button
+                  onClick={handleExtendTimer}
+                  disabled={controlsLocked || startTimerMut.isPending}
+                  title="Add 30 seconds to the timer"
+                  className="sm:col-span-1 h-11 sm:h-11.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1 bg-white/10 hover:bg-white/15 border border-white/20 text-white transition-all cursor-pointer shadow-xs disabled:opacity-35 disabled:cursor-not-allowed"
+                >
+                  <Clock className="w-3.5 h-3.5 text-amber-400" /> +30s
+                </button>
+              </>
             ) : (
-              <button
-                onClick={handleStartBiddingClick}
-                disabled={!hasPlayer || !isActive || startTimerMut.isPending}
-                title={isPreAuction ? "Start live auction first" : !hasPlayer ? "Load player onto stage first" : undefined}
-                className="sm:col-span-2 h-11 sm:h-11.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.25)] transition-all disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                {currentBidPaused ? "RESUME BIDDING" : "START BIDDING"}
-              </button>
+              <>
+                <button
+                  onClick={handleStartBiddingClick}
+                  disabled={controlsLocked || !hasPlayer || !isActive || startTimerMut.isPending}
+                  title={
+                    controlsLocked
+                      ? (operatorReadOnly ? "Locked by another session - click Take Over above" : "Auction controls locked")
+                      : isPreAuction
+                      ? "Start live auction first"
+                      : !hasPlayer
+                      ? "Load player onto stage first"
+                      : undefined
+                  }
+                  className="sm:col-span-2 h-11 sm:h-11.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.25)] transition-all disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <Play className="w-4 h-4 fill-current" />
+                  {currentBidPaused ? "RESUME BIDDING" : "START BIDDING"}
+                </button>
+                <button
+                  onClick={handleExtendTimer}
+                  disabled={controlsLocked || !hasPlayer || !isActive || startTimerMut.isPending}
+                  title="Start timer with +30 extra seconds"
+                  className="sm:col-span-1 h-11 sm:h-11.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1 bg-white/10 hover:bg-white/15 border border-white/20 text-white transition-all cursor-pointer shadow-xs disabled:opacity-35 disabled:cursor-not-allowed"
+                >
+                  <Clock className="w-3.5 h-3.5 text-amber-400" /> +30s
+                </button>
+              </>
             )}
           </div>
 
@@ -1488,28 +1717,39 @@ export default function AuctionOperatorV2() {
                 const pUsed = team.purseUsed ?? 0;
                 const rem = Math.max(0, cap - pUsed);
                 const maxB = pData?.maxAllowedBid ?? rem;
+                const squad = resolveSquadMetrics(
+                  pData?.playersBought ?? 0,
+                  pData?.minimumSquadSize || tournament?.minimumSquadSize || 0,
+                  pData?.maximumSquadSize || tournament?.maximumSquadSize || 0,
+                );
                 const canAfford = maxB >= nextBidAmount;
                 const isCurrentBidder = state?.currentBidTeamId === team.id;
+                const isTrialRestricted = isTrialMode && trialTeamIds != null && !isTeamEligibleForTrialAuction(team.id, trialTeamIds);
+                const canBid = !controlsLocked && hasPlayer && canAfford && !isCurrentBidder && !squad.isSquadFull && !isTrialRestricted && team.isBiddingEnabled !== false && !bidGateLocked;
 
                 return (
                   <button
                     key={team.id}
                     type="button"
-                    disabled={controlsLocked || !hasPlayer || !canAfford || isCurrentBidder || bidGateLocked}
+                    disabled={!canBid}
                     onClick={() => handleBid(team.id)}
                     className={`flex flex-col justify-between p-2 sm:p-2.5 h-[52px] rounded-xl border text-left transition-all relative ${
                       isCurrentBidder
                         ? "bg-amber-400/20 border-amber-400/60 shadow-[0_0_12px_rgba(251,191,36,0.25)] ring-1 ring-amber-400/40"
-                        : canAfford
+                        : canAfford && !squad.isSquadFull
                         ? "bg-white/[0.03] border-white/8 hover:bg-white/8 hover:border-white/20 active:scale-[0.98]"
                         : "bg-white/[0.01] border-white/5 opacity-30 cursor-not-allowed"
                     }`}
                     style={{ borderLeft: `4px solid ${team.color || "#888"}` }}
                     title={
-                      !timerActive
+                      controlsLocked
+                        ? (operatorReadOnly ? "Locked by another session - click Take Over above" : "Auction controls locked")
+                        : !timerActive
                         ? "Click START BIDDING first to open bidding"
                         : isCurrentBidder
                         ? "Holding highest bid"
+                        : squad.isSquadFull
+                        ? `Squad is full (${squad.playersBought}/${squad.squadCap})`
                         : !canAfford
                         ? `Cannot afford next bid (${formatShort(nextBidAmount)} > max allowable ${formatShort(maxB)})`
                         : `Bid ${formatShort(nextBidAmount)} for ${team.name}`
@@ -1532,12 +1772,17 @@ export default function AuctionOperatorV2() {
                       <span className="text-white/50 text-[10px]">
                         Max: <strong className="text-white/80">{formatShort(maxB)}</strong>
                       </span>
-                      {!isCurrentBidder && canAfford && (
+                      {!isCurrentBidder && canAfford && !squad.isSquadFull && (
                         <span className="font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/25 px-1.5 py-0.5 rounded text-[11px]">
                           +{formatShort(state?.bidIncrement ?? 50000)}
                         </span>
                       )}
-                      {!isCurrentBidder && !canAfford && (
+                      {!isCurrentBidder && squad.isSquadFull && (
+                        <span className="text-[10px] text-amber-400 font-bold bg-amber-400/10 px-1.5 py-0.2 rounded">
+                          FULL
+                        </span>
+                      )}
+                      {!isCurrentBidder && !canAfford && !squad.isSquadFull && (
                         <span className="text-[10px] text-rose-400/80 font-bold">
                           OUT
                         </span>
@@ -1574,6 +1819,11 @@ export default function AuctionOperatorV2() {
                 const pUsed = team.purseUsed ?? 0;
                 const rem = Math.max(0, cap - pUsed);
                 const maxB = pData?.maxAllowedBid ?? rem;
+                const squad = resolveSquadMetrics(
+                  pData?.playersBought ?? 0,
+                  pData?.minimumSquadSize || tournament?.minimumSquadSize || 0,
+                  pData?.maximumSquadSize || tournament?.maximumSquadSize || 0,
+                );
                 const isCurrent = state?.currentBidTeamId === team.id;
 
                 return (
@@ -1589,7 +1839,7 @@ export default function AuctionOperatorV2() {
                     <div className="flex items-center justify-between gap-1 mb-1">
                       <span className="text-xs font-bold text-white truncate max-w-[170px]">{team.name}</span>
                       <span className="text-[10px] font-mono font-semibold bg-white/10 px-1.5 py-0.2 rounded text-white/80 shrink-0">
-                        Squad {pData?.playersBought ?? 0}/{pData?.maximumSquadSize ?? 0}
+                        Squad {squad.playersBought}/{squad.squadCap}
                       </span>
                     </div>
 
@@ -2235,6 +2485,49 @@ export default function AuctionOperatorV2() {
               className="h-11 sm:h-12 px-6 text-xs sm:text-sm font-black bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md"
             >
               Enable Mobile Bidding
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Resume current bid Dialog */}
+      <Dialog open={resumeBidDialogOpen} onOpenChange={setResumeBidDialogOpen}>
+        <DialogContent className="max-w-md bg-[#0D1527] border border-white/20 text-white rounded-2xl p-5 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black text-white">Resume Bidding</DialogTitle>
+            <DialogDescription className="text-xs text-white/60">
+              Current player and bid are frozen. Choose how to continue:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <Button
+                className="w-full justify-start h-auto py-3 bg-white/5 hover:bg-white/10 border-white/15 text-white"
+                variant="outline"
+                disabled={reAuction.isPending}
+                onClick={handleResumeBidRestart}
+              >
+                <div className="text-left">
+                  <p className="font-bold text-xs text-white">Restart this player auction</p>
+                  <p className="text-[11px] text-white/60 mt-0.5">
+                    Reset to {formatShort(state?.currentPlayer?.basePrice ?? 0)} with no leading bidder.
+                  </p>
+                </div>
+              </Button>
+              <Button
+                className="w-full justify-start h-auto py-3 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold border-amber-300 shadow-md"
+                onClick={handleResumeBidContinue}
+              >
+                <div className="text-left">
+                  <p className="font-bold text-xs text-slate-950">Continue from current state</p>
+                  <p className="text-[11px] text-slate-900/80 mt-0.5">
+                    Keep {state?.currentBidTeamName ?? "current bid"} at {formatShort(state?.currentBid ?? 0)} and restart the timer.
+                  </p>
+                </div>
+              </Button>
+            </div>
+            <Button variant="ghost" className="w-full text-xs text-white/60 hover:text-white" onClick={() => setResumeBidDialogOpen(false)}>
+              Cancel
             </Button>
           </div>
         </DialogContent>

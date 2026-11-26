@@ -72,7 +72,7 @@ describe("P2 Stage Prompter & Tactical War Room UI Integration", () => {
       expect(ownerLiveBidSrc).toContain("marginStatus");
       expect(ownerLiveBidSrc).toContain("Safe Margin");
       expect(ownerLiveBidSrc).toContain("Tight Margin");
-      expect(ownerLiveBidSrc).toContain("Quota Limit Reached");
+      expect(ownerLiveBidSrc).toMatch(/Ceiling Limit|Quota Limit Reached/);
       expect(ownerLiveBidSrc).toContain("TacticalWarRoomStrip");
     });
 

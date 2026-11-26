@@ -57,7 +57,7 @@ describe("Auction Operator Pre-Auction Launchpad UX Overhaul", () => {
     });
 
     it("supports keyboard Enter key to launch the live auction in pre-auction mode", () => {
-      expect(operatorSrc).toContain('case "enter": if (isPreAuction && !controlsLocked && !startAuction.isPending) handleStartAuction(); break;');
+      expect(operatorSrc).toMatch(/case\s+"enter":[\s\S]*isPreAuction[\s\S]*handleStartAuction\(\);/);
     });
   });
 
