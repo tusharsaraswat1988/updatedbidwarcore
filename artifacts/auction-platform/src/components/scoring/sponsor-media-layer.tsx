@@ -599,31 +599,28 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
       <div
         style={{
           position: "absolute",
-          bottom: 28,
-          right: 28,
+          bottom: 112,
+          right: 36,
           zIndex: 5,
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          gap: 6,
-          padding: "8px 16px",
-          background: "rgba(0, 0, 0, 0.78)",
-          borderRadius: 8,
-          border: "1px solid rgba(255, 255, 255, 0.12)",
-          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.6)",
-          backdropFilter: "blur(6px)",
+          alignItems: "flex-end",
+          gap: 4,
           pointerEvents: "none",
+          userSelect: "none",
         }}
       >
         <span
           style={{
             fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
-            fontSize: 12,
-            fontWeight: 600,
-            letterSpacing: "0.12em",
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: "0.14em",
             textTransform: "uppercase",
-            color: "rgba(255, 255, 255, 0.78)",
+            color: "#ffffff",
             lineHeight: 1,
+            textShadow:
+              "0 1px 2px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.85), 0 2px 4px rgba(0, 0, 0, 0.8)",
           }}
         >
           Broadcasted by
@@ -634,12 +631,13 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
             alt={logoAlt || "BidWar"}
             onError={() => setLogoFailed(true)}
             style={{
-              height: 34,
+              height: 32,
               maxWidth: 160,
               width: "auto",
               objectFit: "contain",
               display: "block",
-              filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.5))",
+              filter:
+                "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95)) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.9))",
             }}
           />
         ) : (
@@ -649,8 +647,10 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
               fontSize: 22,
               fontWeight: 800,
               letterSpacing: "0.08em",
-              color: "#fff",
+              color: "#ffffff",
               lineHeight: 1,
+              textShadow:
+                "0 1px 2px rgba(0, 0, 0, 0.95), 0 2px 6px rgba(0, 0, 0, 0.85), 0 0 8px rgba(0, 0, 0, 0.7)",
             }}
           >
             BIDWAR
