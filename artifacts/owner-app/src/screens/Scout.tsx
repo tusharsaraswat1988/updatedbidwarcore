@@ -261,11 +261,11 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted,
               <button
                 type="button"
                 onClick={onViewWarRoom}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border-2 border-amber-500/50 text-amber-200 font-black text-xs transition-all active:scale-95 shrink-0 shadow-lg cursor-pointer"
-                title="Open Pre-Auction AI Strategy War Room"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#141A24] hover:bg-[#1B2230] border border-white/10 text-amber-300 font-bold text-xs transition-all active:scale-95 shrink-0 shadow-sm cursor-pointer"
+                title="Open Strategy Desk"
               >
                 <Target className="w-3.5 h-3.5 text-amber-400" />
-                <span>AI WAR ROOM</span>
+                <span>STRATEGY DESK</span>
               </button>
             )}
             <button
@@ -432,7 +432,7 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted,
             className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <Target className="w-3.5 h-3.5 text-amber-400" />
-            <span>AI Strategy War Room</span>
+            <span>Strategy Desk</span>
           </button>
         ) : (
           <p className="text-[11px] text-[#a8a0c4] uppercase tracking-wider font-semibold">

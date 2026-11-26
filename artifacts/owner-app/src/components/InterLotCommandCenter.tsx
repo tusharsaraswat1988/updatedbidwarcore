@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { Radar, Users, ShieldUser, ArrowRight, Zap, Target, Sparkles } from "lucide-react";
+import { Radar, Users, ShieldUser, ArrowRight, Zap, Target, Sparkles, BarChart3 } from "lucide-react";
 import { useGetTeamScout, getGetTeamScoutQueryKey, useListPlayers, getListPlayersQueryKey } from "@workspace/api-client-react";
 import { formatShortIndianRupee, type resolveAuctionUnit } from "@/lib/format";
 import { isRecognizedRole, computePlanBPivot } from "@/lib/war-room-engine";
@@ -175,13 +175,13 @@ export function InterLotCommandCenter({
 
       {/* ── Center Content: Tactical Grid ── */}
       <div className="my-3 space-y-3 flex-1 flex flex-col justify-center min-h-0 overflow-hidden">
-        {/* Plan-B Tactical Recovery Card (when a shortlisted target was acquired by rival) */}
+        {/* Target Lot Recovery Card */}
         {!suppressPlanBPivot && planBPivot?.isTargetLost && (
-          <div className="bg-gradient-to-r from-amber-500/20 via-purple-500/15 to-[#150f33] rounded-2xl p-3 border border-amber-400/50 shadow-lg">
+          <div className="bg-[#1B2230] rounded-2xl p-3 border border-amber-500/30 shadow-md">
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
-                <span className="text-xs font-black uppercase tracking-wider text-amber-300">
+                <Target className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
                   {planBPivot.headline}
                 </span>
               </div>
@@ -189,25 +189,25 @@ export function InterLotCommandCenter({
                 <button
                   type="button"
                   onClick={onViewWarRoom}
-                  className="px-2 py-0.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-[10px] font-black cursor-pointer transition-colors shrink-0"
+                  className="px-2 py-0.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-[10px] font-bold cursor-pointer transition-colors shrink-0"
                 >
-                  Adjust Strategy
+                  Adjust Plan
                 </button>
               )}
             </div>
-            <p className="text-xs text-[#e4e4e7] leading-relaxed">
+            <p className="text-xs text-[#E1E8ED] leading-relaxed">
               {planBPivot.message}
             </p>
             <div className="mt-2 flex items-center justify-between text-[10px] gap-2">
-              <span className="text-amber-300 font-bold truncate">
-                💡 {planBPivot.recommendedAction}
+              <span className="text-amber-300 font-medium truncate">
+                {planBPivot.recommendedAction}
               </span>
               <button
                 type="button"
                 onClick={onViewScout}
-                className="text-purple-300 hover:text-white font-bold underline cursor-pointer shrink-0"
+                className="text-sky-300 hover:text-white font-medium underline cursor-pointer shrink-0"
               >
-                View Scout →
+                View Pool →
               </button>
             </div>
           </div>
@@ -311,11 +311,11 @@ export function InterLotCommandCenter({
           <button
             type="button"
             onClick={onViewWarRoom}
-            className="flex-1 py-2.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-300 font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer shadow-sm"
-            title="Open Strategy War Room"
+            className="flex-1 py-2.5 px-3 rounded-xl bg-[#2a2458] hover:bg-[#342e6b] border border-amber-400/60 shadow-[0_0_12px_rgba(245,158,11,0.22)] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer"
+            title="Open Strategy Desk"
           >
-            <Target className="w-3.5 h-3.5 text-amber-400" />
-            <span>WAR ROOM</span>
+            <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
+            <span>STRATEGY DESK</span>
           </button>
         )}
         <button

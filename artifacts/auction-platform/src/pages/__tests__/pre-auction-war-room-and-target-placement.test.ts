@@ -238,7 +238,7 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
         expect(res.unfilledSlotsAfterTargets).toBe(3); // 5 - 2 = 3
         expect(res.remainingPursePerSlot).toBe(Math.floor(4_000_000 / 3)); // 1,333,333
         expect(res.status.level).toBe("healthy");
-        expect(res.status.badge).toBe("BALANCED SQUAD PLAN");
+        expect(res.status.badge).toBe("Plan Balanced");
       });
 
       it("evaluates quota fulfillment when shortlisted targets cover all remaining mandatory slots", () => {
@@ -258,8 +258,8 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
         expect(res.isQuotaCoveredByTargets).toBe(true);
         expect(res.surplusPurse).toBe(2_400_000); // 3M - 600k
         expect(res.status.level).toBe("healthy");
-        expect(res.status.badge).toBe("SQUAD QUOTA COVERED");
-        expect(res.status.message).toContain("All 3 mandatory squad slot requirements covered");
+        expect(res.status.badge).toBe("Plan Balanced");
+        expect(res.status.message).toContain("All 3 squad slot requirements covered");
       });
 
       it("evaluates quota deficit risk when remaining purse is insufficient for base prices", () => {
@@ -277,7 +277,7 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
         expect(res.unfilledSlotsAfterTargets).toBe(4);
         expect(res.remainingPursePerSlot).toBe(50_000);
         expect(res.status.level).toBe("deficit");
-        expect(res.status.badge).toBe("QUOTA DEFICIT RISK");
+        expect(res.status.badge).toBe("Tight Reserve");
       });
 
       it("evaluates critical overdraft when shortlisted targets exceed purse", () => {
@@ -292,7 +292,7 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
 
         expect(res.purseAfterTargets).toBe(-300_000);
         expect(res.status.level).toBe("overdraft");
-        expect(res.status.badge).toBe("CRITICAL OVERDRAFT");
+        expect(res.status.badge).toBe("Budget Exceeded");
       });
     });
   });
@@ -402,13 +402,13 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
     it("implements 1-click AI Radar toggle in TacticalWarRoomStrip", () => {
       expect(liveBidSrc).toContain("aiRadarEnabled = true");
       expect(liveBidSrc).toContain("onToggleAiRadar");
-      expect(liveBidSrc).toContain("👁️ AI Radar: ON");
-      expect(liveBidSrc).toContain("👁️ AI Radar: OFF");
+      expect(liveBidSrc).toContain("🎯 Strategy: Full");
+      expect(liveBidSrc).toContain("🎯 Strategy: Min");
     });
 
     it("collapses TacticalWarRoomStrip into a compact 24px micro-pill when AI Radar is OFF", () => {
       expect(liveBidSrc).toContain("h-6 min-h-[24px]");
-      expect(liveBidSrc).toContain("AI Radar: OFF");
+      expect(liveBidSrc).toContain("Strategy: Min");
       expect(liveBidSrc).toContain("· Tap to expand");
     });
 
@@ -434,16 +434,16 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
     it("passes auctionStarted prop to PreAuctionWarRoom for live block auto-return alerts", () => {
       expect(ownerRouteSrc).toContain("auctionStarted={scoutAutoReturn}");
       expect(warRoomSrc).toContain("auctionStarted = false");
-      expect(warRoomSrc).toContain("Player on stage — returning to live bidding block");
+      expect(warRoomSrc).toContain("Player on stage — returning to live bidding");
     });
 
     it("provides direct War Room entry points from Warmup, Scout, and InterLotCommandCenter", () => {
       expect(warmupSrc).toContain("onOpenWarRoom");
-      expect(warmupSrc).toContain("Open AI Strategy War Room");
+      expect(warmupSrc).toContain("Open Strategy Desk");
       expect(scoutSrc).toContain("onViewWarRoom");
-      expect(scoutSrc).toContain("AI WAR ROOM");
+      expect(scoutSrc).toContain("STRATEGY DESK");
       expect(interLotSrc).toContain("onViewWarRoom");
-      expect(interLotSrc).toContain("WAR ROOM");
+      expect(interLotSrc).toContain("STRATEGY DESK");
     });
 
     it("integrates target player toggling and indicators in Scout.tsx unsold list", () => {
@@ -455,7 +455,7 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
     it("integrates OwnerPlayerAuctionHistory into PreAuctionWarRoom for past Top-5 badges and auction dossier", () => {
       expect(warRoomSrc).toContain("OwnerPlayerAuctionHistory");
       expect(warRoomSrc).toContain("expandedHistoryPlayerId");
-      expect(warRoomSrc).toContain("Toggle Player Auction History Dossier");
+      expect(warRoomSrc).toContain("Toggle Player Auction History");
     });
 
     it("guards role breakdown in InterLotCommandCenter against raw Excel placeholders", () => {
@@ -591,8 +591,8 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
       expect(result.soldToTeamName).toBe("Rival Titans");
       expect(result.remainingSimilarCount).toBe(2);
       expect(result.remainingSimilarPlayers.length).toBe(2);
-      expect(result.headline).toContain("PLAN-B PIVOT ACTIVE");
-      expect(result.message).toContain("2 other Batters remain in the draft pool");
+      expect(result.headline).toContain("Target Acquired by Rival");
+      expect(result.message).toContain("2 other Batters remain available in the draft pool");
       expect(result.suggestedHeadroomPct).toBe(15);
     });
 
@@ -621,8 +621,8 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
 
       expect(result.isTargetLost).toBe(true);
       expect(result.remainingSimilarCount).toBe(0);
-      expect(result.headline).toContain("CRITICAL POOL EXHAUSTION");
-      expect(result.message).toContain("last pure Wicketkeeper in the available draft pool");
+      expect(result.headline).toContain("Position Exhausted in Pool");
+      expect(result.message).toContain("No further Wicketkeeper lots remain in the available draft pool");
       expect(result.suggestedHeadroomPct).toBe(15);
     });
 
@@ -652,7 +652,7 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
       expect(liveBidSrc).toContain("ShieldAlert");
       expect(interLotSrc).toContain("computePlanBPivot");
       expect(interLotSrc).toContain("planBPivot?.isTargetLost");
-      expect(interLotSrc).toContain("Adjust Strategy");
+      expect(interLotSrc).toContain("Adjust Plan");
     });
   });
 
@@ -668,7 +668,7 @@ describe("Pre-Auction AI Strategy War Room & Live Precision Placement", () => {
       expect(countdownCardSrc).toContain("Time Remaining Until Auction Starts");
       expect(countdownCardSrc).toContain("formattedDate");
       expect(countdownCardSrc).toContain("formattedTime");
-      expect(countdownCardSrc).toContain("OPEN PRE-AUCTION WAR ROOM");
+      expect(countdownCardSrc).toContain("OPEN STRATEGY DESK");
     });
 
     it("verifies LiveBid detects pre-auction state and avoids misleading LIVE badge or waiting spinner", () => {

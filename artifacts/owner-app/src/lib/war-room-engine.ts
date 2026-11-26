@@ -312,46 +312,46 @@ export function computeBudgetSimulation({
   if (purseAfterTargets < 0) {
     status = {
       level: "overdraft",
-      badge: "CRITICAL OVERDRAFT",
-      color: "text-rose-400 bg-rose-500/20 border-rose-500/40",
-      message: `Targets exceed your remaining purse by ${fmt(
+      badge: "Budget Exceeded",
+      color: "text-rose-400 bg-rose-500/15 border-rose-500/30",
+      message: `Shortlist exceeds remaining purse by ${fmt(
         Math.abs(purseAfterTargets)
-      )}. You cannot afford all shortlisted targets at base prices!`,
+      )}. Adjust target selections or ceiling limits.`,
     };
   } else if (unfilledSlotsAfterTargets > 0 && remainingPursePerSlot < safeMinBase) {
     status = {
       level: "deficit",
-      badge: "QUOTA DEFICIT RISK",
-      color: "text-amber-400 bg-amber-500/20 border-amber-500/40",
-      message: `Warning: Only ${fmt(
+      badge: "Tight Reserve",
+      color: "text-amber-400 bg-amber-500/15 border-amber-500/30",
+      message: `Reserve warning: ${fmt(
         remainingPursePerSlot
-      )}/slot left for ${unfilledSlotsStr}. You risk being unable to meet minimum base prices!`,
+      )}/slot left for ${unfilledSlotsStr}. Minimum base prices must be protected.`,
     };
   } else if (unfilledSlotsAfterTargets > 0 && remainingPursePerSlot < safeMinBase * 1.5) {
     const slotsRemainingStr =
       unfilledSlotsAfterTargets === 1 ? "1 remaining slot" : `${unfilledSlotsAfterTargets} remaining slots`;
     status = {
       level: "tight",
-      badge: "TIGHT PURSE MARGIN",
-      color: "text-yellow-400 bg-yellow-500/20 border-yellow-500/40",
-      message: `Tight reserve: ${fmt(
+      badge: "Moderate Buffer",
+      color: "text-sky-300 bg-sky-500/15 border-sky-500/30",
+      message: `${fmt(
         remainingPursePerSlot
-      )}/slot available for ${slotsRemainingStr}. Stick strictly to walk-away prices.`,
+      )}/slot available for ${slotsRemainingStr}. Plan bids strictly against ceiling limits.`,
     };
   } else if (unfilledSlotsAfterTargets === 0) {
     status = {
       level: "healthy",
-      badge: "SQUAD QUOTA COVERED",
-      color: "text-emerald-400 bg-emerald-500/20 border-emerald-500/40",
-      message: `All ${remainingMandatorySlots} mandatory squad slot requirements covered by your shortlist, with ${fmt(
+      badge: "Plan Balanced",
+      color: "text-emerald-400 bg-emerald-500/15 border-emerald-500/30",
+      message: `All ${remainingMandatorySlots} squad slot requirements covered by your shortlist, with ${fmt(
         purseAfterTargets
-      )} surplus purse remaining.`,
+      )} buffer remaining.`,
     };
   } else {
     status = {
       level: "healthy",
-      badge: "BALANCED SQUAD PLAN",
-      color: "text-emerald-400 bg-emerald-500/20 border-emerald-500/40",
+      badge: "Plan Balanced",
+      color: "text-emerald-400 bg-emerald-500/15 border-emerald-500/30",
       message: `Healthy budget: ${fmt(
         remainingPursePerSlot
       )}/slot preserved for ${unfilledSlotsStr}.`,
@@ -614,7 +614,7 @@ export function computePlanBPivot({
   const remainingCount = remainingSimilar.length;
   const suggestedHeadroomPct = remainingCount <= 2 ? 15 : 10;
 
-  let headline = "⚡ PLAN-B PIVOT ACTIVE";
+  let headline = "Target Acquired by Rival";
   let message = "";
   let recommendedAction = "";
 
@@ -627,14 +627,14 @@ export function computePlanBPivot({
           : `${normRole}s`;
     const remainVerb = remainingCount === 1 ? "remains" : "remain";
 
-    message = `Your target ${lostName} went to ${rivalWinner} for ${fmt(
+    message = `Target ${lostName} was sold to ${rivalWinner} for ${fmt(
       soldAmt
-    )}. No panic! You preserved your purse (${fmt(purseRemaining)}). ${remainingCount} other ${rolePluralStr} ${remainVerb} in the draft pool.`;
-    recommendedAction = `Re-tune your targets in War Room or adjust headroom by +${suggestedHeadroomPct}% for upcoming ${normRole} lots.`;
+    )}. ${remainingCount} other ${rolePluralStr} ${remainVerb} available in the draft pool.`;
+    recommendedAction = `Review remaining pool or adjust strategy for upcoming ${normRole} lots.`;
   } else {
-    headline = "⚠️ CRITICAL POOL EXHAUSTION";
-    message = `Your target ${lostName} went to ${rivalWinner}. That was the last pure ${normRole} in the available draft pool!`;
-    recommendedAction = `Pivot your remaining purse to versatile all-rounders or flex roles in the next rounds.`;
+    headline = "Position Exhausted in Pool";
+    message = `Target ${lostName} was sold to ${rivalWinner}. No further ${normRole} lots remain in the available draft pool.`;
+    recommendedAction = `Allocate remaining purse to flex or all-rounder slots in upcoming rounds.`;
   }
 
   return {

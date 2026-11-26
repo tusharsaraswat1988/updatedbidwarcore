@@ -126,15 +126,15 @@ export function Warmup({ teamName, teamShortCode, teamColor, teamLogoUrl, onRead
           style={{ borderColor: `${teamColor}40`, borderTopColor: teamColor }}
         />
 
-        {/* Pre-Auction Strategy War Room Shortcut */}
+        {/* Pre-Auction Strategy Desk Shortcut */}
         {onOpenWarRoom && (
           <div className="pt-2">
             <button
               type="button"
               onClick={onOpenWarRoom}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#2a2458] hover:bg-[#352e6d] border border-amber-400/40 text-amber-300 font-bold text-xs transition-all shadow-lg active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#141A24] hover:bg-[#1B2230] border border-amber-500/30 text-amber-300 font-semibold text-xs transition-all shadow-md active:scale-95 cursor-pointer"
             >
-              <span>🎯 Open AI Strategy War Room</span>
+              <span>🎯 Open Strategy Desk</span>
             </button>
           </div>
         )}

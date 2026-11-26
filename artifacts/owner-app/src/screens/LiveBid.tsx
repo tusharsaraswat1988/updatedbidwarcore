@@ -1474,11 +1474,11 @@ function TacticalWarRoomStrip({
         <button
           type="button"
           onClick={onToggleAiRadar}
-          className="h-6 min-h-[24px] px-3 rounded-full bg-[#1b1542]/90 hover:bg-[#251d5c] border border-[#4a4478] text-[10px] font-bold text-[#a8a0c4] hover:text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
-          title="AI Radar collapsed. Tap to expand full AI advice."
+          className="h-6 min-h-[24px] px-3 rounded-full bg-[#141A24] hover:bg-[#1B2230] border border-white/10 text-[10px] font-bold text-[#8B98A5] hover:text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+          title="Strategy Overlay collapsed. Tap to expand."
         >
-          <span>👁️ AI Radar: OFF</span>
-          <span className="text-[#6b6490] font-normal">· Tap to expand</span>
+          <span>🎯 Strategy: Min</span>
+          <span className="text-[#8B98A5] font-normal">· Tap to expand</span>
         </button>
       </div>
     );
@@ -1487,21 +1487,21 @@ function TacticalWarRoomStrip({
   const marginConfig = {
     safe: {
       label: "Safe Margin",
-      badgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+      badgeClass: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
       dotClass: "bg-emerald-400",
-      ringClass: "ring-emerald-500/30",
+      ringClass: "ring-emerald-500/20",
     },
     tight: {
       label: "Tight Margin",
-      badgeClass: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+      badgeClass: "bg-amber-500/15 text-amber-300 border-amber-500/30",
       dotClass: "bg-amber-400",
-      ringClass: "ring-amber-500/30",
+      ringClass: "ring-amber-500/20",
     },
     limit: {
-      label: "Quota Limit Reached",
-      badgeClass: "bg-rose-500/20 text-rose-300 border-rose-500/40",
+      label: "Ceiling Limit",
+      badgeClass: "bg-rose-500/15 text-rose-300 border-rose-500/30",
       dotClass: "bg-rose-400",
-      ringClass: "ring-rose-500/30",
+      ringClass: "ring-rose-500/20",
     },
   }[marginStatus];
 
@@ -1509,18 +1509,18 @@ function TacticalWarRoomStrip({
 
   return (
     <div className="w-full flex flex-col gap-1.5 select-none">
-      <div className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-2xl bg-[#1b1542] border border-[#4a4478] shadow-xs">
+      <div className="w-full flex items-center justify-between gap-1.5 px-3 py-1.5 rounded-2xl bg-[#141A24] border border-white/10 shadow-xs">
         {/* Walk-Away Price Pill with Ring Indicator */}
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-          <div className={`w-2.5 h-2.5 rounded-full ${marginConfig.dotClass} animate-pulse shrink-0 ring-4 ${marginConfig.ringClass}`} />
+          <div className={`w-2 h-2 rounded-full ${marginConfig.dotClass} animate-pulse shrink-0 ring-4 ${marginConfig.ringClass}`} />
           <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-wrap">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[#a8a0c4] shrink-0">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[#8B98A5] shrink-0">
               Walk-Away:
             </span>
-            <span className="font-mono font-black text-white text-xs sm:text-sm shrink-0">
+            <span className="font-mono font-bold text-white text-xs sm:text-sm shrink-0">
               {formatIndianRupee(walkAwayPrice, unit)}
             </span>
-            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${marginConfig.badgeClass} shrink-0`}>
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${marginConfig.badgeClass} shrink-0`}>
               {marginConfig.label}
             </span>
           </div>
@@ -1528,23 +1528,23 @@ function TacticalWarRoomStrip({
 
         <div className="flex items-center gap-1.5 shrink-0">
           {/* Rival Outbid Capacity Radar */}
-          <div className="flex items-center gap-1 shrink-0 bg-[#241c56] border border-[#4a4478] px-2 py-0.5 rounded-xl text-[10px]">
+          <div className="flex items-center gap-1 shrink-0 bg-[#1B2230] border border-white/10 px-2 py-0.5 rounded-xl text-[10px]">
             <Radar className="w-3 h-3 text-sky-400 shrink-0" />
-            <span className="font-semibold text-[#a8a0c4] whitespace-nowrap">
+            <span className="font-semibold text-[#8B98A5] whitespace-nowrap">
               <strong className="text-white font-mono font-bold mr-0.5">{rivalOutbidCount}</strong>
               {isMobile ? "outbid" : rivalOutbidCount === 1 ? "rival can outbid" : "rivals can outbid"}
             </span>
           </div>
 
-          {/* 1-Click AI Radar Toggle to collapse */}
+          {/* 1-Click Toggle to collapse */}
           {onToggleAiRadar && (
             <button
               type="button"
               onClick={onToggleAiRadar}
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#241c56] hover:bg-[#322774] border border-[#4a4478] text-[9px] font-bold text-amber-300 transition-all cursor-pointer active:scale-95 shrink-0"
-              title="Click to collapse AI advice into a 24px micro-pill"
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#1B2230] hover:bg-[#252E40] border border-white/10 text-[9px] font-bold text-amber-300 transition-all cursor-pointer active:scale-95 shrink-0"
+              title="Click to collapse strategy strip"
             >
-              <span>👁️ AI Radar: ON</span>
+              <span>🎯 Strategy: Full</span>
             </button>
           )}
         </div>
@@ -1998,9 +1998,9 @@ function LastSoldPlayerCard({
               <button
                 type="button"
                 onClick={onViewWarRoom}
-                className="px-2 py-0.5 rounded bg-amber-400 text-black text-[9px] font-black shrink-0 hover:bg-amber-300 transition-all active:scale-95 cursor-pointer"
+                className="px-2 py-0.5 rounded bg-amber-400 text-black text-[9px] font-bold shrink-0 hover:bg-amber-300 transition-all active:scale-95 cursor-pointer"
               >
-                Open War Room
+                Strategy Desk
               </button>
             )}
           </div>

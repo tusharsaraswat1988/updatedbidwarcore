@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Calendar, Clock, MapPin, Sparkles, ChevronRight, Trophy } from "lucide-react";
+import { Calendar, Clock, MapPin, Sparkles, ChevronRight, Trophy, Target } from "lucide-react";
 import type { DeviceTier } from "@/hooks/useLiveBidLayout";
 
 interface PreAuctionCountdownCardProps {
@@ -263,12 +263,12 @@ export function PreAuctionCountdownCard({
           >
             <div className="flex items-center gap-2.5 text-left">
               <span className="p-1 rounded-lg bg-black/15 text-black">
-                <Sparkles className="w-4 h-4" />
+                <Target className="w-4 h-4" />
               </span>
               <div>
-                <p className="leading-tight font-black tracking-wide">OPEN PRE-AUCTION WAR ROOM</p>
+                <p className="leading-tight font-bold tracking-wide">OPEN STRATEGY DESK</p>
                 <p className="text-[10px] sm:text-[11px] font-semibold opacity-80 leading-none mt-0.5">
-                  Shortlist priority targets & simulate budget allocation
+                  Shortlist priority targets & plan budget allocation
                 </p>
               </div>
             </div>
