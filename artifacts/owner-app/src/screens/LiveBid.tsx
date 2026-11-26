@@ -2155,6 +2155,26 @@ function PurseBoosterCelebration({
   );
 }
 
+const PURSE_BOOSTER_FRESHNESS_MS = 20_000;
+
+function isBoosterSeenInSession(teamId: number, boosterId: number): boolean {
+  if (typeof window === "undefined" || !window.sessionStorage) return false;
+  try {
+    return window.sessionStorage.getItem(`bidwar_booster_seen_${teamId}_${boosterId}`) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markBoosterSeenInSession(teamId: number, boosterId: number): void {
+  if (typeof window === "undefined" || !window.sessionStorage) return;
+  try {
+    window.sessionStorage.setItem(`bidwar_booster_seen_${teamId}_${boosterId}`, "1");
+  } catch {
+    // Ignore quota or security errors in iframe/private browsing mode
+  }
+}
+
 function usePurseBoosterCelebration(
   teamId: number,
   teamPurse: TeamPurse | null,
@@ -2203,20 +2223,44 @@ function usePurseBoosterCelebration(
     const boosterTotal = teamPurse?.boosterTotal ?? 0;
     const boost = lastPurseBooster;
 
+    // 1. Initial hydration: Establish baseline when auction state or purse first arrives.
     if (!hydratedRef.current) {
-      hydratedRef.current = true;
-      lastBoosterIdRef.current = boost?.id ?? null;
-      prevCapacityRef.current = capacity;
-      prevBoosterTotalRef.current = boosterTotal;
+      if (boost || capacity != null) {
+        hydratedRef.current = true;
+        lastBoosterIdRef.current = boost?.id ?? null;
+        prevCapacityRef.current = capacity;
+        prevBoosterTotalRef.current = boosterTotal;
+
+        // Mark existing booster as seen upon baseline so refreshing never re-celebrates it
+        if (boost?.id) {
+          markBoosterSeenInSession(teamId, boost.id);
+        }
+      }
       return;
     }
 
+    // 2. Direct booster notification from auction session
     if (boost && boost.id !== lastBoosterIdRef.current) {
       lastBoosterIdRef.current = boost.id;
       const prevCapacity = prevCapacityRef.current;
       const prevBoosterTotal = prevBoosterTotalRef.current ?? 0;
       prevCapacityRef.current = capacity;
       prevBoosterTotalRef.current = boosterTotal;
+
+      // Check whether this booster has already been seen in this session
+      const alreadySeen = isBoosterSeenInSession(teamId, boost.id);
+      markBoosterSeenInSession(teamId, boost.id);
+
+      // Check whether this booster is fresh (live event) vs stale historical state
+      const appliedTime = boost.appliedAt ? Date.parse(boost.appliedAt) : NaN;
+      const isFresh = Number.isFinite(appliedTime)
+        ? Math.abs(Date.now() - appliedTime) < PURSE_BOOSTER_FRESHNESS_MS
+        : false;
+
+      // Only celebrate if it is a fresh live event AND hasn't been seen yet
+      if (!isFresh || alreadySeen) {
+        return;
+      }
 
       const ownPurseIncreased =
         capacity != null &&
