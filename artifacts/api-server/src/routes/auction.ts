@@ -4225,6 +4225,7 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
           lastAction: "Auction paused for break",
           timerEndsAt: null,
           pausedTimeRemaining,
+          revision: sql`COALESCE(revision, 0) + 1`,
         })
         .where(eq(auctionSessionsTable.tournamentId, tid));
       await tx.update(tournamentsTable).set({ status: "paused" }).where(eq(tournamentsTable.id, tid));

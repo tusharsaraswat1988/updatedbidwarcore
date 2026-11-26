@@ -783,6 +783,15 @@ export default function AuctionOperator() {
 
   function handleBid(teamId: number) {
     if (controlsLocked || bidGateLocked) return;
+    if (!hasPlayer) return;
+    if (!timerActive) {
+      toast({
+        title: "Bidding not started",
+        description: "Click START BIDDING (or press Space) before placing bids.",
+        variant: "destructive",
+      });
+      return;
+    }
     const now = Date.now();
     if ((bidDebounce.current.get(teamId) ?? 0) + 150 > now) return;
     bidDebounce.current.set(teamId, now);
@@ -836,6 +845,11 @@ export default function AuctionOperator() {
       })
       .catch((err) => {
         invalidateFallback();
+        toast({
+          title: "Bid not placed",
+          description: mutationErrorMessage(err, "Could not place bid"),
+          variant: "destructive",
+        });
         logBidLifecycle({
           event: "submit_error",
           tournamentId,
@@ -1328,7 +1342,13 @@ export default function AuctionOperator() {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       switch (e.key.toLowerCase()) {
-        case "enter": if (isPreAuction && !controlsLocked && !startAuction.isPending) handleStartAuction(); break;
+        case "enter":
+          if (isPreAuction && !controlsLocked && !startAuction.isPending) {
+            handleStartAuction();
+          } else if (!timerActive && hasBid && isActive && !sellPlayer.isPending) {
+            handleSell();
+          }
+          break;
         case "s": if (!timerActive && hasBid && isActive && !sellPlayer.isPending) handleSell(); break;
         case "u": if (!timerActive && hasPlayer && isActive && !markUnsold.isPending) handleUnsold(); break;
         case "d": if (!timerActive && hasPlayer && isActive && !deferPlayerMut.isPending) handleDeferPlayer(); break;

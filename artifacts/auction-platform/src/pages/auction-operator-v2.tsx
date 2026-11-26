@@ -580,6 +580,15 @@ export default function AuctionOperatorV2() {
 
   function handleBid(teamId: number) {
     if (controlsLocked || bidGateLocked) return;
+    if (!hasPlayer) return;
+    if (!timerActive) {
+      toast({
+        title: "Bidding not started",
+        description: "Click START BIDDING (or press Space) before placing bids.",
+        variant: "destructive",
+      });
+      return;
+    }
     const now = Date.now();
     if ((bidDebounce.current.get(teamId) ?? 0) + 150 > now) return;
     bidDebounce.current.set(teamId, now);
@@ -606,7 +615,14 @@ export default function AuctionOperatorV2() {
     placeBid
       .mutateAsync({ tournamentId, data: { teamId, amount: nextBidAmount } })
       .then((result) => applyMutationResult(result))
-      .catch(() => invalidateFallback())
+      .catch((err) => {
+        invalidateFallback();
+        toast({
+          title: "Bid not placed",
+          description: mutationErrorMessage(err, "Could not place bid"),
+          variant: "destructive",
+        });
+      })
       .finally(() => {
         if (bidGateTimerRef.current) {
           clearTimeout(bidGateTimerRef.current);
@@ -730,7 +746,11 @@ export default function AuctionOperatorV2() {
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       switch (e.key.toLowerCase()) {
         case "enter":
-          if (isPreAuction && !controlsLocked && !startAuction.isPending) handleStartAuction();
+          if (isPreAuction && !controlsLocked && !startAuction.isPending) {
+            handleStartAuction();
+          } else if (!timerActive && hasBid && isActive && !sellPlayer.isPending) {
+            handleSell();
+          }
           break;
         case "s":
           if (!timerActive && hasBid && isActive && !sellPlayer.isPending) handleSell();
@@ -1486,7 +1506,9 @@ export default function AuctionOperatorV2() {
                     }`}
                     style={{ borderLeft: `4px solid ${team.color || "#888"}` }}
                     title={
-                      isCurrentBidder
+                      !timerActive
+                        ? "Click START BIDDING first to open bidding"
+                        : isCurrentBidder
                         ? "Holding highest bid"
                         : !canAfford
                         ? `Cannot afford next bid (${formatShort(nextBidAmount)} > max allowable ${formatShort(maxB)})`
