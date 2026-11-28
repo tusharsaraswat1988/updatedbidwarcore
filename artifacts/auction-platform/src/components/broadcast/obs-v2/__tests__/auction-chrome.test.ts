@@ -157,4 +157,14 @@ describe("auction outcome patti", () => {
     expect(buildPattiLine(unsold, [])?.text).toBe("Ankit Jain goes unsold for the first time");
     expect(buildPattiLine(unsold, ["ankit jain"])?.text).toBe("Ankit Jain goes unsold again");
   });
+
+  it("renders all sponsors with name, bracketed sponsor type, and dots in the patti ticker", () => {
+    const stageFrame = makeFrame("WAITING");
+    const html = renderToStaticMarkup(createElement(BroadcastStage, { frame: stageFrame }));
+    expect(html).toContain("data-auction-patti");
+    expect(html).toContain("Lions Diamond");
+    expect(html).toContain("(Official Partner)");
+    expect(html).toContain("Apex Cement");
+    expect(html).toContain("bw-patti-dot");
+  });
 });

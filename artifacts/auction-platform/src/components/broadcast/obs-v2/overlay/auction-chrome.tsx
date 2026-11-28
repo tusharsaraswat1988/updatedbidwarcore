@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { BroadcastFrame, FeedStatus, SponsorLogo } from "../contracts";
 import {
@@ -169,8 +169,42 @@ export function AuctionOutcomePatti({ frame }: { frame: BroadcastFrame }) {
   const outcomeArmedRef = useRef(true);
   const [lines, setLines] = useState<PattiLine[]>([]);
 
+  const sponsorLines: PattiLine[] = useMemo(() => {
+    if (!frame.sponsors || frame.sponsors.length === 0) return [];
+    const valid = frame.sponsors.filter((s) => s.name?.trim());
+    if (valid.length === 0) return [];
+    // Ensure sufficient items for smooth marquee train loop
+    const list = valid.length < 4 ? [...valid, ...valid, ...valid, ...valid] : valid;
+    return list.map((s, idx) => {
+      const typeLabel =
+        s.label ||
+        (s.tier === "title"
+          ? "Title Sponsor"
+          : s.tier === "co"
+            ? "Co Sponsor"
+            : s.tier === "live_streaming"
+              ? "Live Streaming Partner"
+              : "Sponsor");
+      return {
+        id: `sponsor:${s.id || s.name}:${idx}`,
+        tone: "sponsor" as const,
+        name: s.name,
+        sponsorType: typeLabel,
+        logoUrl: s.logoUrl,
+        text: typeLabel ? `${s.name} (${typeLabel})` : s.name,
+      };
+    });
+  }, [frame.sponsors]);
+
   const fallback = pattiFallback(frame);
-  const items = lines.length ? lines : fallback ? [{ id: "fallback", text: fallback }] : [];
+  const items = useMemo(() => {
+    if (lines.length > 0 && sponsorLines.length > 0) {
+      return [...lines, ...sponsorLines];
+    }
+    if (lines.length > 0) return lines;
+    if (sponsorLines.length > 0) return sponsorLines;
+    return fallback ? [{ id: "fallback", text: fallback }] : [];
+  }, [lines, sponsorLines, fallback]);
 
   useEffect(() => {
     if (frame.scene !== "SOLD" && frame.scene !== "UNSOLD") {
@@ -201,6 +235,21 @@ export function AuctionOutcomePatti({ frame }: { frame: BroadcastFrame }) {
           <b className="bw-patti-name">{item.name}</b>
           <em className="bw-patti-sold">SOLD AT</em>
           <strong className="bw-patti-amount">{item.amount}</strong>
+        </>
+      ) : item.tone === "sponsor" ? (
+        <>
+          {item.logoUrl ? (
+            <img
+              src={item.logoUrl}
+              alt=""
+              className="bw-patti-sponsor-logo"
+            />
+          ) : null}
+          <b className="bw-patti-name bw-patti-sponsor-name">{item.name}</b>
+          {item.sponsorType ? (
+            <small className="bw-patti-sponsor-type">({item.sponsorType})</small>
+          ) : null}
+          <span className="bw-patti-dot">•</span>
         </>
       ) : (
         item.text

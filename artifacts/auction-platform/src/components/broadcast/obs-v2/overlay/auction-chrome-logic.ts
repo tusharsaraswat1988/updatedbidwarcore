@@ -11,9 +11,11 @@ export const PATTI_CHAR_MS = 26;
 export type PattiLine = {
   id: string;
   text: string;
-  tone?: "sold" | "unsold";
+  tone?: "sold" | "unsold" | "sponsor";
   name?: string;
   amount?: string;
+  sponsorType?: string;
+  logoUrl?: string;
 };
 
 export function sponsorTypeLabel(sponsor: SponsorLogo): string {
