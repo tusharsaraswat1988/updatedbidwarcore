@@ -122,12 +122,19 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
   const [playback, setPlayback] = useState<SponsorPlaybackState>(emptySponsorPlayback);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [show, setShow] = useState(false);
+  const [audioBlocked, setAudioBlocked] = useState(false);
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({
+    width: 1920,
+    height: 1080,
+  });
+  const [mediaDims, setMediaDims] = useState<{ width: number; height: number } | null>(null);
   const localRef = useRef<Map<number, LocalSlot>>(new Map());
   const slotsRef = useRef<SponsorMediaSlotDto[]>([]);
   const playbackRef = useRef(playback);
   const endedCuesRef = useRef<Set<string>>(new Set());
   const playingKeyRef = useRef<string | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const prepareTokenRef = useRef(0);
   const playTokenRef = useRef(0);
@@ -247,7 +254,10 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
   }, [publish, tournamentId]);
 
   const hide = useCallback((status: "ended" | "stopped" | "error", error?: string) => {
+    playTokenRef.current += 1;
     setShow(false);
+    setAudioBlocked(false);
+    setMediaDims(null);
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = null;
@@ -258,6 +268,7 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     if (video) {
       video.loop = false;
       video.muted = true;
+      video.defaultMuted = true;
       video.pause();
       delete video.dataset.boundUrl;
       delete video.dataset.startedToken;
@@ -324,6 +335,8 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     const url = URL.createObjectURL(blob);
     objectUrlRef.current = url;
     playingKeyRef.current = sponsorCacheKey(tournamentId, cue.slotNumber, cue.version);
+    setAudioBlocked(false);
+    setMediaDims(slot.width && slot.height ? { width: slot.width, height: slot.height } : null);
     setObjectUrl(url);
     setShow(true);
     if (videoRef.current) videoRef.current.dataset.playToken = String(token);
@@ -449,6 +462,22 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
   }, [hide, playback.cueId, playback.issuedAt, playback.slotId, show]);
 
   useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !show) return;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        setContainerSize({ width: rect.width, height: rect.height });
+      }
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [show]);
+
+  useEffect(() => {
     if (!show || !objectUrl) return;
     const slot = slotsRef.current.find((item) => item.id === playback.slotId);
     const video = videoRef.current;
@@ -457,8 +486,6 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     const wantAudio = surface === "obs";
     video.loop = false;
     video.volume = wantAudio ? 1 : 0;
-    video.muted = true;
-    video.defaultMuted = true;
 
     const token = playTokenRef.current;
     const tokenKey = String(token);
@@ -471,6 +498,13 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
       finishRound();
     };
 
+    const syncDims = () => {
+      if (playTokenRef.current !== token) return;
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        setMediaDims({ width: video.videoWidth, height: video.videoHeight });
+      }
+    };
+
     const armTimer = () => {
       window.clearTimeout(endTimer);
       if (!Number.isFinite(video.duration) || video.duration <= 0) return;
@@ -478,34 +512,28 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
       endTimer = window.setTimeout(finish, Math.ceil(remainingMs) + 300);
     };
 
-    const tryUnmute = () => {
-      if (!wantAudio || playTokenRef.current !== token) return;
-      try {
-        video.defaultMuted = false;
-        video.muted = false;
-        video.volume = 1;
-        // Chromium / OBS Browser Autoplay Policy Guard:
-        // If unmuting without prior user gesture causes Chromium to pause the video,
-        // immediately re-mute and resume so the video never freezes on screen!
-        if (video.paused) {
-          video.defaultMuted = true;
-          video.muted = true;
-          void video.play().catch(() => {});
-        }
-      } catch {
-        video.defaultMuted = true;
-        video.muted = true;
-        void video.play().catch(() => {});
-      }
+    const fallbackToMutedPlay = () => {
+      if (playTokenRef.current !== token) return;
+      video.defaultMuted = true;
+      video.muted = true;
+      setAudioBlocked(wantAudio);
+      void video
+        .play()
+        .then(() => {
+          armTimer();
+        })
+        .catch((err: unknown) => {
+          if (playTokenRef.current !== token) return;
+          hide("error", err instanceof Error ? err.message : "Playback failed");
+        });
     };
 
     const onPause = () => {
       if (playTokenRef.current !== token) return;
-      // If paused unexpectedly mid-stream while unmuted, re-mute and resume immediately
+      // If paused unexpectedly mid-stream while unmuted (e.g. autoplay policy block),
+      // immediately fall back to muted playback so the video never freezes on screen.
       if (!video.ended && video.dataset.startedToken === tokenKey && !video.muted) {
-        video.defaultMuted = true;
-        video.muted = true;
-        void video.play().catch(() => {});
+        fallbackToMutedPlay();
       }
     };
 
@@ -513,13 +541,21 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
 
     video.addEventListener("ended", onEnded);
     video.addEventListener("loadedmetadata", armTimer);
+    video.addEventListener("loadedmetadata", syncDims);
+    video.addEventListener("resize", syncDims);
     video.addEventListener("durationchange", armTimer);
     video.addEventListener("pause", onPause);
 
-    // Audio unlocker: if user interacts with the OBS browser source, try unmuting!
+    // Audio unlocker: if user clicks/taps anywhere on the browser page, unlock audio live
     const unlockAudio = () => {
-      if (wantAudio && video && !video.ended && video.muted && playTokenRef.current === token) {
-        tryUnmute();
+      if (!wantAudio || playTokenRef.current !== token || video.ended) return;
+      if (!video.muted && !video.paused) return;
+      video.defaultMuted = false;
+      video.muted = false;
+      video.volume = 1;
+      setAudioBlocked(false);
+      if (video.paused) {
+        void video.play().catch(() => fallbackToMutedPlay());
       }
     };
     window.addEventListener("pointerdown", unlockAudio, { passive: true });
@@ -529,6 +565,7 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
       if (playTokenRef.current !== token || video.dataset.boundUrl !== objectUrl) return;
       if (video.dataset.startedToken === tokenKey) return;
       video.dataset.startedToken = tokenKey;
+      syncDims();
 
       try {
         video.currentTime = 0;
@@ -536,32 +573,41 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
         /* metadata not ready yet */
       }
 
-      // Always start with muted=true to guarantee play() succeeds under all browser autoplay policies
-      video.defaultMuted = true;
-      video.muted = true;
-
-      const start = () =>
-        video.play().then(() => {
-          armTimer();
-          if (wantAudio) {
-            tryUnmute();
-          }
-        });
-
-      void start().catch(() => {
-        if (playTokenRef.current !== token) return;
-        video.defaultMuted = true;
-        video.muted = true;
+      if (wantAudio) {
+        // Attempt unmuted playback first so OBS Browser Source (CEF) and engaged tabs
+        // play full audio from frame 0 without a muted->unmuted transition glitch.
+        video.defaultMuted = false;
+        video.muted = false;
+        video.volume = 1;
         void video
           .play()
           .then(() => {
+            if (playTokenRef.current !== token) return;
+            if (video.paused) {
+              fallbackToMutedPlay();
+              return;
+            }
+            setAudioBlocked(false);
             armTimer();
           })
-          .catch((err: unknown) => {
-            if (playTokenRef.current !== token) return;
-            hide("error", err instanceof Error ? err.message : "Playback failed");
+          .catch(() => {
+            fallbackToMutedPlay();
           });
-      });
+        return;
+      }
+
+      video.defaultMuted = true;
+      video.muted = true;
+      setAudioBlocked(false);
+      void video
+        .play()
+        .then(() => {
+          armTimer();
+        })
+        .catch((err: unknown) => {
+          if (playTokenRef.current !== token) return;
+          hide("error", err instanceof Error ? err.message : "Playback failed");
+        });
     };
 
     const alreadyStarted = video.dataset.startedToken === tokenKey;
@@ -573,9 +619,7 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     if (alreadyStarted && video.ended) {
       finish();
     } else if (alreadyStarted && video.paused) {
-      video.defaultMuted = true;
-      video.muted = true;
-      void video.play().catch(() => {});
+      void video.play().catch(() => fallbackToMutedPlay());
       armTimer();
     } else if (!alreadyStarted && video.readyState >= 2) {
       onReady();
@@ -584,6 +628,7 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
       video.addEventListener("canplay", onReady, { once: true });
     } else {
       armTimer();
+      syncDims();
     }
 
     return () => {
@@ -592,6 +637,8 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
       video.removeEventListener("canplay", onReady);
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("loadedmetadata", armTimer);
+      video.removeEventListener("loadedmetadata", syncDims);
+      video.removeEventListener("resize", syncDims);
       video.removeEventListener("durationchange", armTimer);
       video.removeEventListener("pause", onPause);
       window.removeEventListener("pointerdown", unlockAudio);
@@ -602,8 +649,28 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
   const activeSlot = slots.find((slot) => slot.id === playback.slotId);
   if (!show || !objectUrl) return null;
 
+  const naturalW = mediaDims?.width ?? (activeSlot?.width && activeSlot.width > 0 ? activeSlot.width : 0);
+  const naturalH = mediaDims?.height ?? (activeSlot?.height && activeSlot.height > 0 ? activeSlot.height : 0);
+
+  let offsetRight = 0;
+  let offsetBottom = 0;
+  let renderedW = containerSize.width;
+  if (containerSize.width > 0 && containerSize.height > 0 && naturalW > 0 && naturalH > 0) {
+    const scale = Math.min(containerSize.width / naturalW, containerSize.height / naturalH);
+    renderedW = naturalW * scale;
+    const renderedH = naturalH * scale;
+    offsetRight = Math.max(0, (containerSize.width - renderedW) / 2);
+    offsetBottom = Math.max(0, (containerSize.height - renderedH) / 2);
+  }
+
+  const isPortraitMedia = naturalW > 0 && naturalH > 0 && naturalH > naturalW;
+  const insetRight = isPortraitMedia ? Math.min(24, Math.max(12, Math.round(renderedW * 0.04))) : 36;
+  const watermarkRight = Math.round(offsetRight + insetRight);
+  const watermarkBottom = Math.max(112, Math.round(offsetBottom + 24));
+
   return (
     <div
+      ref={containerRef}
       style={{ position: cover, inset: 0, zIndex: 90, background: "#000", pointerEvents: "none" }}
       aria-hidden
     >
@@ -612,6 +679,12 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
           src={objectUrl}
           alt=""
           style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          onLoad={(event) => {
+            const img = event.currentTarget;
+            if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+              setMediaDims({ width: img.naturalWidth, height: img.naturalHeight });
+            }
+          }}
           onError={(event) => {
             if (event.currentTarget.src !== objectUrlRef.current) return;
             hide("error", "Player could not load this asset");
@@ -645,11 +718,51 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
           }}
         />
       )}
+      {audioBlocked && surface === "obs" && activeSlot?.assetType === "video" ? (
+        <button
+          type="button"
+          onClick={() => {
+            const video = videoRef.current;
+            if (!video || video.ended) return;
+            video.defaultMuted = false;
+            video.muted = false;
+            video.volume = 1;
+            setAudioBlocked(false);
+            if (video.paused) {
+              void video.play().catch(() => {});
+            }
+          }}
+          style={{
+            position: "absolute",
+            top: 24,
+            right: 24,
+            zIndex: 10,
+            pointerEvents: "auto",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 14px",
+            borderRadius: 9999,
+            background: "rgba(0, 0, 0, 0.78)",
+            border: "1px solid rgba(255, 255, 255, 0.25)",
+            color: "#ffffff",
+            fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
+            fontSize: 12,
+            fontWeight: 600,
+            boxShadow: "0 4px 16px rgba(0, 0, 0, 0.5)",
+            transform: "translateZ(0)",
+          }}
+        >
+          <span>🔇</span>
+          <span>Click anywhere to enable audio</span>
+        </button>
+      ) : null}
       <div
         style={{
           position: "absolute",
-          bottom: 112,
-          right: 36,
+          bottom: watermarkBottom,
+          right: watermarkRight,
           zIndex: 5,
           display: "flex",
           flexDirection: "column",
@@ -657,6 +770,7 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
           gap: 4,
           pointerEvents: "none",
           userSelect: "none",
+          transform: "translateZ(0)",
         }}
       >
         <span
@@ -681,7 +795,7 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
             onError={() => setLogoFailed(true)}
             style={{
               height: 32,
-              maxWidth: 160,
+              maxWidth: isPortraitMedia ? Math.min(160, Math.max(96, Math.round(renderedW * 0.4))) : 160,
               width: "auto",
               objectFit: "contain",
               display: "block",
