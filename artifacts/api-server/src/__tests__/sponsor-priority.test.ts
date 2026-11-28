@@ -81,12 +81,19 @@ describe("live streaming partner", () => {
     expect(ordered[1]?.priorityType).toBe(SponsorPriorityType.LIVE_STREAMING_PARTNER);
   });
 
-  it("allows only one live streaming partner", () => {
-    const result = validateSponsorList([
+  it("allows up to two live streaming partners and rejects three", () => {
+    const valid = validateSponsorList([
       { url: "https://a", isLiveStreamingPartner: true },
       { url: "https://b", isLiveStreamingPartner: true },
     ]);
-    expect(result).toEqual({
+    expect(valid).toEqual({ ok: true });
+
+    const invalid = validateSponsorList([
+      { url: "https://a", isLiveStreamingPartner: true },
+      { url: "https://b", isLiveStreamingPartner: true },
+      { url: "https://c", isLiveStreamingPartner: true },
+    ]);
+    expect(invalid).toEqual({
       ok: false,
       error: SPONSOR_VALIDATION_ERRORS.liveStreamingPartnerLimit,
     });

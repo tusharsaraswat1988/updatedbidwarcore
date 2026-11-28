@@ -91,7 +91,7 @@ export function WeddingCricketBroadcastStage({
   hideAssociateSponsor = false,
   weddingBranding,
 }: WeddingCricketBroadcastStageProps) {
-  const { liveStreaming, associates } = splitBroadcastSponsors(frame.sponsors);
+  const { liveStreamingPartners, associates } = splitBroadcastSponsors(frame.sponsors);
   const isCricketScene = frame.scene === "CRICKET";
   const cricketModel = isCricketScene ? (frame.model as CricketScoreModel) : null;
 
@@ -120,11 +120,7 @@ export function WeddingCricketBroadcastStage({
       {/* ── ZONE 2: CAMERA SAFE AREA (96–880px, 100% TRANSPARENT) ── */}
       {/* Live Streaming Partner Bug — docked safely on the lower left above scorebug */}
       <LiveStreamingPartnerBug
-        sponsor={
-          liveStreaming
-            ? { name: liveStreaming.name, logoUrl: liveStreaming.logoUrl }
-            : null
-        }
+        sponsors={liveStreamingPartners.map((s) => ({ name: s.name, logoUrl: s.logoUrl }))}
         style={{ left: 72, bottom: 216 }}
       />
 

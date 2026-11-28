@@ -105,7 +105,7 @@ function BroadcastStageInner({
   const frame = useBroadcastDirector();
   const auction = frame.scene !== "CRICKET";
   const showPrize = auction && Boolean(prizePlate?.line1 && prizePlate?.line2);
-  const { liveStreaming, title, associates } = splitBroadcastSponsors(frame.sponsors);
+  const { liveStreamingPartners, title, associates } = splitBroadcastSponsors(frame.sponsors);
 
   return (
     <div
@@ -135,11 +135,7 @@ function BroadcastStageInner({
         </>
       ) : (
         <LiveStreamingPartnerBug
-          sponsor={
-            liveStreaming
-              ? { name: liveStreaming.name, logoUrl: liveStreaming.logoUrl }
-              : null
-          }
+          sponsors={liveStreamingPartners.map((s) => ({ name: s.name, logoUrl: s.logoUrl }))}
           style={{ left: 72, bottom: 216 }}
         />
       )}

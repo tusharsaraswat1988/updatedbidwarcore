@@ -33,15 +33,16 @@ export function sponsorGlow(sponsor: SponsorLogo): "title" | "co" | "none" {
 
 /**
  * Header-right slot.
- * Live Streaming Partner owns it. With none selected, title and co-sponsors take the slot.
+ * Live Streaming Partner(s) own it. With none selected, title and co-sponsors take the slot.
  */
 export function headerRightSponsors(sponsors: SponsorLogo[]): {
   mode: "live" | "featured" | "empty";
   items: SponsorLogo[];
 } {
-  const { liveStreaming, explicitTitle, coSponsors } = splitBroadcastSponsors(sponsors);
-  if (liveStreaming && (liveStreaming.name || liveStreaming.logoUrl)) {
-    return { mode: "live", items: [liveStreaming] };
+  const { liveStreamingPartners, explicitTitle, coSponsors } = splitBroadcastSponsors(sponsors);
+  const activeLive = liveStreamingPartners.filter((s) => s.name || s.logoUrl);
+  if (activeLive.length > 0) {
+    return { mode: "live", items: activeLive };
   }
   const featured = [
     ...(explicitTitle && (explicitTitle.name || explicitTitle.logoUrl) ? [explicitTitle] : []),

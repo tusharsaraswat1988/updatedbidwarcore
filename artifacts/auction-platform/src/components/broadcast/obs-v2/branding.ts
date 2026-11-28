@@ -80,15 +80,16 @@ export function mapSponsors(sponsorLogos: BidWarSponsorLogo[]): LovableSponsorLo
   });
 }
 
-/** Pull the permanent live-streaming slot out of the rotating sponsor pool. */
+/** Pull the permanent live-streaming slot(s) out of the rotating sponsor pool. */
 export function splitBroadcastSponsors(sponsors: LovableSponsorLogo[]) {
-  const liveStreaming = sponsors.find((s) => s.tier === "live_streaming");
+  const liveStreamingPartners = sponsors.filter((s) => s.tier === "live_streaming");
+  const liveStreaming = liveStreamingPartners[0];
   const pool = sponsors.filter((s) => s.tier !== "live_streaming");
   const explicitTitle = pool.find((s) => s.tier === "title");
   const title = explicitTitle || pool[0];
   const coSponsors = pool.filter((s) => s.tier === "co");
   const associates = pool.filter((s) => s.id !== title?.id);
-  return { liveStreaming, title, explicitTitle, coSponsors, associates };
+  return { liveStreaming, liveStreamingPartners, title, explicitTitle, coSponsors, associates };
 }
 
 /**

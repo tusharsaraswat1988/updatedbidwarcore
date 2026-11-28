@@ -10,18 +10,23 @@ const SHOW_EVERY_MS = 60_000;
 const VISIBLE_MS = 5_000;
 const FADE_MS = 600;
 
-/** Hidden, then on screen for 5 seconds at the end of every minute. */
-function useMinutePulse(active: boolean): boolean {
+/** Hidden, then on screen for 5 seconds periodically, alternating between sponsors. */
+function useRotatingPulse(totalItems: number): { visible: boolean; index: number } {
   const [visible, setVisible] = useState(false);
+  const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    if (!active) {
+    if (totalItems <= 0) {
       setVisible(false);
+      setIndex(0);
       return;
     }
     let showTimer = 0;
     let hideTimer = 0;
     let cancelled = false;
+    // When there are 2 sponsors, interval is 30s so each sponsor gets shown once every minute.
+    const intervalMs = Math.round(SHOW_EVERY_MS / Math.max(1, totalItems));
+
     const arm = () => {
       showTimer = window.setTimeout(() => {
         if (cancelled) return;
@@ -29,9 +34,15 @@ function useMinutePulse(active: boolean): boolean {
         hideTimer = window.setTimeout(() => {
           if (cancelled) return;
           setVisible(false);
+          // Wait for fade-out before updating index so the transition is seamless
+          window.setTimeout(() => {
+            if (!cancelled) {
+              setIndex((prev) => (prev + 1) % totalItems);
+            }
+          }, FADE_MS);
           arm();
         }, VISIBLE_MS);
-      }, SHOW_EVERY_MS);
+      }, intervalMs);
     };
     arm();
     return () => {
@@ -39,29 +50,41 @@ function useMinutePulse(active: boolean): boolean {
       window.clearTimeout(showTimer);
       window.clearTimeout(hideTimer);
     };
-  }, [active]);
+  }, [totalItems]);
 
-  return visible;
+  return { visible, index: totalItems > 0 ? index % totalItems : 0 };
 }
 
 /**
- * OBS bug for the Live Streaming Partner.
- * Logo, brand name, and the fixed sponsor type fade in for 5 seconds after every minute.
+ * OBS bug for the Live Streaming Partner(s).
+ * Logo, brand name, and the fixed sponsor type fade in for 5 seconds periodically.
+ * When two Live Streaming Partners are configured, they alternate one after the other.
  */
 export function LiveStreamingPartnerBug({
   sponsor,
+  sponsors,
   className,
   style,
 }: {
   sponsor?: LiveStreamingPartnerBugSponsor | null;
+  sponsors?: (LiveStreamingPartnerBugSponsor | null | undefined)[] | null;
   className?: string;
   style?: CSSProperties;
 }) {
-  const name = sponsor?.name?.trim() || "";
-  const logoUrl = sponsor?.logoUrl?.trim() || "";
-  const active = Boolean(name || logoUrl);
-  const visible = useMinutePulse(active);
-  if (!active) return null;
+  const normalizedSponsors: LiveStreamingPartnerBugSponsor[] = (
+    sponsors && sponsors.length > 0
+      ? sponsors
+      : sponsor
+        ? [sponsor]
+        : []
+  ).filter((s): s is LiveStreamingPartnerBugSponsor => Boolean(s?.name?.trim() || s?.logoUrl?.trim()));
+
+  const { visible, index } = useRotatingPulse(normalizedSponsors.length);
+  if (normalizedSponsors.length === 0) return null;
+
+  const currentSponsor = normalizedSponsors[index] ?? normalizedSponsors[0];
+  const name = currentSponsor?.name?.trim() || "";
+  const logoUrl = currentSponsor?.logoUrl?.trim() || "";
 
   return (
     <div

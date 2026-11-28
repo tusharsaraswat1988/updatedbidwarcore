@@ -38,6 +38,16 @@ describe("auction header sponsor slot", () => {
     expect(slot.items[0]?.label).toBe("LIVE STREAMING PARTNER");
   });
 
+  it("includes all live streaming partners (up to 2) in header right slot", () => {
+    const multiLive = mapSponsors([
+      { url: "/stream1.png", name: "Stream1", isLiveStreamingPartner: true },
+      { url: "/stream2.png", name: "Stream2", isLiveStreamingPartner: true },
+    ]);
+    const slot = headerRightSponsors(multiLive);
+    expect(slot.mode).toBe("live");
+    expect(slot.items.map((s) => s.name)).toEqual(["Stream1", "Stream2"]);
+  });
+
   it("falls back to title and co-sponsors when no live streaming partner is selected", () => {
     const withoutLive = sponsors.filter((s) => s.tier !== "live_streaming");
     const slot = headerRightSponsors(withoutLive);

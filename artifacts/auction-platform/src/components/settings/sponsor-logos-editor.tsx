@@ -54,7 +54,7 @@ const CO_SPONSOR_INFO =
   "Second highest branding category (Max 3). Shown alongside Title Sponsor on overlays, banners, and big screen displays.";
 
 const LIVE_STREAMING_PARTNER_INFO =
-  "Fixed category (Max 1). The linked sponsor stays on the OBS broadcast with logo, name, and this sponsor type.";
+  "Fixed category (Max 2). Displays on the OBS broadcast with alternating rotation when two are configured.";
 
 const SPONSOR_ROW_GRID =
   "grid-cols-1 md:grid-cols-[3.5rem_minmax(140px,1.4fr)_minmax(130px,1.2fr)_210px_136px]";
@@ -180,13 +180,13 @@ function SponsorCountSummary({ logos, compact = false }: { logos: SponsorLogo[];
             {coCount}/3 Co-Sponsors
           </Badge>
         )}
-        {liveCount > 1 && (
+        {liveCount > 2 && (
           <Badge
             variant="outline"
             className="text-xs px-2 py-0.5 border-destructive/60 bg-destructive/15 text-destructive font-semibold flex items-center gap-1"
           >
             <AlertTriangle className="w-3 h-3 text-destructive" />
-            {liveCount}/1 Live Streaming Partner
+            {liveCount}/2 Live Streaming Partners
           </Badge>
         )}
       </div>
@@ -228,13 +228,13 @@ function SponsorCountSummary({ logos, compact = false }: { logos: SponsorLogo[];
         <Badge
           variant="outline"
           className={`text-xs px-2 py-0.5 font-medium flex items-center gap-1 ${
-            liveCount > 1
+            liveCount > 2
               ? "border-destructive/60 bg-destructive/15 text-destructive font-semibold"
               : "border-cyan-500/50 bg-cyan-500/10 text-cyan-300"
           }`}
         >
-          {liveCount > 1 ? <AlertTriangle className="w-3 h-3 text-destructive" /> : <Radio className="w-3 h-3 text-cyan-400" />}
-          {liveCount}/1 Live Streaming Partner
+          {liveCount > 2 ? <AlertTriangle className="w-3 h-3 text-destructive" /> : <Radio className="w-3 h-3 text-cyan-400" />}
+          {liveCount}/2 Live Streaming {liveCount === 1 ? "Partner" : "Partners"}
         </Badge>
       ) : null}
     </div>
@@ -378,11 +378,11 @@ export function SponsorLogosToolbar({
 
 function resolveSponsorConflict(logos: SponsorLogo[], error: string): SponsorLogo[] {
   if (error === SPONSOR_VALIDATION_ERRORS.liveStreamingPartnerLimit) {
-    let seen = false;
+    let count = 0;
     return logos.map((l) => {
       if (isLiveStreamingPartnerLogo(l)) {
-        if (!seen) {
-          seen = true;
+        if (count < 2) {
+          count++;
           return l;
         }
         return {
@@ -508,7 +508,7 @@ export function SponsorLogosEditor({
                   className="h-7 text-xs border-destructive/40 hover:bg-destructive/15 gap-1 font-semibold"
                   onClick={() => setFilterTier("live")}
                 >
-                  <Radio className="w-3 h-3 text-cyan-400" /> View Live (2)
+                  <Radio className="w-3 h-3 text-cyan-400" /> View Live ({liveCount})
                 </Button>
                 <Button
                   type="button"
@@ -519,7 +519,7 @@ export function SponsorLogosEditor({
                     onChange(resolved);
                     toast({
                       title: "Conflict resolved",
-                      description: "Kept first Live Streaming Partner and demoted extra to Standard.",
+                      description: "Kept first 2 Live Streaming Partners and demoted extra to Standard.",
                     });
                   }}
                 >
@@ -696,8 +696,8 @@ export function SponsorLogosEditor({
                   Rotates alongside Title Sponsor on top broadcast overlays, TV graphics, and player cards.
                 </div>
                 <div className="p-2 rounded-md bg-white border border-slate-200 shadow-xs">
-                  <span className="font-bold text-sky-900 block mb-0.5">LIVE STREAMING PARTNER (Max 1)</span>
-                  Permanently pinned on the OBS live stream chyron overlay with custom live streaming designation.
+                  <span className="font-bold text-sky-900 block mb-0.5">LIVE STREAMING PARTNER (Max 2)</span>
+                  Rotates alternately on the OBS live stream chyron overlay with custom live streaming designation.
                 </div>
               </div>
             </div>
@@ -927,10 +927,10 @@ export function SponsorLogosEditor({
                         </SelectItem>
                         <SelectItem
                           value="live"
-                          disabled={!isLive && liveCount >= 1}
+                          disabled={!isLive && liveCount >= 2}
                           className="text-xs text-sky-900 font-bold"
                         >
-                          LIVE STREAMING PARTNER {!isLive && liveCount >= 1 ? "(1/1 Full)" : "(Max 1)"}
+                          LIVE STREAMING PARTNER {!isLive && liveCount >= 2 ? "(2/2 Full)" : `(${liveCount}/2)`}
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -1059,7 +1059,7 @@ export function SponsorLogosEditor({
         <div className="space-y-0.5">
           <p className="text-foreground/90 font-medium">Sponsor Rotation &amp; Overlay Logic:</p>
           <p className="text-[11px] leading-relaxed">
-            Logos cycle on the live LED screen every 4 seconds. <span className="text-amber-300 font-medium">Title Sponsor</span> (max 1) and <span className="text-violet-300 font-medium">Co-Sponsors</span> (max 3) receive primary placement on broadcast overlays, live stream headers, and auction reports. <span className="text-cyan-300 font-medium">LIVE STREAMING PARTNER</span> (max 1) stays on the OBS broadcast with logo, name, and sponsor type.
+            Logos cycle on the live LED screen every 4 seconds. <span className="text-amber-300 font-medium">Title Sponsor</span> (max 1) and <span className="text-violet-300 font-medium">Co-Sponsors</span> (max 3) receive primary placement on broadcast overlays, live stream headers, and auction reports. <span className="text-cyan-300 font-medium">LIVE STREAMING PARTNER</span> (max 2) alternates on the OBS broadcast with logo, name, and sponsor type.
           </p>
         </div>
       </div>

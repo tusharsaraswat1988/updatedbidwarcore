@@ -24,7 +24,7 @@ import { useBadmintonMatch } from "@/hooks/use-badminton-match";
 import { useBadmintonLiveFollow } from "@/hooks/use-badminton-live-follow";
 import { sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
 import { useBadmintonLeaderboardBoards } from "@/hooks/use-badminton-leaderboard-boards";
-import { findLiveStreamingPartner, type SponsorLogo } from "@/lib/sponsor-logo";
+import { findLiveStreamingPartners, type SponsorLogo } from "@/lib/sponsor-logo";
 import { LiveStreamingPartnerBug } from "@/components/broadcast/obs/live-streaming-partner-bug";
 import {
   detectGamePointSide,
@@ -194,8 +194,8 @@ export default function BadmintonOverlayPage() {
     }
     return resolvePinnedSponsorLogos(brandingSponsors, branding?.pinnedSponsorUrl);
   }, [sponsorParam, brandingSponsors, branding?.pinnedSponsorUrl]);
-  const liveStreamingPartner = useMemo(
-    () => findLiveStreamingPartner(sponsorLogos),
+  const liveStreamingPartners = useMemo(
+    () => findLiveStreamingPartners(sponsorLogos),
     [sponsorLogos],
   );
   const scoreBoardSponsor = useMemo(
@@ -263,11 +263,7 @@ export default function BadmintonOverlayPage() {
       style={{ ...stageStyle, background: "transparent" }}
     >
       <LiveStreamingPartnerBug
-        sponsor={
-          liveStreamingPartner
-            ? { name: liveStreamingPartner.name, logoUrl: liveStreamingPartner.url }
-            : null
-        }
+        sponsors={liveStreamingPartners.map((s) => ({ name: s.name, logoUrl: s.url }))}
         className="top-[14vh] left-[2.5vw] z-40"
       />
       {loadError ? (

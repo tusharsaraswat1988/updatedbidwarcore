@@ -57,7 +57,7 @@ export function CricketBroadcastStage({
   hideFooter = false,
   hideAssociateSponsor = false,
 }: CricketBroadcastStageProps) {
-  const { liveStreaming, title, associates } = splitBroadcastSponsors(frame.sponsors);
+  const { liveStreamingPartners, title, associates } = splitBroadcastSponsors(frame.sponsors);
   const isCricketScene = frame.scene === "CRICKET";
   const cricketModel = isCricketScene ? (frame.model as CricketScoreModel) : null;
 
@@ -98,13 +98,9 @@ export function CricketBroadcastStage({
       {/* Compact LIVE bug just below header on the right */}
       <LiveBroadcastBug feed={frame.feed.status} />
 
-      {/* Live Streaming Partner — 5 seconds each minute, above the scorebug */}
+      {/* Live Streaming Partner(s) — 5 seconds each minute, alternating if 2 partners */}
       <LiveStreamingPartnerBug
-        sponsor={
-          liveStreaming
-            ? { name: liveStreaming.name, logoUrl: liveStreaming.logoUrl }
-            : null
-        }
+        sponsors={liveStreamingPartners.map((s) => ({ name: s.name, logoUrl: s.logoUrl }))}
         style={{ left: 72, bottom: 216 }}
       />
 

@@ -9,6 +9,7 @@ export {
   buildSponsorTickerText,
   formatSponsorTickerSegment,
   findLiveStreamingPartner,
+  findLiveStreamingPartners,
   getPrimarySponsor,
   getSponsorsByPriority,
   isLiveStreamingPartnerLogo,

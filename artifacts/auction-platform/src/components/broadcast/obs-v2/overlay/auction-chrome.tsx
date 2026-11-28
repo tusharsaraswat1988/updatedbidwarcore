@@ -54,7 +54,7 @@ function SponsorMark({
 export function HeaderSponsorSlot({ sponsors }: { sponsors: SponsorLogo[] }) {
   const slot = headerRightSponsors(sponsors);
   const [index, setIndex] = useState(0);
-  const rotating = slot.items.length > 2;
+  const rotating = slot.mode === "live" ? slot.items.length > 1 : slot.items.length > 2;
 
   useEffect(() => {
     setIndex(0);

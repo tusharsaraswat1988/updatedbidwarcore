@@ -51,7 +51,7 @@ export const SPONSOR_TIER_WEIGHT: Record<SponsorPriorityType, number> = {
 export const SPONSOR_VALIDATION_ERRORS = {
   titleLimit: "Only one Title Sponsor is allowed.",
   coSponsorLimit: "Maximum 3 Co Sponsors are allowed.",
-  liveStreamingPartnerLimit: "Only one Live Streaming Partner is allowed.",
+  liveStreamingPartnerLimit: "Maximum 2 Live Streaming Partners are allowed.",
   mutualExclusivity: "A sponsor cannot be both Title Sponsor and Co Sponsor.",
   liveStreamingMutualExclusivity:
     "A Live Streaming Partner cannot also be Title Sponsor or Co Sponsor.",
@@ -282,7 +282,7 @@ export function validateSponsorList(
   if (coCount > 3) {
     return { ok: false, error: SPONSOR_VALIDATION_ERRORS.coSponsorLimit };
   }
-  if (liveStreamingCount > 1) {
+  if (liveStreamingCount > 2) {
     return { ok: false, error: SPONSOR_VALIDATION_ERRORS.liveStreamingPartnerLimit };
   }
 
@@ -343,15 +343,20 @@ export function isLiveStreamingPartnerLogo(
   return resolveSponsorPriorityType(sponsor) === SponsorPriorityType.LIVE_STREAMING_PARTNER;
 }
 
+/** All Live Streaming Partners in priority order. */
+export function findLiveStreamingPartners(
+  sponsors: readonly SponsorLogo[],
+): PrioritizedSponsor[] {
+  return getSponsorsByPriority(sponsors).filter((sponsor) =>
+    isLiveStreamingPartnerLogo(sponsor),
+  );
+}
+
 /** First Live Streaming Partner in priority order, if the list has one. */
 export function findLiveStreamingPartner(
   sponsors: readonly SponsorLogo[],
 ): PrioritizedSponsor | null {
-  return (
-    getSponsorsByPriority(sponsors).find((sponsor) =>
-      isLiveStreamingPartnerLogo(sponsor),
-    ) ?? null
-  );
+  return findLiveStreamingPartners(sponsors)[0] ?? null;
 }
 
 export function buildSponsorTickerText(logos: readonly SponsorLogo[]): string {
