@@ -363,19 +363,12 @@
   line-height: 1.05;
 }
 .bw-fade-name {
-  font-family: var(--bw-font-display);
+  font-family: var(--bw-font-heading);
   font-size: 26px;
   font-weight: 800;
   letter-spacing: 0.02em;
   color: #ffffff;
-  text-shadow:
-    -1px -1px 0 #000000,
-     1px -1px 0 #000000,
-    -1px  1px 0 #000000,
-     1px  1px 0 #000000,
-     0 1px 2px #000000,
-     0 2px 5px rgba(0, 0, 0, 0.98),
-     0 4px 12px rgba(0, 0, 0, 0.95);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.62);
   white-space: nowrap;
   max-width: 360px;
   overflow: hidden;
@@ -388,35 +381,13 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--bw-gold);
-  text-shadow:
-    -1px -1px 0 #000000,
-     1px -1px 0 #000000,
-    -1px  1px 0 #000000,
-     1px  1px 0 #000000,
-     0 1px 2px #000000,
-     0 2px 5px rgba(0, 0, 0, 0.95);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.58);
 }
 .bw-fade-sponsor[data-glow="title"] .bw-fade-name {
-  text-shadow:
-    -1px -1px 0 #000000,
-     1px -1px 0 #000000,
-    -1px  1px 0 #000000,
-     1px  1px 0 #000000,
-     0 0 14px rgba(255, 215, 0, 0.55),
-     0 1px 2px #000000,
-     0 2px 5px rgba(0, 0, 0, 0.98),
-     0 4px 12px rgba(0, 0, 0, 0.95);
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.24), 0 1px 3px rgba(0, 0, 0, 0.62);
 }
 .bw-fade-sponsor[data-glow="co"] .bw-fade-name {
-  text-shadow:
-    -1px -1px 0 #000000,
-     1px -1px 0 #000000,
-    -1px  1px 0 #000000,
-     1px  1px 0 #000000,
-     0 0 12px rgba(190, 214, 235, 0.5),
-     0 1px 2px #000000,
-     0 2px 5px rgba(0, 0, 0, 0.98),
-     0 4px 12px rgba(0, 0, 0, 0.95);
+  text-shadow: 0 0 8px rgba(190, 214, 235, 0.22), 0 1px 3px rgba(0, 0, 0, 0.62);
 }
 .bw-fade-sponsor[data-glow="co"] .bw-fade-type {
   color: rgba(214, 226, 240, 0.95);
@@ -1005,7 +976,7 @@
 .bw-patti-track {
   display: flex;
   width: max-content;
-  animation: bw-patti-train 36s linear infinite;
+  animation: bw-patti-train 60s linear infinite;
 }
 .bw-patti-half {
   display: flex;
@@ -1017,11 +988,13 @@
 .bw-patti-name,
 .bw-patti-sold,
 .bw-patti-amount {
-  font-family: var(--bw-font-display);
-  font-size: 20px;
+  font-family: var(--bw-font-heading);
+  font-size: 21px;
   font-weight: 800;
   font-style: normal;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.035em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
   line-height: 1;
 }
 .bw-patti-item {
@@ -1058,8 +1031,8 @@
   color: var(--bw-gold);
   font-family: var(--bw-font-heading);
   font-weight: 800;
-  font-size: 19px;
-  letter-spacing: 0.04em;
+  font-size: 20px;
+  letter-spacing: 0.025em;
 }
 .bw-patti-sponsor-type {
   color: var(--bw-ink-mute);
@@ -1108,21 +1081,10 @@
 .bw-stage[data-perf="on"] .bw-slot-logo { filter: none; box-shadow: none; text-shadow: none; }
 .bw-stage[data-perf="on"] * { animation-iteration-count: 1 !important; text-shadow: none !important; }
 .bw-stage[data-perf="on"] .bw-fade-name {
-  text-shadow:
-    -1px -1px 0 #000000,
-     1px -1px 0 #000000,
-    -1px  1px 0 #000000,
-     1px  1px 0 #000000,
-     0 1px 2px #000000,
-     0 2px 5px rgba(0, 0, 0, 0.98) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.62) !important;
 }
 .bw-stage[data-perf="on"] .bw-fade-type {
-  text-shadow:
-    -1px -1px 0 #000000,
-     1px -1px 0 #000000,
-    -1px  1px 0 #000000,
-     1px  1px 0 #000000,
-     0 1px 2px #000000 !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.58) !important;
 }
 .bw-stage[data-perf="on"] .bw-patti-track { animation-iteration-count: infinite !important; }
 .bw-stage[data-perf="on"] .bw-live i,
