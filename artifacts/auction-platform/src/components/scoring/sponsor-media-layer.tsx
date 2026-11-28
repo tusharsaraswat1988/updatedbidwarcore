@@ -129,7 +129,6 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
   const playingKeyRef = useRef<string | null>(null);
   const objectUrlRef = useRef<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const prepareTokenRef = useRef(0);
   const playTokenRef = useRef(0);
   const playAttemptsRef = useRef<Map<string, number>>(new Map());
@@ -454,106 +453,151 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     const slot = slotsRef.current.find((item) => item.id === playback.slotId);
     const video = videoRef.current;
     if (!video || slot?.assetType !== "video") return;
+
     const wantAudio = surface === "obs";
     video.loop = false;
     video.volume = wantAudio ? 1 : 0;
     video.muted = true;
     video.defaultMuted = true;
+
     const token = playTokenRef.current;
     const tokenKey = String(token);
     video.dataset.playToken = tokenKey;
-    const unmute = () => {
-      if (!wantAudio || playTokenRef.current !== token) return;
-      video.defaultMuted = false;
-      video.muted = false;
-      video.volume = 1;
-    };
+
     let endTimer = 0;
+
     const finish = () => {
       if (playTokenRef.current !== token) return;
       finishRound();
     };
+
     const armTimer = () => {
       window.clearTimeout(endTimer);
       if (!Number.isFinite(video.duration) || video.duration <= 0) return;
       const remainingMs = Math.max(0, (video.duration - video.currentTime) * 1000);
       endTimer = window.setTimeout(finish, Math.ceil(remainingMs) + 300);
     };
+
+    const tryUnmute = () => {
+      if (!wantAudio || playTokenRef.current !== token) return;
+      try {
+        video.defaultMuted = false;
+        video.muted = false;
+        video.volume = 1;
+        // Chromium / OBS Browser Autoplay Policy Guard:
+        // If unmuting without prior user gesture causes Chromium to pause the video,
+        // immediately re-mute and resume so the video never freezes on screen!
+        if (video.paused) {
+          video.defaultMuted = true;
+          video.muted = true;
+          void video.play().catch(() => {});
+        }
+      } catch {
+        video.defaultMuted = true;
+        video.muted = true;
+        void video.play().catch(() => {});
+      }
+    };
+
+    const onPause = () => {
+      if (playTokenRef.current !== token) return;
+      // If paused unexpectedly mid-stream while unmuted, re-mute and resume immediately
+      if (!video.ended && video.dataset.startedToken === tokenKey && !video.muted) {
+        video.defaultMuted = true;
+        video.muted = true;
+        void video.play().catch(() => {});
+      }
+    };
+
     const onEnded = () => finish();
+
     video.addEventListener("ended", onEnded);
     video.addEventListener("loadedmetadata", armTimer);
     video.addEventListener("durationchange", armTimer);
+    video.addEventListener("pause", onPause);
+
+    // Audio unlocker: if user interacts with the OBS browser source, try unmuting!
+    const unlockAudio = () => {
+      if (wantAudio && video && !video.ended && video.muted && playTokenRef.current === token) {
+        tryUnmute();
+      }
+    };
+    window.addEventListener("pointerdown", unlockAudio, { passive: true });
+    window.addEventListener("keydown", unlockAudio, { passive: true });
+
     const onReady = () => {
       if (playTokenRef.current !== token || video.dataset.boundUrl !== objectUrl) return;
       if (video.dataset.startedToken === tokenKey) return;
       video.dataset.startedToken = tokenKey;
-      try { video.currentTime = 0; } catch { /* metadata not ready yet */ }
-      const start = () => video.play().then(() => {
-        unmute();
-        armTimer();
-      });
+
+      try {
+        video.currentTime = 0;
+      } catch {
+        /* metadata not ready yet */
+      }
+
+      // Always start with muted=true to guarantee play() succeeds under all browser autoplay policies
+      video.defaultMuted = true;
+      video.muted = true;
+
+      const start = () =>
+        video.play().then(() => {
+          armTimer();
+          if (wantAudio) {
+            tryUnmute();
+          }
+        });
+
       void start().catch(() => {
         if (playTokenRef.current !== token) return;
+        video.defaultMuted = true;
         video.muted = true;
-        void video.play().then(() => {
-          unmute();
-          armTimer();
-        }).catch((err: unknown) => {
-          if (playTokenRef.current !== token) return;
-          hide("error", err instanceof Error ? err.message : "Playback failed");
-        });
+        void video
+          .play()
+          .then(() => {
+            armTimer();
+          })
+          .catch((err: unknown) => {
+            if (playTokenRef.current !== token) return;
+            hide("error", err instanceof Error ? err.message : "Playback failed");
+          });
       });
     };
+
     const alreadyStarted = video.dataset.startedToken === tokenKey;
     if (!alreadyStarted && video.dataset.boundUrl !== objectUrl) {
       video.dataset.boundUrl = objectUrl;
       video.src = objectUrl;
     }
-    if (alreadyStarted && video.ended) finish();
-    else if (!alreadyStarted && video.readyState >= 2) onReady();
-    else if (!alreadyStarted) video.addEventListener("loadeddata", onReady, { once: true });
-    else armTimer();
+
+    if (alreadyStarted && video.ended) {
+      finish();
+    } else if (alreadyStarted && video.paused) {
+      video.defaultMuted = true;
+      video.muted = true;
+      void video.play().catch(() => {});
+      armTimer();
+    } else if (!alreadyStarted && video.readyState >= 2) {
+      onReady();
+    } else if (!alreadyStarted) {
+      video.addEventListener("loadeddata", onReady, { once: true });
+      video.addEventListener("canplay", onReady, { once: true });
+    } else {
+      armTimer();
+    }
+
     return () => {
       window.clearTimeout(endTimer);
       video.removeEventListener("loadeddata", onReady);
+      video.removeEventListener("canplay", onReady);
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("loadedmetadata", armTimer);
       video.removeEventListener("durationchange", armTimer);
+      video.removeEventListener("pause", onPause);
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
     };
   }, [finishRound, hide, objectUrl, playback.cueId, playback.slotId, show, surface]);
-
-  useEffect(() => {
-    if (!show) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-    let frame = 0;
-    let painted = false;
-    canvas.style.opacity = "0";
-    const draw = () => {
-      if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
-        const context = canvas.getContext("2d", { willReadFrequently: true });
-        if (context) {
-          const scale = Math.min(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
-          const width = video.videoWidth * scale;
-          const height = video.videoHeight * scale;
-          context.fillStyle = "#000";
-          context.fillRect(0, 0, canvas.width, canvas.height);
-          context.drawImage(video, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
-          if (!painted) {
-            const pixel = context.getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data;
-            if (pixel[0] + pixel[1] + pixel[2] > 16) {
-              painted = true;
-              canvas.style.opacity = "1";
-            }
-          }
-        }
-      }
-      frame = window.requestAnimationFrame(draw);
-    };
-    frame = window.requestAnimationFrame(draw);
-    return () => window.cancelAnimationFrame(frame);
-  }, [show, objectUrl]);
 
   const activeSlot = slots.find((slot) => slot.id === playback.slotId);
   if (!show || !objectUrl) return null;
@@ -574,27 +618,32 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
           }}
         />
       ) : (
-        <>
-          <video
-            ref={videoRef}
-            playsInline
-            preload="auto"
-            loop={false}
-            onEnded={(event) => {
-              const video = event.currentTarget;
-              if (video.dataset.playToken !== String(playTokenRef.current)) return;
-              finishRound();
-            }}
-            onError={(event) => {
-              const video = event.currentTarget;
-              if (video.dataset.playToken !== String(playTokenRef.current)) return;
-              if (!objectUrlRef.current || video.src !== objectUrlRef.current) return;
-              hide("error", "Playback failed");
-            }}
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", zIndex: 1 }}
-          />
-          <canvas ref={canvasRef} width={1920} height={1080} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 2, opacity: 0 }} />
-        </>
+        <video
+          ref={videoRef}
+          playsInline
+          preload="auto"
+          loop={false}
+          onEnded={(event) => {
+            const video = event.currentTarget;
+            if (video.dataset.playToken !== String(playTokenRef.current)) return;
+            finishRound();
+          }}
+          onError={(event) => {
+            const video = event.currentTarget;
+            if (video.dataset.playToken !== String(playTokenRef.current)) return;
+            if (!objectUrlRef.current || video.src !== objectUrlRef.current) return;
+            hide("error", "Playback failed");
+          }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            zIndex: 1,
+            background: "#000",
+          }}
+        />
       )}
       <div
         style={{
