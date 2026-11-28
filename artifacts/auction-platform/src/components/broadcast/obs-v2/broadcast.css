@@ -348,13 +348,17 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 6px 14px 6px 12px;
+  border-radius: 8px;
+  background: radial-gradient(ellipse at right center, rgba(6, 8, 14, 0.72) 0%, rgba(6, 8, 14, 0.35) 55%, transparent 100%);
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.65));
 }
 .bw-fade-logo {
   height: 42px;
   width: auto;
   max-width: 120px;
   object-fit: contain;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.85));
+  filter: drop-shadow(0 1px 2px #000000) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.85));
 }
 .bw-fade-copy {
   display: flex;
@@ -367,8 +371,12 @@
   font-size: 26px;
   font-weight: 800;
   letter-spacing: 0.02em;
-  color: var(--bw-ink);
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+  color: #ffffff;
+  text-shadow:
+    0 1px 2px #000000,
+    0 2px 5px rgba(0, 0, 0, 0.98),
+    0 4px 12px rgba(0, 0, 0, 0.95),
+    0 8px 22px rgba(0, 0, 0, 0.85);
   white-space: nowrap;
   max-width: 360px;
   overflow: hidden;
@@ -381,21 +389,37 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--bw-gold);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  text-shadow:
+    0 1px 2px #000000,
+    0 2px 5px rgba(0, 0, 0, 0.95),
+    0 4px 10px rgba(0, 0, 0, 0.85);
 }
 .bw-fade-sponsor[data-glow="title"] .bw-fade-logo {
   filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.75)) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.85));
 }
 .bw-fade-sponsor[data-glow="title"] .bw-fade-name {
-  text-shadow: 0 0 14px rgba(255, 215, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.9);
+  text-shadow:
+    0 0 14px rgba(255, 215, 0, 0.55),
+    0 1px 2px #000000,
+    0 2px 5px rgba(0, 0, 0, 0.98),
+    0 4px 12px rgba(0, 0, 0, 0.95);
 }
 .bw-fade-sponsor[data-glow="co"] .bw-fade-logo {
   filter: drop-shadow(0 0 10px rgba(190, 214, 235, 0.7)) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.85));
 }
 .bw-fade-sponsor[data-glow="co"] .bw-fade-name {
-  text-shadow: 0 0 12px rgba(190, 214, 235, 0.5), 0 2px 6px rgba(0, 0, 0, 0.9);
+  text-shadow:
+    0 0 12px rgba(190, 214, 235, 0.5),
+    0 1px 2px #000000,
+    0 2px 5px rgba(0, 0, 0, 0.98),
+    0 4px 12px rgba(0, 0, 0, 0.95);
 }
-.bw-fade-sponsor[data-glow="co"] .bw-fade-type { color: rgba(214, 226, 240, 0.95); }
+.bw-fade-sponsor[data-glow="co"] .bw-fade-type {
+  color: rgba(214, 226, 240, 0.95);
+  text-shadow:
+    0 1px 2px #000000,
+    0 2px 5px rgba(0, 0, 0, 0.95);
+}
 .bw-brand-logo { height: 56px; width: auto; max-width: 220px; object-fit: contain; display: block; filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.35)); }
 .bw-wordmark { font-family: var(--bw-font-display); text-transform: none; font-weight: 700; font-size: 48px; letter-spacing: -0.01em; line-height: 1; }
 .bw-wordmark b { color: var(--bw-gold); font-weight: 700; }
