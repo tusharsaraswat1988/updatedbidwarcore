@@ -51,6 +51,7 @@ describe("BIDWAR — WhatsApp Template Registry Cleanup & Approved-Only Admin UI
     scoringEnabled: true,
     scoringPhase: "live",
     licenseGrantedAt: new Date(),
+    officialActivatedAt: new Date(),
     featuresJson: { whatsappNotifications: true },
   };
 

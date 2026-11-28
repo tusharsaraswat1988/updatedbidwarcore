@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseReAuctionStrategy,
   resolveOpeningBid,
+  resolveSinglePlayerReAuctionBid,
   serializeReAuctionStrategy,
   validateFixedReAuctionAmount,
 } from "@workspace/api-base/re-auction-strategy";
@@ -67,5 +68,54 @@ describe("re-auction-strategy", () => {
   it("round-trips strategy JSON", () => {
     const json = serializeReAuctionStrategy({ mode: "fixed", fixedAmount: 25000 });
     expect(parseReAuctionStrategy(json)).toEqual({ mode: "fixed", fixedAmount: 25000 });
+  });
+
+  it("resolves single-player re-auction starting bid for base, last sold, and custom point", () => {
+    expect(
+      resolveSinglePlayerReAuctionBid({
+        startFromBase: true,
+        playerBasePrice: 50000,
+        playerSoldPrice: 180000,
+        tournamentMinBid: 10000,
+      }),
+    ).toEqual({ ok: true, startingBid: 50000 });
+
+    expect(
+      resolveSinglePlayerReAuctionBid({
+        startFromBase: false,
+        playerBasePrice: 50000,
+        playerSoldPrice: 180000,
+        tournamentMinBid: 10000,
+      }),
+    ).toEqual({ ok: true, startingBid: 180000 });
+
+    expect(
+      resolveSinglePlayerReAuctionBid({
+        startFromBase: false,
+        playerBasePrice: 50000,
+        playerSoldPrice: null,
+        tournamentMinBid: 10000,
+      }),
+    ).toEqual({ ok: true, startingBid: 50000 });
+
+    expect(
+      resolveSinglePlayerReAuctionBid({
+        startFromBase: true,
+        startingBid: 120000,
+        playerBasePrice: 50000,
+        playerSoldPrice: 180000,
+        tournamentMinBid: 10000,
+      }),
+    ).toEqual({ ok: true, startingBid: 120000 });
+
+    expect(
+      resolveSinglePlayerReAuctionBid({
+        startFromBase: true,
+        startingBid: 5000,
+        playerBasePrice: 50000,
+        playerSoldPrice: 180000,
+        tournamentMinBid: 10000,
+      }).ok,
+    ).toBe(false);
   });
 });

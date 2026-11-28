@@ -1,5 +1,5 @@
 import { dispatchPushWhatsApp } from "./communication/policy-engine";
-import type { SendResult } from "./comm-sender";
+import { isTournamentReadyForOutboundComm, type SendResult } from "./comm-sender";
 import { getPublicOrigin } from "./runtime-env";
 import { logger, maskPhoneNumber } from "./logger";
 import { db, commLogsTable, tournamentsTable, teamsTable } from "@workspace/db";
@@ -618,6 +618,31 @@ export async function autoDispatchPendingTeamOwnerWelcomes(
 ): Promise<{ dispatched: number; skipped: number }> {
   try {
     if (!db || typeof db.select !== "function") {
+      return { dispatched: 0, skipped: 0 };
+    }
+
+    const tournamentRows = await db
+      .select({
+        licenseStatus: tournamentsTable.licenseStatus,
+        adminLocked: tournamentsTable.adminLocked,
+        scoringEnabled: tournamentsTable.scoringEnabled,
+        scoringPhase: tournamentsTable.scoringPhase,
+        licenseGrantedAt: tournamentsTable.licenseGrantedAt,
+        officialActivatedAt: tournamentsTable.officialActivatedAt,
+        featuresJson: tournamentsTable.featuresJson,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId));
+    const tournament = Array.isArray(tournamentRows) ? tournamentRows[0] : null;
+    if (!isTournamentReadyForOutboundComm(tournament)) {
+      logger.info(
+        {
+          tournamentId,
+          officiallyActivated: Boolean(tournament?.officialActivatedAt),
+          licenseStatus: tournament?.licenseStatus,
+        },
+        "autoDispatchPendingTeamOwnerWelcomes: skipped (tournament not officially activated or not eligible)",
+      );
       return { dispatched: 0, skipped: 0 };
     }
 

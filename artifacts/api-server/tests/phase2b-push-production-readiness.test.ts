@@ -51,6 +51,7 @@ describe("WhatsApp Push Communication — Production Readiness Verification", ()
     scoringEnabled: true,
     scoringPhase: "active",
     licenseGrantedAt: new Date(),
+    officialActivatedAt: new Date(),
     organizerMobile: "9876543210",
     organizerId: 5,
   };

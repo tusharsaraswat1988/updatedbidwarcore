@@ -142,6 +142,7 @@ export async function enqueuePlayerSoldEmail(params: {
         licenseStatus: tournamentsTable.licenseStatus,
         status: tournamentsTable.status,
         adminLocked: tournamentsTable.adminLocked,
+        officialActivatedAt: tournamentsTable.officialActivatedAt,
       })
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, tournamentId))
@@ -151,7 +152,8 @@ export async function enqueuePlayerSoldEmail(params: {
       !tournament ||
       tournament.licenseStatus !== "active" ||
       tournament.status !== "active" ||
-      tournament.adminLocked
+      tournament.adminLocked ||
+      !tournament.officialActivatedAt
     ) {
       logger.debug(
         {
@@ -159,8 +161,9 @@ export async function enqueuePlayerSoldEmail(params: {
           licenseStatus: tournament?.licenseStatus,
           status: tournament?.status,
           adminLocked: tournament?.adminLocked,
+          officiallyActivated: Boolean(tournament?.officialActivatedAt),
         },
-        "Player sold email: skipped (tournament not eligible)",
+        "Player sold email: skipped (tournament not eligible or Activate Live not completed)",
       );
       return;
     }

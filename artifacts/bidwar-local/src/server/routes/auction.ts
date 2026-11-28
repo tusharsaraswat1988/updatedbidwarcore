@@ -7,6 +7,7 @@ import {
   parseReAuctionStrategy,
   parseReAuctionStrategyFromRequest,
   resolveOpeningBid,
+  resolveSinglePlayerReAuctionBid,
   serializeReAuctionStrategy,
   validateFixedReAuctionAmount,
 } from "@workspace/api-base/re-auction-strategy";
@@ -896,10 +897,14 @@ export function createAuctionRouter(db: LocalDb) {
   router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) => {
     const tid = parseInt(req.params.tournamentId);
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    const schema = z.object({ playerId: z.number().int(), startFromBase: z.boolean().optional().default(true) });
+    const schema = z.object({
+      playerId: z.number().int(),
+      startFromBase: z.boolean().optional().default(true),
+      startingBid: z.number().int().optional(),
+    });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
-    const { playerId, startFromBase } = parsed.data;
+    const { playerId, startFromBase, startingBid: customStartingBid } = parsed.data;
     const session = await getOrCreateSession(tid);
     if (rejectIfAuctionPaused(session, res)) return;
     if (session.currentPlayerId && session.currentPlayerId !== playerId) {
@@ -908,6 +913,19 @@ export function createAuctionRouter(db: LocalDb) {
     }
     const [player] = await db.select().from(playersTable).where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
     if (!player) { res.status(404).json({ error: "Player not found" }); return; }
+    const [reTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+    const resolvedBid = resolveSinglePlayerReAuctionBid({
+      startFromBase,
+      startingBid: customStartingBid,
+      playerBasePrice: player.basePrice,
+      playerSoldPrice: player.soldPrice,
+      tournamentMinBid: reTournament?.minBid ?? 0,
+    });
+    if (!resolvedBid.ok) {
+      res.status(400).json({ error: resolvedBid.error });
+      return;
+    }
+    const startingBid = resolvedBid.startingBid;
     if (player.status === "sold" && player.teamId && player.soldPrice) {
       const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, player.teamId));
       if (team) {
@@ -915,9 +933,7 @@ export function createAuctionRouter(db: LocalDb) {
       }
       await db.delete(bidsTable).where(and(eq(bidsTable.playerId, playerId), eq(bidsTable.tournamentId, tid)));
     }
-    const startingBid = startFromBase ? player.basePrice : (player.soldPrice ?? player.basePrice);
     await db.update(playersTable).set({ status: "available", teamId: null, soldPrice: null }).where(eq(playersTable.id, playerId));
-    const [reTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
     const timerSecs = reTournament?.timerSeconds ?? 30;
     await db.update(auctionSessionsTable).set({
       status: "active", currentPlayerId: playerId, currentBid: startingBid,

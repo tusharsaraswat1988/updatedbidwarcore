@@ -254,8 +254,10 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     }
   }
 
-  // WhatsApp: notify team owner with welcome message (fire-and-forget, live tournaments only when organizer gave consent)
-  if (tournament.licenseStatus === "active" && hasConsent && ownerMobile) {
+  const isOfficiallyActivated = Boolean(tournament.officialActivatedAt) && !tournament.adminLocked;
+
+  // WhatsApp: notify team owner with welcome message (fire-and-forget, officially activated live tournaments only)
+  if (tournament.licenseStatus === "active" && isOfficiallyActivated && hasConsent && ownerMobile) {
     void notifyTeamOwnerWelcome({
       mobile: ownerMobile,
       tournamentId: tid,
@@ -268,10 +270,10 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     });
   }
 
-  // DLT SMS: notify team owner about their access code (fire-and-forget, live auction tournaments only)
+  // DLT SMS: notify team owner about their access code (fire-and-forget, officially activated live auction tournaments only)
   const accessCode = team.accessCode;
   const isCricketTournament = (tournament.sport ?? "").trim().toLowerCase() === "cricket";
-  if (tournament.licenseStatus === "active" && ownerMobile && accessCode && tournament.auctionEnabled !== false && !isCricketTournament) {
+  if (tournament.licenseStatus === "active" && isOfficiallyActivated && ownerMobile && accessCode && tournament.auctionEnabled !== false && !isCricketTournament) {
     void (async () => {
       try {
         const { smsNotificationSettingsTable } = await import("@workspace/db");
@@ -290,16 +292,18 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     })();
   }
 
-  notifyAsync("TEAM_OWNER_REGISTERED", {
-    teamId: team.id,
-    teamName: team.name,
-    ownerName: team.ownerName,
-    email: ownerEmailParsed.email ?? "",
-    ownerPhotoUrl: team.ownerPhotoUrl,
-    tournamentId: tid,
-    tournamentName: tournament.name,
-    tournamentLogoUrl: tournament.logoUrl ?? null,
-  });
+  if (isOfficiallyActivated) {
+    notifyAsync("TEAM_OWNER_REGISTERED", {
+      teamId: team.id,
+      teamName: team.name,
+      ownerName: team.ownerName,
+      email: ownerEmailParsed.email ?? "",
+      ownerPhotoUrl: team.ownerPhotoUrl,
+      tournamentId: tid,
+      tournamentName: tournament.name,
+      tournamentLogoUrl: tournament.logoUrl ?? null,
+    });
+  }
 
   auditLog(req, {
     category: "team",
@@ -910,6 +914,10 @@ router.post("/tournaments/:tournamentId/teams/:teamId/send-welcome-whatsapp", as
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) {
     res.status(404).json({ error: "Tournament not found" });
+    return;
+  }
+  if (!tournament.officialActivatedAt) {
+    res.status(400).json({ error: "Communications cannot be sent until Activate Live (Official Production) is enabled for this tournament." });
     return;
   }
   if (tournament.licenseStatus !== "active") {

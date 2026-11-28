@@ -19,7 +19,7 @@ import {
   consentBlastLogTable,
   commLogsTable,
 } from "@workspace/db";
-import { eq, and, or, sql } from "drizzle-orm";
+import { eq, and, or, sql, isNotNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { sendSms, buildWaMeLink, buildConsentSms } from "./comm-sender";
 import { logger } from "./logger";
@@ -54,7 +54,7 @@ async function runConsentBlast() {
 
   logger.info({ todayIst, tomorrowIst }, "Running 24h consent blast check");
 
-  // Find live, unlocked tournaments where auctionDate is today or tomorrow in IST
+  // Find officially activated live, unlocked tournaments where auctionDate is today or tomorrow in IST
   const tournaments = await db.select({
     id: tournamentsTable.id,
     name: tournamentsTable.name,
@@ -66,6 +66,7 @@ async function runConsentBlast() {
     and(
       eq(tournamentsTable.licenseStatus, "active"),
       eq(tournamentsTable.adminLocked, false),
+      isNotNull(tournamentsTable.officialActivatedAt),
       or(
         sql`${tournamentsTable.auctionDate} = ${todayIst}`,
         sql`${tournamentsTable.auctionDate} = ${tomorrowIst}`,

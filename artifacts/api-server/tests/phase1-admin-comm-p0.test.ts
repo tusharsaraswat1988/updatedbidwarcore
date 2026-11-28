@@ -55,6 +55,7 @@ describe("Phase 1: WhatsApp Admin P0 Fixes & Verification", () => {
     scoringEnabled: true,
     scoringPhase: "active",
     licenseGrantedAt: new Date(),
+    officialActivatedAt: new Date(),
   };
 
   const unlicensedTournament = {

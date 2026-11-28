@@ -382,7 +382,8 @@ export default function AuctionReset() {
                 </p>
                 <p>
                   Activating live will automatically purge any remaining trial bids and test matches, then permanently seal
-                  the tournament. Once activated, <strong>Reset Data is permanently disabled</strong> for organizers.
+                  the tournament. Until Activate Live is clicked, all participant communications (WhatsApp, Email, and SMS)
+                  remain paused so you can test safely. Once activated, <strong>Reset Data is permanently disabled</strong> for organizers.
                 </p>
               </div>
 
@@ -469,6 +470,7 @@ export default function AuctionReset() {
               <ul className="list-disc list-inside space-y-1 text-muted-foreground text-[11px]">
                 <li>All remaining practice bids, test overs, and trial scoring data will be purged.</li>
                 <li>Tournament will be permanently sealed as <strong>Official Live</strong>.</li>
+                <li>Live participant notifications (WhatsApp, Email, and SMS) will become active.</li>
                 <li>Organizer Reset Data will be <strong>permanently locked</strong>.</li>
               </ul>
             </div>

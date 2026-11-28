@@ -254,6 +254,35 @@ export async function createJobFromBusinessEvent<E extends NotificationEventType
     return null;
   }
 
+  // Gate tournament-scoped operational communications on Activate Live (officialActivatedAt).
+  // Account-level/pre-live setup events (TOURNAMENT_CREATED, PLAYER_REGISTERED) remain enabled.
+  if (
+    jobData.tournamentId != null &&
+    eventType !== "TOURNAMENT_CREATED" &&
+    eventType !== "PLAYER_REGISTERED"
+  ) {
+    const [t] = await db
+      .select({
+        officialActivatedAt: tournamentsTable.officialActivatedAt,
+        adminLocked: tournamentsTable.adminLocked,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, jobData.tournamentId))
+      .limit(1);
+    if (!t || !t.officialActivatedAt || t.adminLocked) {
+      logger.info(
+        {
+          eventType,
+          tournamentId: jobData.tournamentId,
+          officiallyActivated: Boolean(t?.officialActivatedAt),
+          adminLocked: Boolean(t?.adminLocked),
+        },
+        "Communication job skipped — tournament not officially activated for live production",
+      );
+      return null;
+    }
+  }
+
   let mergeData = jobData.mergeData;
   if (eventType === "PLAYER_REGISTERED" && jobData.entityId) {
     mergeData = {

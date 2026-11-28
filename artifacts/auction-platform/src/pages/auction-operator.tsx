@@ -64,7 +64,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  PrepareReAuctionDialog,
+  SinglePlayerReAuctionDialog,
+  type ReAuctionTargetPlayer,
+} from "@/components/auction/re-auction-dialogs";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipForward, CheckCircle, XCircle,
@@ -404,8 +408,7 @@ export default function AuctionOperator() {
   const [manualSellReason, setManualSellReason] = useState("");
   const [showAdvancedReason, setShowAdvancedReason] = useState(false);
   const [showBatchReAuctionConfirm, setShowBatchReAuctionConfirm] = useState(false);
-  const [reAuctionStrategy, setReAuctionStrategy] = useState<"keep_existing" | "reset_defaults" | "fixed">("keep_existing");
-  const [reAuctionFixedAmount, setReAuctionFixedAmount] = useState("");
+  const [reAuctionTargetPlayer, setReAuctionTargetPlayer] = useState<ReAuctionTargetPlayer | null>(null);
   const [concludeDialogOpen, setConcludeDialogOpen] = useState(false);
   const [readinessModalOpen, setReadinessModalOpen] = useState(false);
   const [readinessIssues, setReadinessIssues] = useState<AuctionReadinessIssue[]>([]);
@@ -480,7 +483,7 @@ export default function AuctionOperator() {
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const { formatAmount, formatShort, symbol: unitSymbol } = useAuctionUnit(tournament);
+  const { unit, formatAmount, formatShort, symbol: unitSymbol } = useAuctionUnit(tournament);
   const { data: state } = useGetAuctionState(tournamentId, {
     query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId },
   });
@@ -971,8 +974,13 @@ export default function AuctionOperator() {
     setManualSellOpen(true);
   }
 
-  async function handleReAuction(playerId: number, startFromBase: boolean, reason?: string) {
-    if (controlsLocked || reAuction.isPending) return;
+  async function handleReAuction(
+    playerId: number,
+    startFromBase: boolean,
+    reason?: string,
+    startingBid?: number,
+  ): Promise<boolean> {
+    if (controlsLocked || reAuction.isPending) return false;
     const currentId = state?.currentPlayer?.id;
     if (currentId && currentId !== playerId) {
       toast({
@@ -980,18 +988,29 @@ export default function AuctionOperator() {
         description: "Finish or defer the current player before starting a re-auction.",
         variant: "destructive",
       });
-      return;
+      return false;
     }
-    const result = await reAuction.mutateAsync({
-      tournamentId,
-      data: {
-        playerId,
-        startFromBase,
-        ...(reason?.trim() ? { reason: reason.trim() } : {}),
-      },
-    });
-    setCurrentBidPaused(false);
-    applyMutationResult(result);
+    try {
+      const result = await reAuction.mutateAsync({
+        tournamentId,
+        data: {
+          playerId,
+          startFromBase,
+          ...(startingBid != null ? { startingBid } : {}),
+          ...(reason?.trim() ? { reason: reason.trim() } : {}),
+        },
+      });
+      setCurrentBidPaused(false);
+      applyMutationResult(result);
+      return true;
+    } catch (err) {
+      toast({
+        title: "Could not re-auction player",
+        description: mutationErrorMessage(err, "Re-auction failed"),
+        variant: "destructive",
+      });
+      return false;
+    }
   }
 
   function resolveTimerSecondsForPhase(): number {
@@ -1046,18 +1065,40 @@ export default function AuctionOperator() {
     await handleReAuction(playerId, true);
   }
 
-  async function handleInstantReauction(playerId?: number) {
+  function openSingleReAuctionDialog(playerId?: number) {
     if (state?.currentPlayer) {
       toast({
         title: "Player on block",
-        description: "Finish or defer the current player before re-auctioning the last sale.",
+        description: "Finish or defer the current player before re-auctioning another player.",
         variant: "destructive",
       });
       return;
     }
     const targetId = playerId ?? lastSoldPlayer?.id;
     if (!targetId || controlsLocked || reAuction.isPending || isPaused) return;
-    await handleReAuction(targetId, true);
+    const matched = (players || []).find((p) => p.id === targetId);
+    setReAuctionTargetPlayer(
+      matched
+        ? {
+            id: matched.id,
+            name: matched.name,
+            status: matched.status,
+            basePrice: matched.basePrice,
+            soldPrice: matched.soldPrice,
+            teamId: matched.teamId,
+          }
+        : {
+            id: targetId,
+            name: lastSoldPlayer?.name ?? `Player #${targetId}`,
+            status: "sold",
+            basePrice: tournament?.minBid ?? 0,
+            soldPrice: lastSoldPlayer?.soldAmount ?? null,
+          },
+    );
+  }
+
+  function handleInstantReauction(playerId?: number) {
+    openSingleReAuctionDialog(playerId);
   }
 
   async function handleDeferPlayer() {
@@ -1148,44 +1189,14 @@ export default function AuctionOperator() {
     }
   }
 
-  async function handleBringUnsoldPlayers() {
-    const payload: {
-      strategy: "keep_existing" | "reset_defaults" | "fixed";
-      fixedAmount?: number;
-    } = { strategy: reAuctionStrategy };
-
-    if (reAuctionStrategy === "fixed") {
-      const parsed = parseInt(reAuctionFixedAmount.replace(/,/g, ""), 10);
-      const tournamentMinBid = tournament?.minBid ?? 0;
-      if (!Number.isFinite(parsed) || parsed <= 0) {
-        toast({
-          title: "Invalid amount",
-          description: "Fixed starting bid must be greater than ₹0.",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (tournamentMinBid > 0 && parsed < tournamentMinBid) {
-        toast({
-          title: "Amount too low",
-          description: `Fixed starting bid must be at least ${formatAmount(tournamentMinBid)} (tournament minimum).`,
-          variant: "destructive",
-        });
-        return;
-      }
-      payload.fixedAmount = parsed;
-    }
-
-    const result = await reAuctionAllUnsoldMut.mutateAsync({ tournamentId, data: payload });
-    applyMutationResult(result);
-  }
-
-  async function handleBatchReAuction() {
+  async function handleBatchReAuction(payload: {
+    strategy: "keep_existing" | "reset_defaults" | "fixed";
+    fixedAmount?: number;
+  }) {
     try {
-      await handleBringUnsoldPlayers();
+      const result = await reAuctionAllUnsoldMut.mutateAsync({ tournamentId, data: payload });
+      applyMutationResult(result);
       setShowBatchReAuctionConfirm(false);
-      setReAuctionStrategy("keep_existing");
-      setReAuctionFixedAmount("");
     } catch (err: unknown) {
       const msg = (err as { data?: { error?: string } })?.data?.error ?? "Could not bring unsold players.";
       toast({ title: "Re-auction failed", description: msg, variant: "destructive" });
@@ -3995,96 +4006,40 @@ export default function AuctionOperator() {
         </Dialog>
 
         {/* Prepare re-auction — strategy for unsold round */}
-        <Dialog
+        <PrepareReAuctionDialog
           open={showBatchReAuctionConfirm}
+          onOpenChange={setShowBatchReAuctionConfirm}
+          unsoldCount={unsoldPlayers.length}
+          tournamentMinBid={tournament?.minBid}
+          unit={unit}
+          unitSymbol={unitSymbol}
+          formatAmount={formatAmount}
+          isPending={reAuctionAllUnsoldMut.isPending}
+          onConfirm={handleBatchReAuction}
+        />
+
+        {/* Single-player re-auction — Base Point / Last Sold Point / Custom Point */}
+        <SinglePlayerReAuctionDialog
+          open={!!reAuctionTargetPlayer}
           onOpenChange={(open) => {
-            setShowBatchReAuctionConfirm(open);
-            if (!open) {
-              setReAuctionStrategy("keep_existing");
-              setReAuctionFixedAmount("");
-            }
+            if (!open) setReAuctionTargetPlayer(null);
           }}
-        >
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <RotateCcw className="w-4 h-4 text-orange-400" /> Prepare Re-auction
-              </DialogTitle>
-              <DialogDescription>
-                Choose how unsold players should enter the re-auction. Player base values in the database are not changed.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <p className="text-sm text-muted-foreground">
-                {unsoldPlayers.length} unsold player{unsoldPlayers.length !== 1 ? "s" : ""} will return to the available queue.
-              </p>
-              <RadioGroup
-                value={reAuctionStrategy}
-                onValueChange={(v) => setReAuctionStrategy(v as typeof reAuctionStrategy)}
-                className="space-y-3"
-              >
-                <label className="flex items-start gap-3 rounded-lg border border-border/50 p-3 cursor-pointer has-[:checked]:border-orange-500/40 has-[:checked]:bg-orange-500/5">
-                  <RadioGroupItem value="keep_existing" className="mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium">Keep Existing Base Values</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Each player opens at their current effective base (category base or player base). No recalculation.
-                    </p>
-                  </div>
-                </label>
-                <label className="flex items-start gap-3 rounded-lg border border-border/50 p-3 cursor-pointer has-[:checked]:border-orange-500/40 has-[:checked]:bg-orange-500/5">
-                  <RadioGroupItem value="reset_defaults" className="mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium">Reset Using Configured Defaults</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Category base if set, otherwise tournament default. Player-selected bases are ignored.
-                    </p>
-                  </div>
-                </label>
-                <label className="flex items-start gap-3 rounded-lg border border-border/50 p-3 cursor-pointer has-[:checked]:border-orange-500/40 has-[:checked]:bg-orange-500/5">
-                  <RadioGroupItem value="fixed" className="mt-0.5" />
-                  <div className="flex-1 space-y-2">
-                    <div>
-                      <p className="text-sm font-medium">Use Fixed Starting Bid For All</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Every unsold player enters from the same opening amount.
-                      </p>
-                    </div>
-                    {reAuctionStrategy === "fixed" && (
-                      <div className="space-y-1.5">
-                        <Label htmlFor="re-auction-fixed" className="text-xs text-muted-foreground">Amount (₹)</Label>
-                        <Input
-                          id="re-auction-fixed"
-                          type="number"
-                          min={tournament?.minBid ?? 1}
-                          step={1000}
-                          value={reAuctionFixedAmount}
-                          onChange={(e) => setReAuctionFixedAmount(e.target.value)}
-                        />
-                        <IndianAmountHint value={reAuctionFixedAmount} className="text-[10px]" />
-                        {tournament?.minBid ? (
-                          <p className="text-[10px] text-muted-foreground">
-                            Minimum {formatAmount(tournament.minBid)} (tournament minimum bid)
-                          </p>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                </label>
-              </RadioGroup>
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setShowBatchReAuctionConfirm(false)}>Cancel</Button>
-                <Button
-                  className="flex-1 bg-orange-500 hover:bg-orange-400 text-white"
-                  disabled={reAuctionAllUnsoldMut.isPending || (reAuctionStrategy === "fixed" && !reAuctionFixedAmount.trim())}
-                  onClick={() => void handleBatchReAuction()}
-                >
-                  {reAuctionAllUnsoldMut.isPending ? "Preparing…" : "Bring Unsold Players"}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+          player={reAuctionTargetPlayer}
+          previousTeamName={
+            reAuctionTargetPlayer?.teamId
+              ? teamMap[reAuctionTargetPlayer.teamId]?.name ?? null
+              : null
+          }
+          tournamentMinBid={tournament?.minBid}
+          unit={unit}
+          unitSymbol={unitSymbol}
+          formatAmount={formatAmount}
+          isPending={reAuction.isPending}
+          onConfirm={async ({ playerId, startFromBase, startingBid }) => {
+            const ok = await handleReAuction(playerId, startFromBase, undefined, startingBid);
+            if (ok) setReAuctionTargetPlayer(null);
+          }}
+        />
 
         {/* Conclude auction */}
         <Dialog open={concludeDialogOpen} onOpenChange={setConcludeDialogOpen}>

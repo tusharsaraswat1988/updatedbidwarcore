@@ -19,6 +19,8 @@ import { eq, and, or, sql, desc } from "drizzle-orm";
 import { logger, maskPhoneNumber } from "../logger";
 import {
   isTournamentLicensedForComm,
+  isTournamentOfficiallyActivatedForComm,
+  isTournamentReadyForOutboundComm,
   sendWhatsApp,
   type SendResult,
 } from "../comm-sender";
@@ -93,6 +95,7 @@ export interface PolicyEvaluationInput {
     scoringEnabled?: boolean | null;
     scoringPhase?: string | null;
     licenseGrantedAt?: Date | string | null;
+    officialActivatedAt?: Date | string | null;
     featuresJson?: Record<string, unknown> | null;
     features?: { whatsappNotifications?: boolean } | null;
   } | null;
@@ -191,7 +194,7 @@ export class CommunicationPolicyEngine {
         };
       }
 
-      // B. Tournament Licensing and Emergency Lock Guard
+      // B. Tournament Official Live Activation, Licensing, and Emergency Lock Guard
       let tournament = input.tournament;
       if (!tournament && tournamentId) {
         try {
@@ -202,6 +205,7 @@ export class CommunicationPolicyEngine {
               scoringEnabled: tournamentsTable.scoringEnabled,
               scoringPhase: tournamentsTable.scoringPhase,
               licenseGrantedAt: tournamentsTable.licenseGrantedAt,
+              officialActivatedAt: tournamentsTable.officialActivatedAt,
               featuresJson: tournamentsTable.featuresJson,
             })
             .from(tournamentsTable)
@@ -215,18 +219,22 @@ export class CommunicationPolicyEngine {
         }
       }
 
-      if ((tournamentId || tournament) && !isTournamentLicensedForComm(tournament)) {
+      if ((tournamentId || tournament) && !isTournamentReadyForOutboundComm(tournament)) {
         const rawFeatures = (tournament as any)?.featuresJson ?? (tournament as any)?.features;
         const features = rawFeatures ? resolveTournamentFeatures(rawFeatures) : null;
         const reason = tournament?.adminLocked
           ? "Tournament is admin-locked"
-          : features?.whatsappNotifications === false
-            ? "WhatsApp communications explicitly disabled by admin for this tournament"
-            : `Tournament licensing status '${tournament?.licenseStatus ?? "unknown"}' not eligible for communications`;
+          : !isTournamentLicensedForComm(tournament)
+            ? features?.whatsappNotifications === false
+              ? "WhatsApp communications explicitly disabled by admin for this tournament"
+              : `Tournament licensing status '${tournament?.licenseStatus ?? "unknown"}' not eligible for communications`
+            : !isTournamentOfficiallyActivatedForComm(tournament)
+              ? "Tournament has not been officially activated for live production (Activate Live required)"
+              : "Tournament not eligible for communications";
 
         logger.info(
           { event, tournamentId, to: maskedMobile, reason },
-          "Push policy suppressed: Tournament unlicensed or locked",
+          "Push policy suppressed: Tournament unactivated, unlicensed, or locked",
         );
 
         return {

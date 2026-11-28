@@ -165,6 +165,22 @@ export async function sendPushToTournament(
 ) {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
 
+  try {
+    const [tournament] = await db
+      .select({
+        officialActivatedAt: tournamentsTable.officialActivatedAt,
+        adminLocked: tournamentsTable.adminLocked,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId))
+      .limit(1);
+    if (!tournament || !tournament.officialActivatedAt || tournament.adminLocked) {
+      return;
+    }
+  } catch {
+    return;
+  }
+
   await cleanupStalePushData();
 
   const baseUrl = getPublicOrigin();

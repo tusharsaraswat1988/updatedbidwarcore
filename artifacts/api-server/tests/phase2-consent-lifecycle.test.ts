@@ -37,6 +37,7 @@ describe("BIDWAR Phase 2 — Individual Opt-In, Notice & Withdrawal Lifecycle", 
     scoringEnabled: true,
     scoringPhase: null,
     licenseGrantedAt: new Date(),
+    officialActivatedAt: new Date(),
   };
 
   beforeEach(() => {

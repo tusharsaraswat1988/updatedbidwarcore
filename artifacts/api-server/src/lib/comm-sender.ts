@@ -208,6 +208,17 @@ export async function sendWhatsApp(
 }
 
 /**
+ * Returns true only after the tournament has been officially activated for live
+ * production via "Activate Live" (stamping `officialActivatedAt`).
+ * Until then, outbound participant communications remain suppressed across all channels.
+ */
+export function isTournamentOfficiallyActivatedForComm(
+  tournament: { officialActivatedAt?: Date | string | null } | null | undefined,
+): boolean {
+  return Boolean(tournament?.officialActivatedAt);
+}
+
+/**
  * Module-aware communication license check.
  * - Emergency lock (adminLocked) strictly blocks communications.
  * - Active license entitlement (licenseStatus === 'active') is allowed.
@@ -221,6 +232,7 @@ export function isTournamentLicensedForComm(
     scoringEnabled?: boolean | null;
     scoringPhase?: string | null;
     licenseGrantedAt?: Date | string | null;
+    officialActivatedAt?: Date | string | null;
     featuresJson?: Record<string, unknown> | null;
     features?: { whatsappNotifications?: boolean } | null;
   } | null | undefined,
@@ -250,6 +262,21 @@ export function isTournamentLicensedForComm(
   return false;
 }
 
+/**
+ * Authoritative outbound communication eligibility check across WhatsApp, Email, SMS, and Push.
+ * Requires BOTH official live activation (`officialActivatedAt`) AND an active/eligible license.
+ */
+export function isTournamentReadyForOutboundComm(
+  tournament:
+    | (Parameters<typeof isTournamentLicensedForComm>[0] & {
+        officialActivatedAt?: Date | string | null;
+      })
+    | null
+    | undefined,
+): boolean {
+  return isTournamentOfficiallyActivatedForComm(tournament) && isTournamentLicensedForComm(tournament);
+}
+
 export async function sendLicensedWhatsApp(
   tournamentId: number | null | undefined,
   to: string,
@@ -260,6 +287,16 @@ export async function sendLicensedWhatsApp(
     return { success: false, blocked: true, error: "Missing recipient mobile number" };
   }
 
+  let tournamentRow: {
+    licenseStatus?: string | null;
+    adminLocked?: boolean | null;
+    scoringEnabled?: boolean | null;
+    scoringPhase?: string | null;
+    licenseGrantedAt?: Date | string | null;
+    officialActivatedAt?: Date | string | null;
+    featuresJson?: Record<string, unknown> | null;
+  } | null = null;
+
   if (tournamentId) {
     const [t] = await db
       .select({
@@ -268,24 +305,30 @@ export async function sendLicensedWhatsApp(
         scoringEnabled: tournamentsTable.scoringEnabled,
         scoringPhase: tournamentsTable.scoringPhase,
         licenseGrantedAt: tournamentsTable.licenseGrantedAt,
+        officialActivatedAt: tournamentsTable.officialActivatedAt,
         featuresJson: tournamentsTable.featuresJson,
       })
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, tournamentId));
-    if (isTournamentLicensedForComm(t)) {
+    tournamentRow = t ?? null;
+    if (isTournamentReadyForOutboundComm(tournamentRow)) {
       return sendWhatsApp(to, body, templateSid);
     }
   }
 
-  // Not licensed, admin-locked, or missing tournament context.
+  // Not activated, not licensed, admin-locked, or missing tournament context.
   // CRITICAL REQUIREMENT (Stage 2): Automatic WhatsApp-to-SMS fallback is strictly ELIMINATED.
   const reason = !tournamentId
     ? "Missing tournament context"
-    : "Tournament not licensed or admin-locked for WhatsApp communications";
+    : !isTournamentLicensedForComm(tournamentRow)
+      ? "Tournament not licensed or admin-locked for WhatsApp communications"
+      : !isTournamentOfficiallyActivatedForComm(tournamentRow)
+        ? "Tournament has not been officially activated for live production (Activate Live required)"
+        : "Tournament not eligible for WhatsApp communications";
 
   logger.warn(
     { tournamentId: tournamentId ?? null, to: maskPhoneNumber(to), reason },
-    "sendLicensedWhatsApp: WhatsApp dispatch suppressed (unlicensed/blocked); SMS fallback eliminated",
+    "sendLicensedWhatsApp: WhatsApp dispatch suppressed (unactivated/unlicensed/blocked); SMS fallback eliminated",
   );
 
   return {

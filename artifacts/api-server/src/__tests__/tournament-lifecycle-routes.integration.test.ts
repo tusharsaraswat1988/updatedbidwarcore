@@ -14,6 +14,7 @@ type TournamentRecord = {
   licenseStatus: string;
   licenseGrantedAt: Date | null;
   licenseGrantedBy: string | null;
+  officialActivatedAt?: Date | null;
   adminLocked: boolean;
   adminLockedAt: Date | null;
   organizerId: number;
@@ -106,6 +107,7 @@ vi.mock("@workspace/db", () => {
     licenseStatus: "tournaments.licenseStatus",
     licenseGrantedAt: "tournaments.licenseGrantedAt",
     licenseGrantedBy: "tournaments.licenseGrantedBy",
+    officialActivatedAt: "tournaments.officialActivatedAt",
     adminLocked: "tournaments.adminLocked",
     adminLockedAt: "tournaments.adminLockedAt",
     organizerId: "tournaments.organizerId",
@@ -461,6 +463,7 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
       licenseStatus: "active",
       licenseGrantedAt: new Date("2026-01-01"),
       licenseGrantedBy: "master",
+      officialActivatedAt: new Date("2026-01-01"),
       adminLocked: false,
       adminLockedAt: null,
       organizerId: 10,
@@ -489,6 +492,7 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
       licenseStatus: "active",
       licenseGrantedAt: new Date("2026-01-01"),
       licenseGrantedBy: "master",
+      officialActivatedAt: new Date("2026-01-01"),
       adminLocked: false,
       adminLockedAt: null,
       organizerId: 10,
@@ -517,6 +521,7 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
       licenseStatus: "active",
       licenseGrantedAt: new Date("2026-01-01"),
       licenseGrantedBy: "master",
+      officialActivatedAt: new Date("2026-01-01"),
       adminLocked: false,
       adminLockedAt: null,
       organizerId: 10,
@@ -545,6 +550,7 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
       licenseStatus: "active",
       licenseGrantedAt: new Date("2026-01-01"),
       licenseGrantedBy: "master",
+      officialActivatedAt: new Date("2026-01-01"),
       adminLocked: false,
       adminLockedAt: null,
       organizerId: 10,

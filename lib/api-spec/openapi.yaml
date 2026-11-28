@@ -3329,6 +3329,9 @@ components:
           type: integer
         startFromBase:
           type: boolean
+        startingBid:
+          type: integer
+          description: Optional custom opening bid amount overriding startFromBase
         reason:
           type: string
           description: Optional audit reason for re-auction

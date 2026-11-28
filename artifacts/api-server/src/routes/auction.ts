@@ -93,6 +93,7 @@ import {
   parseReAuctionStrategy,
   parseReAuctionStrategyFromRequest,
   resolveOpeningBid,
+  resolveSinglePlayerReAuctionBid,
   serializeReAuctionStrategy,
   validateFixedReAuctionAmount,
 } from "@workspace/api-base/re-auction-strategy";
@@ -2197,82 +2198,90 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
 
   const { soldPlayer, team } = sellResult;
 
-  // Fire-and-forget WhatsApp notification with dynamic Player Sold poster
-  void notifyPlayerSold({
-    mobile: soldPlayer?.mobileNumber ?? null,
-    tournamentId: tid,
-    playerId: soldPlayer?.id ?? playerId,
-    playerName: soldPlayer?.name ?? "Player",
-    playerPhotoUrl: soldPlayer?.photoUrl ?? null,
-    playerRole: soldPlayer?.role ?? null,
-    teamId: team?.id ?? teamId,
-    teamName: team?.name ?? "Team",
-    teamLogoUrl: team?.logoUrl ?? null,
-    teamShortCode: team?.shortCode ?? null,
-    teamColor: team?.color ?? null,
-    amount: soldAmount,
-    tournamentName: tournament?.name ?? "the tournament",
-    tournamentSport: tournament?.sport ?? "cricket",
-    auctionUnit: (tournament?.auctionUnit ?? "points") as any,
-    whatsappConsent: soldPlayer?.whatsappConsent,
-  });
+  if (tournament?.officialActivatedAt) {
+    // Fire-and-forget WhatsApp notification with dynamic Player Sold poster
+    void notifyPlayerSold({
+      mobile: soldPlayer?.mobileNumber ?? null,
+      tournamentId: tid,
+      playerId: soldPlayer?.id ?? playerId,
+      playerName: soldPlayer?.name ?? "Player",
+      playerPhotoUrl: soldPlayer?.photoUrl ?? null,
+      playerRole: soldPlayer?.role ?? null,
+      teamId: team?.id ?? teamId,
+      teamName: team?.name ?? "Team",
+      teamLogoUrl: team?.logoUrl ?? null,
+      teamShortCode: team?.shortCode ?? null,
+      teamColor: team?.color ?? null,
+      amount: soldAmount,
+      tournamentName: tournament?.name ?? "the tournament",
+      tournamentSport: tournament?.sport ?? "cricket",
+      auctionUnit: (tournament?.auctionUnit ?? "points") as any,
+      whatsappConsent: soldPlayer?.whatsappConsent,
+    });
 
-  enqueuePlayerSoldEmailAsync({
-    playerId,
-    teamId,
-    amount: soldAmount,
-    tournamentId: tid,
-  });
+    enqueuePlayerSoldEmailAsync({
+      playerId,
+      teamId,
+      amount: soldAmount,
+      tournamentId: tid,
+    });
 
-  // DLT SMS: notify player about being sold (fire-and-forget, live tournaments only)
-  if (tournament?.licenseStatus === "active" && soldPlayer?.mobileNumber) {
-    const playerMobile = soldPlayer.mobileNumber;
-    void (async () => {
-      try {
-        const { smsNotificationSettingsTable } = await import("@workspace/db");
-        const { sendDltSms, playerSoldTemplateId } = await import("../lib/fast2sms");
-        const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
-        // Env var takes priority over DB setting so the template ID is universal
-        const envTemplateId = playerSoldTemplateId();
-        const templateId = envTemplateId || settings?.playerSoldTemplateId;
-        logger.info({
-          playerId,
-          dltEnabled: settings?.dltEnabled,
-          playerSoldEnabled: settings?.playerSoldEnabled,
-          templateIdSource: envTemplateId ? "env" : "db",
-          templateId,
-          mobile: playerMobile.slice(0, 4) + "xxxxxx",
-        }, "DLT player-sold SMS: pre-flight check");
-        if (settings?.dltEnabled && settings.playerSoldEnabled && templateId) {
-          // Template vars (must match approved DLT sample exactly):
-          // 1=player name, 2=team name, 3=amount as plain number, 4=app URL
-          const appUrl = getPublicOrigin();
-          const result = await sendDltSms(
-            [playerMobile],
-            templateId,
-            [soldPlayer.name ?? "Player", team?.name ?? "Team", String(soldAmount), appUrl],
-          );
-          if (result.success) {
-            logger.info({ playerId, templateId, mobile: playerMobile.slice(0, 4) + "xxxxxx" }, "DLT player-sold SMS: sent");
-          } else {
-            logger.error({ playerId, templateId, err: result.error }, "DLT player-sold SMS: API rejected");
-          }
-        } else {
-          logger.warn({
+    // DLT SMS: notify player about being sold (fire-and-forget, officially activated live tournaments only)
+    if (tournament?.licenseStatus === "active" && soldPlayer?.mobileNumber) {
+      const playerMobile = soldPlayer.mobileNumber;
+      void (async () => {
+        try {
+          const { smsNotificationSettingsTable } = await import("@workspace/db");
+          const { sendDltSms, playerSoldTemplateId } = await import("../lib/fast2sms");
+          const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
+          // Env var takes priority over DB setting so the template ID is universal
+          const envTemplateId = playerSoldTemplateId();
+          const templateId = envTemplateId || settings?.playerSoldTemplateId;
+          logger.info({
             playerId,
             dltEnabled: settings?.dltEnabled,
             playerSoldEnabled: settings?.playerSoldEnabled,
+            templateIdSource: envTemplateId ? "env" : "db",
             templateId,
-          }, "DLT player-sold SMS: skipped (condition not met)");
-        }
-      } catch (err) { logger.error({ err, playerId }, "DLT player-sold SMS failed"); }
-    })();
+            mobile: playerMobile.slice(0, 4) + "xxxxxx",
+          }, "DLT player-sold SMS: pre-flight check");
+          if (settings?.dltEnabled && settings.playerSoldEnabled && templateId) {
+            // Template vars (must match approved DLT sample exactly):
+            // 1=player name, 2=team name, 3=amount as plain number, 4=app URL
+            const appUrl = getPublicOrigin();
+            const result = await sendDltSms(
+              [playerMobile],
+              templateId,
+              [soldPlayer.name ?? "Player", team?.name ?? "Team", String(soldAmount), appUrl],
+            );
+            if (result.success) {
+              logger.info({ playerId, templateId, mobile: playerMobile.slice(0, 4) + "xxxxxx" }, "DLT player-sold SMS: sent");
+            } else {
+              logger.error({ playerId, templateId, err: result.error }, "DLT player-sold SMS: API rejected");
+            }
+          } else {
+            logger.warn({
+              playerId,
+              dltEnabled: settings?.dltEnabled,
+              playerSoldEnabled: settings?.playerSoldEnabled,
+              templateId,
+            }, "DLT player-sold SMS: skipped (condition not met)");
+          }
+        } catch (err) { logger.error({ err, playerId }, "DLT player-sold SMS failed"); }
+      })();
+    } else {
+      logger.info({
+        playerId,
+        licenseStatus: tournament?.licenseStatus,
+        hasMobile: !!soldPlayer?.mobileNumber,
+      }, "DLT player-sold SMS: not attempted (no mobile or not active)");
+    }
   } else {
     logger.info({
+      tournamentId: tid,
       playerId,
       licenseStatus: tournament?.licenseStatus,
-      hasMobile: !!soldPlayer?.mobileNumber,
-    }, "DLT player-sold SMS: not attempted (no mobile or not active)");
+    }, "Player sold communications (WhatsApp/Email/SMS) suppressed — Activate Live not completed");
   }
 
   // Log player auction end (fire-and-forget)
@@ -2551,31 +2560,39 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
   // Tournament already loaded for trial gate; reuse for notifications/audit.
   const manualTournament = manualSellTournament;
 
-  void notifyPlayerSold({
-    mobile: soldPlayer?.mobileNumber ?? null,
-    tournamentId: tid,
-    playerId: soldPlayer?.id ?? playerId,
-    playerName: soldPlayer?.name ?? "Player",
-    playerPhotoUrl: soldPlayer?.photoUrl ?? null,
-    playerRole: soldPlayer?.role ?? null,
-    teamId: team?.id ?? teamId,
-    teamName: team?.name ?? "Team",
-    teamLogoUrl: team?.logoUrl ?? null,
-    teamShortCode: team?.shortCode ?? null,
-    teamColor: team?.color ?? null,
-    amount,
-    tournamentName: manualTournament?.name ?? "the tournament",
-    tournamentSport: manualTournament?.sport ?? "cricket",
-    auctionUnit: (manualTournament?.auctionUnit ?? "points") as any,
-    whatsappConsent: soldPlayer?.whatsappConsent,
-  });
+  if (manualTournament?.officialActivatedAt) {
+    void notifyPlayerSold({
+      mobile: soldPlayer?.mobileNumber ?? null,
+      tournamentId: tid,
+      playerId: soldPlayer?.id ?? playerId,
+      playerName: soldPlayer?.name ?? "Player",
+      playerPhotoUrl: soldPlayer?.photoUrl ?? null,
+      playerRole: soldPlayer?.role ?? null,
+      teamId: team?.id ?? teamId,
+      teamName: team?.name ?? "Team",
+      teamLogoUrl: team?.logoUrl ?? null,
+      teamShortCode: team?.shortCode ?? null,
+      teamColor: team?.color ?? null,
+      amount,
+      tournamentName: manualTournament?.name ?? "the tournament",
+      tournamentSport: manualTournament?.sport ?? "cricket",
+      auctionUnit: (manualTournament?.auctionUnit ?? "points") as any,
+      whatsappConsent: soldPlayer?.whatsappConsent,
+    });
 
-  enqueuePlayerSoldEmailAsync({
-    playerId,
-    teamId,
-    amount,
-    tournamentId: tid,
-  });
+    enqueuePlayerSoldEmailAsync({
+      playerId,
+      teamId,
+      amount,
+      tournamentId: tid,
+    });
+  } else {
+    logger.info({
+      tournamentId: tid,
+      playerId,
+      licenseStatus: manualTournament?.licenseStatus,
+    }, "Manual sell player sold communications suppressed — Activate Live not completed");
+  }
 
   // Synthetic Boundary Bid Logging in manual sell (P0)
   await logManualSellBoundaryEvents({
@@ -2855,6 +2872,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
   const schema = z.object({
     playerId: z.number().int(),
     startFromBase: z.boolean().optional().default(true),
+    startingBid: z.number().int().optional(),
     reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -2866,7 +2884,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
   const session = await getOrCreateSession(tid);
   if (rejectIfAuctionPaused(session, res)) return;
 
-  const { playerId, startFromBase } = parsed.data;
+  const { playerId, startFromBase, startingBid: customStartingBid } = parsed.data;
   if (session.currentPlayerId && session.currentPlayerId !== playerId) {
     res.status(400).json({ error: "A player is currently on the block. Conclude or defer them before re-auctioning another player." });
     return;
@@ -2881,8 +2899,19 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
 
   // Fetch read-only data before the transaction so they are available both
   // inside (for writes) and outside (for notifications/audit).
-  const startingBid = startFromBase ? player.basePrice : (player.soldPrice ?? player.basePrice);
   const reTournament = tournament;
+  const resolvedBid = resolveSinglePlayerReAuctionBid({
+    startFromBase,
+    startingBid: customStartingBid,
+    playerBasePrice: player.basePrice,
+    playerSoldPrice: player.soldPrice,
+    tournamentMinBid: reTournament?.minBid ?? 0,
+  });
+  if (!resolvedBid.ok) {
+    res.status(400).json({ error: resolvedBid.error });
+    return;
+  }
+  const startingBid = resolvedBid.startingBid;
   const timerSecs = reTournament?.timerSeconds ?? 30;
   const returnToLive = liveAuctionSessionWrite(session.obsContextJson);
 

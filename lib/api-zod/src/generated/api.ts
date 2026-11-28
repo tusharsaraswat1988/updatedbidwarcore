@@ -6194,6 +6194,10 @@ export const ReAuctionPlayerParams = zod.object({
 export const ReAuctionPlayerBody = zod.object({
   playerId: zod.number(),
   startFromBase: zod.boolean().optional(),
+  startingBid: zod
+    .number()
+    .optional()
+    .describe("Optional custom opening bid amount overriding startFromBase"),
   reason: zod
     .string()
     .optional()

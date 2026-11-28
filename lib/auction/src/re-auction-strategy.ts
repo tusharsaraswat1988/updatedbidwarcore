@@ -72,19 +72,47 @@ export function resolveOpeningBid(input: OpeningBidInput): number {
 export function validateFixedReAuctionAmount(
   amount: number,
   tournamentMinBid: number,
+  label = "Fixed starting bid",
 ): { ok: true; amount: number } | { ok: false; error: string } {
   const normalized = Math.trunc(amount);
   if (!Number.isFinite(normalized) || normalized <= 0) {
-    return { ok: false, error: "Fixed starting bid must be greater than ₹0." };
+    return { ok: false, error: `${label} must be greater than ₹0.` };
   }
   const floor = tournamentMinBid > 0 ? tournamentMinBid : 1;
   if (normalized < floor) {
     return {
       ok: false,
-      error: `Fixed starting bid must be at least ₹${floor.toLocaleString("en-IN")} (tournament minimum).`,
+      error: `${label} must be at least ₹${floor.toLocaleString("en-IN")} (tournament minimum).`,
     };
   }
   return { ok: true, amount: normalized };
+}
+
+/**
+ * Resolve opening bid for a single-player re-auction.
+ * Custom `startingBid` overrides `startFromBase`; otherwise `startFromBase=false`
+ * resumes from `playerSoldPrice` (falling back to `playerBasePrice`).
+ */
+export function resolveSinglePlayerReAuctionBid(input: {
+  startFromBase: boolean;
+  startingBid?: number;
+  playerBasePrice: number;
+  playerSoldPrice: number | null | undefined;
+  tournamentMinBid: number;
+}): { ok: true; startingBid: number } | { ok: false; error: string } {
+  if (input.startingBid !== undefined) {
+    const check = validateFixedReAuctionAmount(
+      input.startingBid,
+      input.tournamentMinBid,
+      "Starting bid",
+    );
+    if (!check.ok) return check;
+    return { ok: true, startingBid: check.amount };
+  }
+  const startingBid = input.startFromBase
+    ? input.playerBasePrice
+    : (input.playerSoldPrice ?? input.playerBasePrice);
+  return { ok: true, startingBid };
 }
 
 export function parseReAuctionStrategyFromRequest(body: {

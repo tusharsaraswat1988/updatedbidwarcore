@@ -62,6 +62,7 @@ describe("BIDWAR — WhatsApp Consent Phase 1: P0 Safety Lockdown Verification",
     scoringEnabled: true,
     scoringPhase: "active",
     licenseGrantedAt: new Date(),
+    officialActivatedAt: new Date(),
     organizerMobile: "9876543210",
     organizerId: 5,
   };

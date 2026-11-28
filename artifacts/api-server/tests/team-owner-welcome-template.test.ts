@@ -35,6 +35,7 @@ describe("Team Owner Welcome WhatsApp Template & Auto-Dispatch", () => {
     scoringEnabled: true,
     scoringPhase: "active",
     licenseGrantedAt: new Date(),
+    officialActivatedAt: new Date(),
   };
 
   const trialTournament = {

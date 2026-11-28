@@ -29,6 +29,7 @@ describe("Player Sold Meta Template Mapping & Payload Integration", () => {
     scoringEnabled: true,
     scoringPhase: "active",
     licenseGrantedAt: new Date(),
+    officialActivatedAt: new Date(),
     organizerMobile: "9876543210",
     organizerId: 5,
   };

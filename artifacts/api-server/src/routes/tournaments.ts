@@ -1248,7 +1248,8 @@ router.post("/tournaments/:id/share-viewer-link", async (req, res) => {
   const viewerUrl = buildPublicUrl(`/tournament/${tid}/display`);
 
   const orgId = tournament.organizerId;
-  if (orgId != null) {
+  const canSendSms = Boolean(tournament.officialActivatedAt) && !tournament.adminLocked;
+  if (orgId != null && canSendSms) {
     void (async () => {
       try {
         const { smsNotificationSettingsTable, organizersTable: orgsTable } = await import("@workspace/db");
@@ -1269,7 +1270,7 @@ router.post("/tournaments/:id/share-viewer-link", async (req, res) => {
     })();
   }
 
-  res.json({ success: true, viewerUrl });
+  res.json({ success: true, viewerUrl, smsSent: canSendSms });
 });
 
 // ─── Tournament License Requests ──────────────────────────────────────────────

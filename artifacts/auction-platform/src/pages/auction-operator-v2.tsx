@@ -65,7 +65,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  PrepareReAuctionDialog,
+  SinglePlayerReAuctionDialog,
+  type ReAuctionTargetPlayer,
+} from "@/components/auction/re-auction-dialogs";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipForward, CheckCircle, XCircle,
@@ -337,8 +341,7 @@ export default function AuctionOperatorV2() {
   const [manualSellReason, setManualSellReason] = useState("");
   const [showAdvancedReason, setShowAdvancedReason] = useState(false);
   const [showBatchReAuctionConfirm, setShowBatchReAuctionConfirm] = useState(false);
-  const [reAuctionStrategy, setReAuctionStrategy] = useState<"keep_existing" | "reset_defaults" | "fixed">("keep_existing");
-  const [reAuctionFixedAmount, setReAuctionFixedAmount] = useState("");
+  const [reAuctionTargetPlayer, setReAuctionTargetPlayer] = useState<ReAuctionTargetPlayer | null>(null);
   const [concludeDialogOpen, setConcludeDialogOpen] = useState(false);
   const [readinessModalOpen, setReadinessModalOpen] = useState(false);
   const [readinessIssues, setReadinessIssues] = useState<AuctionReadinessIssue[]>([]);
@@ -381,7 +384,7 @@ export default function AuctionOperatorV2() {
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const { formatAmount, formatShort, symbol: unitSymbol } = useAuctionUnit(tournament);
+  const { unit, formatAmount, formatShort, symbol: unitSymbol } = useAuctionUnit(tournament);
   const { data: state } = useGetAuctionState(tournamentId, {
     query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId },
   });
@@ -791,8 +794,13 @@ export default function AuctionOperatorV2() {
     await handleReAuction(playerId, true);
   }
 
-  async function handleReAuction(playerId: number, startFromBase: boolean, reason?: string) {
-    if (controlsLocked || reAuction.isPending) return;
+  async function handleReAuction(
+    playerId: number,
+    startFromBase: boolean,
+    reason?: string,
+    startingBid?: number,
+  ): Promise<boolean> {
+    if (controlsLocked || reAuction.isPending) return false;
     const currentId = state?.currentPlayer?.id;
     if (currentId && currentId !== playerId) {
       toast({
@@ -800,7 +808,7 @@ export default function AuctionOperatorV2() {
         description: "Finish or defer the current player before starting a re-auction.",
         variant: "destructive",
       });
-      return;
+      return false;
     }
     try {
       const result = await reAuction.mutateAsync({
@@ -808,33 +816,58 @@ export default function AuctionOperatorV2() {
         data: {
           playerId,
           startFromBase,
+          ...(startingBid != null ? { startingBid } : {}),
           ...(reason?.trim() ? { reason: reason.trim() } : {}),
         },
       });
       setCurrentBidPaused(false);
       applyMutationResult(result);
       toast({ title: "Player placed back on block" });
+      return true;
     } catch (err) {
       toast({
         title: "Could not re-auction player",
         description: mutationErrorMessage(err, "Re-auction failed"),
         variant: "destructive",
       });
+      return false;
     }
   }
 
-  async function handleInstantReauction(playerId?: number) {
+  function openSingleReAuctionDialog(playerId?: number) {
     if (state?.currentPlayer) {
       toast({
         title: "Player on block",
-        description: "Finish or defer the current player before re-auctioning the last sale.",
+        description: "Finish or defer the current player before re-auctioning another player.",
         variant: "destructive",
       });
       return;
     }
     const targetId = playerId ?? lastSoldPlayer?.id;
     if (!targetId || controlsLocked || reAuction.isPending || isPaused) return;
-    await handleReAuction(targetId, true);
+    const matched = (players || []).find((p) => p.id === targetId);
+    setReAuctionTargetPlayer(
+      matched
+        ? {
+            id: matched.id,
+            name: matched.name,
+            status: matched.status,
+            basePrice: matched.basePrice,
+            soldPrice: matched.soldPrice,
+            teamId: matched.teamId,
+          }
+        : {
+            id: targetId,
+            name: lastSoldPlayer?.name ?? `Player #${targetId}`,
+            status: "sold",
+            basePrice: tournament?.minBid ?? 0,
+            soldPrice: lastSoldPlayer?.soldAmount ?? null,
+          },
+    );
+  }
+
+  function handleInstantReauction(playerId?: number) {
+    openSingleReAuctionDialog(playerId);
   }
 
   async function handleStopTimer() {
@@ -1353,7 +1386,7 @@ export default function AuctionOperatorV2() {
                           <button
                             type="button"
                             disabled={controlsLocked || !isActive || isPaused || reAuction.isPending}
-                            onClick={() => void handleReAuction(player.id, true)}
+                            onClick={() => openSingleReAuctionDialog(player.id)}
                             title="Put player back on block for re-auction"
                             className="h-6 px-1.5 rounded bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 text-[10px] font-bold border border-orange-500/30 flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                           >
@@ -1368,7 +1401,7 @@ export default function AuctionOperatorV2() {
                           <button
                             type="button"
                             disabled={controlsLocked || !isActive || isPaused || reAuction.isPending}
-                            onClick={() => void handleReAuction(player.id, true)}
+                            onClick={() => openSingleReAuctionDialog(player.id)}
                             title="Put unsold player on block for re-auction"
                             className="h-6 px-1.5 rounded bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 text-[10px] font-bold border border-orange-500/30 flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                           >
@@ -2363,50 +2396,57 @@ export default function AuctionOperatorV2() {
         </DialogContent>
       </Dialog>
 
-      {/* 4. Batch Re-Auction Dialog */}
-      <Dialog open={showBatchReAuctionConfirm} onOpenChange={setShowBatchReAuctionConfirm}>
-        <DialogContent className="max-w-md sm:max-w-lg bg-[#0D1527] border-2 border-white/20 text-white rounded-2xl p-6 sm:p-7 shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg sm:text-xl font-black flex items-center gap-2.5">
-              <RotateCcw className="w-5 h-5 text-orange-400" /> Bring Unsold Players Back
-            </DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm text-white/60 mt-1">
-              Return all {statusCounts.unsold} unsold players to the available queue for re-auction.
-            </DialogDescription>
-          </DialogHeader>
+      {/* 4. Batch Re-Auction Dialog (Prepare Re-auction with 3 opening-bid strategies) */}
+      <PrepareReAuctionDialog
+        open={showBatchReAuctionConfirm}
+        onOpenChange={setShowBatchReAuctionConfirm}
+        unsoldCount={statusCounts.unsold}
+        tournamentMinBid={tournament?.minBid}
+        unit={unit}
+        unitSymbol={unitSymbol}
+        formatAmount={formatAmount}
+        isPending={reAuctionAllUnsoldMut.isPending}
+        onConfirm={async (payload) => {
+          try {
+            const res = await reAuctionAllUnsoldMut.mutateAsync({
+              tournamentId,
+              data: payload,
+            });
+            applyMutationResult(res);
+            setShowBatchReAuctionConfirm(false);
+            toast({ title: "Unsold players returned to queue!" });
+          } catch (err) {
+            toast({
+              title: "Failed to bring unsold players",
+              description: mutationErrorMessage(err, "Could not bring unsold players."),
+              variant: "destructive",
+            });
+          }
+        }}
+      />
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowBatchReAuctionConfirm(false)}
-              className="h-11 px-5 text-xs sm:text-sm text-white/60 hover:text-white rounded-xl"
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={reAuctionAllUnsoldMut.isPending}
-              onClick={async () => {
-                try {
-                  const res = await reAuctionAllUnsoldMut.mutateAsync({
-                    tournamentId,
-                    data: { strategy: reAuctionStrategy },
-                  });
-                  applyMutationResult(res);
-                  setShowBatchReAuctionConfirm(false);
-                  toast({ title: "Unsold players returned to queue!" });
-                } catch (err) {
-                  toast({ title: "Failed to bring unsold players", variant: "destructive" });
-                }
-              }}
-              className="h-11 sm:h-12 px-6 text-xs sm:text-sm font-black bg-orange-600 hover:bg-orange-500 text-white rounded-xl shadow-md"
-            >
-              Confirm &amp; Re-Auction All
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* 4b. Single-Player Re-Auction Dialog (Base Point / Last Sold Point / Custom Point) */}
+      <SinglePlayerReAuctionDialog
+        open={!!reAuctionTargetPlayer}
+        onOpenChange={(open) => {
+          if (!open) setReAuctionTargetPlayer(null);
+        }}
+        player={reAuctionTargetPlayer}
+        previousTeamName={
+          reAuctionTargetPlayer?.teamId
+            ? teamMap[reAuctionTargetPlayer.teamId]?.name ?? null
+            : null
+        }
+        tournamentMinBid={tournament?.minBid}
+        unit={unit}
+        unitSymbol={unitSymbol}
+        formatAmount={formatAmount}
+        isPending={reAuction.isPending}
+        onConfirm={async ({ playerId, startFromBase, startingBid }) => {
+          const ok = await handleReAuction(playerId, startFromBase, undefined, startingBid);
+          if (ok) setReAuctionTargetPlayer(null);
+        }}
+      />
 
       {/* 5. Owner Bidding Disable Confirmation Dialog */}
       <Dialog open={confirmDisableOwnerBiddingOpen} onOpenChange={setConfirmDisableOwnerBiddingOpen}>

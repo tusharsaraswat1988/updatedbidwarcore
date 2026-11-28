@@ -1133,6 +1133,8 @@ export interface UnsoldInput {
 export interface ReAuctionInput {
   playerId: number;
   startFromBase?: boolean;
+  /** Optional custom opening bid amount overriding startFromBase */
+  startingBid?: number;
   /** Optional audit reason for re-auction */
   reason?: string;
 }

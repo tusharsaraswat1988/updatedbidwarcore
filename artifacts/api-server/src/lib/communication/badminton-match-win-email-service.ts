@@ -151,6 +151,8 @@ async function resolveTournamentContext(tournamentId: number): Promise<{
   organiserName: string;
   organiserEmail: string;
   organizerId: number | null;
+  officialActivatedAt: Date | null;
+  adminLocked: boolean;
 }> {
   const [tournament] = await db
     .select({
@@ -158,6 +160,8 @@ async function resolveTournamentContext(tournamentId: number): Promise<{
       organizerName: tournamentsTable.organizerName,
       organizerEmail: tournamentsTable.organizerEmail,
       organizerId: tournamentsTable.organizerId,
+      officialActivatedAt: tournamentsTable.officialActivatedAt,
+      adminLocked: tournamentsTable.adminLocked,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
@@ -168,6 +172,8 @@ async function resolveTournamentContext(tournamentId: number): Promise<{
     organiserName: tournament?.organizerName?.trim() ?? "",
     organiserEmail: tournament?.organizerEmail?.trim() ?? "",
     organizerId: tournament?.organizerId ?? null,
+    officialActivatedAt: tournament?.officialActivatedAt ?? null,
+    adminLocked: Boolean(tournament?.adminLocked),
   };
 }
 
@@ -641,6 +647,19 @@ export async function enqueueBadmintonMatchWinEmails(params: {
     const opponentSide = state.winnerSide === "left" ? state.rightSide : state.leftSide;
 
     const tournamentCtx = await resolveTournamentContext(tournamentId);
+    if (!tournamentCtx.officialActivatedAt || tournamentCtx.adminLocked) {
+      logger.debug(
+        {
+          matchId,
+          tournamentId,
+          officiallyActivated: Boolean(tournamentCtx.officialActivatedAt),
+          adminLocked: tournamentCtx.adminLocked,
+        },
+        "Badminton match win email: skipped (tournament not officially activated or admin-locked)",
+      );
+      return;
+    }
+
     const [recipients, categoryName] = await Promise.all([
       collectWinRecipients({
         tournamentId,

@@ -122,6 +122,30 @@ async function processJob(job: CommunicationJob): Promise<void> {
     return;
   }
 
+  if (
+    full.tournamentId != null &&
+    full.triggeredByEvent !== "TOURNAMENT_CREATED" &&
+    full.triggeredByEvent !== "PLAYER_REGISTERED"
+  ) {
+    const tRes = await pool.query<{ official_activated_at: Date | null; admin_locked: boolean }>(
+      "SELECT official_activated_at, admin_locked FROM tournaments WHERE id = $1 LIMIT 1",
+      [full.tournamentId],
+    );
+    const tRow = tRes.rows[0];
+    if (!tRow || !tRow.official_activated_at || tRow.admin_locked) {
+      await updateJobStatus(job.id, "cancelled", {
+        errorMessage: tRow?.admin_locked
+          ? "Cancelled: tournament is admin-locked"
+          : "Cancelled: tournament has not been officially activated for live production (Activate Live required)",
+      });
+      logger.info(
+        { jobId: job.id, tournamentId: full.tournamentId, event: full.triggeredByEvent },
+        "Communication job cancelled — tournament not officially activated",
+      );
+      return;
+    }
+  }
+
   await logCommunicationAction({
     jobId: job.id,
     action: "send_attempt",

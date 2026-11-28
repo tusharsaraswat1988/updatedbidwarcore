@@ -52,6 +52,7 @@ describe("Stage 2: WhatsApp Push & Communication Policy Engine", () => {
       scoringPhase: "active",
       auctionUnit: "rupee",
       licenseGrantedAt: new Date(),
+      officialActivatedAt: new Date(),
     };
 
     it("dispatches Player Sold notification through active provider with exact copy", async () => {
@@ -241,6 +242,7 @@ describe("Stage 2: WhatsApp Push & Communication Policy Engine", () => {
               scoringEnabled: true,
               scoringPhase: "active",
               licenseGrantedAt: new Date(),
+              officialActivatedAt: new Date(),
             },
           ]),
         }),
@@ -329,6 +331,7 @@ describe("Stage 2: WhatsApp Push & Communication Policy Engine", () => {
             {
               licenseStatus: "active",
               adminLocked: false,
+              officialActivatedAt: new Date(),
             },
           ]),
         }),
@@ -376,6 +379,7 @@ describe("Stage 2: WhatsApp Push & Communication Policy Engine", () => {
     const licensedTournament = {
       licenseStatus: "active",
       adminLocked: false,
+      officialActivatedAt: new Date(),
     };
 
     it("suppresses WhatsApp Push when recipient has not consented (whatsappConsent=false)", async () => {

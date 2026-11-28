@@ -42,6 +42,7 @@ describe("BIDWAR — Meta-Approved WhatsApp auction_player_sold Template Integra
     scoringEnabled: true,
     scoringPhase: "active",
     licenseGrantedAt: new Date(),
+    officialActivatedAt: new Date(),
   };
 
   beforeEach(() => {

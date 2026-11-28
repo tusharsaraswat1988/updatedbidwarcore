@@ -31,7 +31,14 @@ import { z } from "zod";
 import { randomBytes } from "crypto";
 import { CURRENT_CONSENT_NOTICE_VERSION, CONSENT_NOTICE_V1 } from "@workspace/api-base";
 import { recordConsentGranted } from "../lib/communication/consent-service";
-import { sendSms, sendWhatsApp, buildWaMeLink, buildConsentSms, isTournamentLicensedForComm } from "../lib/comm-sender";
+import {
+  sendSms,
+  sendWhatsApp,
+  buildWaMeLink,
+  buildConsentSms,
+  isTournamentLicensedForComm,
+  isTournamentOfficiallyActivatedForComm,
+} from "../lib/comm-sender";
 import { resolveTournamentFeatures } from "@workspace/platform-core/tournament-features";
 import { isMobileRevoked } from "../lib/communication/policy-engine";
 import { sendDltSms, playerSoldTemplateId } from "../lib/fast2sms";
@@ -435,8 +442,23 @@ router.post("/consent/generate", async (req, res) => {
     }
   }
 
-  const [tournament] = await db.select({ name: tournamentsTable.name }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
+  const [tournament] = await db
+    .select({
+      name: tournamentsTable.name,
+      officialActivatedAt: tournamentsTable.officialActivatedAt,
+      adminLocked: tournamentsTable.adminLocked,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+  if (tournament.adminLocked || !isTournamentOfficiallyActivatedForComm(tournament)) {
+    res.status(403).json({
+      error: tournament.adminLocked
+        ? "Tournament is locked by administrator"
+        : "Communications cannot be sent until Activate Live (Official Production) is enabled for this tournament",
+    });
+    return;
+  }
 
   // Recipient integrity: verify the recipient exists in this tournament and
   // the supplied mobile matches what is stored in the DB for that entity.
@@ -823,6 +845,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         scoringEnabled: tournamentsTable.scoringEnabled,
         scoringPhase: tournamentsTable.scoringPhase,
         licenseGrantedAt: tournamentsTable.licenseGrantedAt,
+        officialActivatedAt: tournamentsTable.officialActivatedAt,
         featuresJson: tournamentsTable.featuresJson,
         auctionUnit: tournamentsTable.auctionUnit,
       })
@@ -840,6 +863,15 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         res.status(403).json({ error: errMsg });
         return;
       }
+    }
+
+    if (tournament.adminLocked || !isTournamentOfficiallyActivatedForComm(tournament)) {
+      res.status(403).json({
+        error: tournament.adminLocked
+          ? "Tournament is locked by administrator"
+          : "Communications cannot be sent until Activate Live (Official Production) is enabled for this tournament",
+      });
+      return;
     }
 
     // Resolve DLT template ID (env takes priority, same as auction auto-send)
@@ -1044,28 +1076,29 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
     return;
   }
 
-  // License gate for WhatsApp — "active" is the licensed status in this system.
-  // All WhatsApp sends (including manual/custom) require a tournamentId so the
-  // license can be verified; no anonymous/license-free WA blasts allowed.
-  if (d.channel === "whatsapp" || d.channel === "both") {
-    const isPlatformOnboarding = canonicalTemplate === META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE;
-    if (!d.tournamentId && !isPlatformOnboarding) {
-      res.status(400).json({ error: "tournamentId is required for WhatsApp sends to enforce license gating" });
-      return;
-    }
-    if (d.tournamentId) {
-      const [t] = await db
-        .select({
-          licenseStatus: tournamentsTable.licenseStatus,
-          adminLocked: tournamentsTable.adminLocked,
-          scoringEnabled: tournamentsTable.scoringEnabled,
-          scoringPhase: tournamentsTable.scoringPhase,
-          licenseGrantedAt: tournamentsTable.licenseGrantedAt,
-          featuresJson: tournamentsTable.featuresJson,
-        })
-        .from(tournamentsTable)
-        .where(eq(tournamentsTable.id, d.tournamentId));
-      if (!t) { res.status(404).json({ error: "Tournament not found" }); return; }
+  // Official live activation & license gate for tournament-scoped outbound sends.
+  // All WhatsApp sends (including manual/custom) require a tournamentId so
+  // official activation & licensing can be verified; no anonymous/unactivated blasts allowed.
+  const isPlatformOnboarding = canonicalTemplate === META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE;
+  if ((d.channel === "whatsapp" || d.channel === "both") && !d.tournamentId && !isPlatformOnboarding) {
+    res.status(400).json({ error: "tournamentId is required for WhatsApp sends to enforce license gating" });
+    return;
+  }
+  if (d.tournamentId) {
+    const [t] = await db
+      .select({
+        licenseStatus: tournamentsTable.licenseStatus,
+        adminLocked: tournamentsTable.adminLocked,
+        scoringEnabled: tournamentsTable.scoringEnabled,
+        scoringPhase: tournamentsTable.scoringPhase,
+        licenseGrantedAt: tournamentsTable.licenseGrantedAt,
+        officialActivatedAt: tournamentsTable.officialActivatedAt,
+        featuresJson: tournamentsTable.featuresJson,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, d.tournamentId));
+    if (!t) { res.status(404).json({ error: "Tournament not found" }); return; }
+    if (d.channel === "whatsapp" || d.channel === "both") {
       if (!isTournamentLicensedForComm(t)) {
         const rawFeatures = t.featuresJson;
         const features = rawFeatures ? resolveTournamentFeatures(rawFeatures) : null;
@@ -1075,6 +1108,14 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         res.status(403).json({ error: errMsg });
         return;
       }
+    }
+    if (t.adminLocked || !isTournamentOfficiallyActivatedForComm(t)) {
+      res.status(403).json({
+        error: t.adminLocked
+          ? "Tournament is locked by administrator"
+          : "Communications cannot be sent until Activate Live (Official Production) is enabled for this tournament",
+      });
+      return;
     }
   }
 
