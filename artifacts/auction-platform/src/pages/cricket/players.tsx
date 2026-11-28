@@ -1386,7 +1386,7 @@ export default function CricketPlayersPage() {
                                             playerId={p.id}
                                             categoryId={p.categoryId}
                                             categories={categories}
-                                            noneLabel="No category"
+                                            noneLabel="No Category"
                                             triggerClassName="h-7 text-xs w-[130px]"
                                           />
                                         </div>
@@ -1517,7 +1517,7 @@ export default function CricketPlayersPage() {
                                             playerId={p.id}
                                             categoryId={p.categoryId}
                                             categories={categories}
-                                            noneLabel="No category"
+                                            noneLabel="No Category"
                                             triggerClassName="max-w-full w-full"
                                           />
                                         </div>

@@ -16,7 +16,7 @@ export function PlayerCategorySelect({
   playerId,
   categoryId,
   categories,
-  noneLabel = "—",
+  noneLabel = "No Category",
   triggerClassName,
 }: {
   tournamentId: number;
