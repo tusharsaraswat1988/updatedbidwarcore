@@ -135,6 +135,7 @@ import { GoogleSheetsReconnectBanner, PlayersExportMenu } from "@/components/pla
 import { PlayerCategorySelect, type PlayerCategoryOption } from "@/components/player-category-select";
 import {
   parseRegistrationFieldsConfig,
+  buildRegistrationFieldVisibility,
   buildRegistrationFieldRequirements,
   type RegistrationCustomQuestion,
   type RegistrationFieldsConfig,
@@ -633,9 +634,28 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
     return regConfig.customQuestions ?? [];
   }, [regConfig]);
 
+  const fieldVisibility = useMemo(() => {
+    return buildRegistrationFieldVisibility(regConfig, tournament?.sport);
+  }, [regConfig, tournament?.sport]);
+
   const fieldRequirements = useMemo(() => {
     return buildRegistrationFieldRequirements(regConfig, tournament?.sport);
   }, [regConfig, tournament?.sport]);
+
+  const showPhoto = fieldVisibility.photo !== false;
+  const showRole = fieldVisibility.role !== false;
+  const showEmail = fieldVisibility.email !== false;
+  const showCity = fieldVisibility.city !== false;
+  const showAge = fieldVisibility.age !== false;
+  const showGender = fieldVisibility.gender !== false;
+  const showJerseyNumber = fieldVisibility.jerseyNumber !== false;
+  const showJerseySize = fieldVisibility.jerseySize !== false;
+  const showLowerSize = fieldVisibility.lowerSize !== false;
+  const showJersey = showJerseyNumber || showJerseySize || showLowerSize;
+  const showAchievements = fieldVisibility.achievements !== false;
+  const showCrichero = sportCaps.hasLegacyCricketSpecs && fieldVisibility.cricheroUrl !== false;
+  const showMatchAvailability = fieldVisibility.matchAvailability !== false;
+  const showPhotoProfileSection = showPhoto || showAchievements || showCrichero || showMatchAvailability;
 
   const [customAnswers, setCustomAnswers] = useState<Record<string, any>>(() => {
     const raw = (player?.customAnswers as Record<string, any>) || (player?.customAnswersJson as Record<string, any>);
@@ -861,40 +881,52 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       setEmailError(emailResult.error);
       return;
     }
-    if (fieldRequirements.photo && !form.photoUrl) {
+    if (showPhoto && fieldRequirements.photo && !form.photoUrl) {
       setSubmitError("Player photo is required for this tournament.");
       return;
     }
-    if (fieldRequirements.role && !form.role) {
+    if (showRole && fieldRequirements.role && !form.role) {
       setSubmitError("Playing role is required for this tournament.");
       return;
     }
-    if (fieldRequirements.city && !form.city.trim()) {
+    if (showCity && fieldRequirements.city && !form.city.trim()) {
       setSubmitError("City is required for this tournament.");
       return;
     }
-    if (fieldRequirements.age && !form.age) {
+    if (showAge && fieldRequirements.age && !form.age) {
       setSubmitError("Age is required for this tournament.");
       return;
     }
-    if (fieldRequirements.gender && !form.gender) {
+    if (showGender && fieldRequirements.gender && !form.gender) {
       setSubmitError("Gender is required for this tournament.");
       return;
     }
-    if (fieldRequirements.jerseyNumber && !form.jerseyNumber.trim()) {
+    if (showJerseyNumber && fieldRequirements.jerseyNumber && !form.jerseyNumber.trim()) {
       setSubmitError("Jersey number is required for this tournament.");
       return;
     }
-    if (fieldRequirements.jerseySize && !form.jerseySize) {
+    if (showJerseySize && fieldRequirements.jerseySize && !form.jerseySize) {
       setSubmitError("Jersey size is required for this tournament.");
       return;
     }
-    if (fieldRequirements.lowerSize && !form.lowerSize) {
+    if (showLowerSize && fieldRequirements.lowerSize && !form.lowerSize) {
       setSubmitError("Lower size is required for this tournament.");
       return;
     }
-    if (fieldRequirements.email && !form.email.trim()) {
+    if (showEmail && fieldRequirements.email && !form.email.trim()) {
       setEmailError("Email is required for this tournament.");
+      return;
+    }
+    if (showAchievements && fieldRequirements.achievements && !form.achievements.trim()) {
+      setSubmitError("Achievements is required for this tournament.");
+      return;
+    }
+    if (showCrichero && fieldRequirements.cricheroUrl && !form.cricheroUrl.trim()) {
+      setSubmitError("CricHero URL is required for this tournament.");
+      return;
+    }
+    if (showMatchAvailability && fieldRequirements.matchAvailability && (!form.availabilityDates || !form.availabilityDates.trim())) {
+      setSubmitError("Match availability is required for this tournament.");
       return;
     }
     if (customQuestions.length > 0) {
@@ -924,34 +956,35 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
     );
     const data = {
       name: form.name,
-      city: form.city || undefined,
-      role: playerRoleUpdateValue(form.role),
+      city: showCity ? (form.city || undefined) : undefined,
+      role: showRole ? playerRoleUpdateValue(form.role) : undefined,
       battingStyle: form.battingStyle || undefined,
       bowlingStyle: form.bowlingStyle || undefined,
       specialization: form.specialization || undefined,
       specifications: specifications.length > 0 ? specifications : undefined,
-      age: form.age ? parseInt(form.age) : undefined,
-      gender:
-        form.gender === "M" || form.gender === "F"
+      age: showAge ? (form.age ? parseInt(form.age) : undefined) : undefined,
+      gender: showGender
+        ? (form.gender === "M" || form.gender === "F"
           ? form.gender
           : isEdit
             ? null
-            : undefined,
-      photoUrl: form.photoUrl || undefined,
-      photoPublicId: form.photoPublicId || undefined,
+            : undefined)
+        : undefined,
+      photoUrl: showPhoto ? (form.photoUrl || undefined) : undefined,
+      photoPublicId: showPhoto ? (form.photoPublicId || undefined) : undefined,
       ...(bidValueEditable
         ? showPlayerBidSelector
           ? { selectedBidValue: parseInt(form.selectedBidValue, 10) || undefined }
           : { basePrice: parseInt(String(form.basePrice)) || tournament?.minBid || 100000 }
         : {}),
-      jerseyNumber: form.jerseyNumber || undefined,
-      jerseySize: normalizeJerseySize(form.jerseySize) ?? undefined,
-      lowerSize: normalizeLowerSize(form.lowerSize) ?? undefined,
-      achievements: form.achievements || undefined,
+      jerseyNumber: showJerseyNumber ? (form.jerseyNumber || undefined) : undefined,
+      jerseySize: showJerseySize ? (normalizeJerseySize(form.jerseySize) ?? undefined) : undefined,
+      lowerSize: showLowerSize ? (normalizeLowerSize(form.lowerSize) ?? undefined) : undefined,
+      achievements: showAchievements ? (form.achievements || undefined) : undefined,
       mobileNumber: mobileResult.normalized,
-      email: emailResult.email || undefined,
-      cricheroUrl: sportCaps.hasLegacyCricketSpecs ? (form.cricheroUrl || undefined) : undefined,
-      availabilityDates: form.availabilityDates || undefined,
+      email: showEmail ? (emailResult.email || undefined) : undefined,
+      cricheroUrl: showCrichero ? (form.cricheroUrl || undefined) : undefined,
+      availabilityDates: showMatchAvailability ? (form.availabilityDates || undefined) : undefined,
       // Omit nulls on create — POST schema rejects null for retainedPrice.
       // PATCH clears team/retained fields server-side when leaving retained/sold.
       retainedPrice: form.status === "retained"
@@ -1214,63 +1247,71 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
           )}
 
           {/* Email Address */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">
-              Email Address {fieldRequirements.email ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
-            </Label>
-            <Input
-              type="email"
-              value={form.email}
-              onChange={e => { f("email", e.target.value); if (emailError) setEmailError(""); }}
-              placeholder="name@example.com"
-              className="h-9 text-xs sm:text-sm"
-            />
-            {emailError && <p className="text-xs text-destructive">{emailError}</p>}
-          </div>
+          {showEmail && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">
+                Email Address {fieldRequirements.email ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
+              </Label>
+              <Input
+                type="email"
+                value={form.email}
+                onChange={e => { f("email", e.target.value); if (emailError) setEmailError(""); }}
+                placeholder="name@example.com"
+                className="h-9 text-xs sm:text-sm"
+              />
+              {emailError && <p className="text-xs text-destructive">{emailError}</p>}
+            </div>
+          )}
 
           {/* City */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">
-              City {fieldRequirements.city && <span className="text-destructive">*</span>}
-            </Label>
-            <CityAutocomplete
-              value={form.city}
-              onChange={v => f("city", v)}
-              showHint={false}
-              placeholder="e.g. Mumbai, Delhi"
-              className="h-9 text-xs sm:text-sm"
-            />
-          </div>
+          {showCity && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">
+                City {fieldRequirements.city ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
+              </Label>
+              <CityAutocomplete
+                value={form.city}
+                onChange={v => f("city", v)}
+                showHint={false}
+                placeholder="e.g. Mumbai, Delhi"
+                className="h-9 text-xs sm:text-sm"
+              />
+            </div>
+          )}
 
           {/* Age */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">
-              Age {fieldRequirements.age && <span className="text-destructive">*</span>}
-            </Label>
-            <Input
-              type="number"
-              min="5"
-              max="99"
-              value={form.age}
-              onChange={e => f("age", e.target.value)}
-              required={fieldRequirements.age}
-              placeholder="e.g. 24"
-              className="h-9 text-xs sm:text-sm"
-            />
-          </div>
+          {showAge && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">
+                Age {fieldRequirements.age ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
+              </Label>
+              <Input
+                type="number"
+                min="5"
+                max="99"
+                value={form.age}
+                onChange={e => f("age", e.target.value)}
+                required={fieldRequirements.age}
+                placeholder="e.g. 24"
+                className="h-9 text-xs sm:text-sm"
+              />
+            </div>
+          )}
 
           {/* Gender */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">
-              Gender {fieldRequirements.gender && <span className="text-destructive">*</span>}
-            </Label>
-            <PlayerGenderSelect
-              value={form.gender}
-              onChange={(v) => f("gender", v)}
-              hideLabel={true}
-              triggerClassName="h-9 text-xs sm:text-sm"
-            />
-          </div>
+          {showGender && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">
+                Gender {fieldRequirements.gender ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
+              </Label>
+              <PlayerGenderSelect
+                value={form.gender}
+                onChange={(v) => f("gender", v)}
+                hideLabel={true}
+                triggerClassName="h-9 text-xs sm:text-sm"
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -1291,25 +1332,27 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start">
           {/* Role */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">
-              Role {fieldRequirements.role && <span className="text-destructive">*</span>}
-            </Label>
-            <Select value={form.role} onValueChange={v => f("role", v)}>
-              <SelectTrigger className="h-9 text-xs sm:text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent position="popper" className="max-h-60">
-                {buildPlayerRoleSelectOptions(
-                  sportRoles.map((r) => r.roleName),
-                  form.role,
-                  player?.role,
-                ).map((r) => (
-                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {showRole && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">
+                Role {fieldRequirements.role ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
+              </Label>
+              <Select value={form.role} onValueChange={v => f("role", v)}>
+                <SelectTrigger className="h-9 text-xs sm:text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent position="popper" className="max-h-60">
+                  {buildPlayerRoleSelectOptions(
+                    sportRoles.map((r) => r.roleName),
+                    form.role,
+                    player?.role,
+                  ).map((r) => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Base Price / Selected Bid Value */}
           <div className="space-y-1.5">
@@ -1456,200 +1499,220 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       </div>
 
       {/* 3. Uniform & Kit Sizing */}
-      <div className="rounded-xl border border-border bg-slate-50/70 p-4 space-y-3.5">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
-          <Shirt className="w-3.5 h-3.5 text-blue-600" />
-          <span>Uniform & Kit Sizing</span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 items-start">
-          {/* Jersey Number */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">
-              Jersey Number {fieldRequirements.jerseyNumber && <span className="text-destructive">*</span>}
-            </Label>
-            <Input
-              value={form.jerseyNumber}
-              onChange={e => f("jerseyNumber", e.target.value)}
-              placeholder="e.g. 7 or 18"
-              className="h-9 text-xs sm:text-sm"
-            />
+      {showJersey && (
+        <div className="rounded-xl border border-border bg-slate-50/70 p-4 space-y-3.5">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+            <Shirt className="w-3.5 h-3.5 text-blue-600" />
+            <span>Uniform & Kit Sizing</span>
           </div>
 
-          {/* Jersey Size */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">
-              Jersey Size {fieldRequirements.jerseySize && <span className="text-destructive">*</span>}
-            </Label>
-            <JerseySizeSelect
-              value={form.jerseySize}
-              onChange={v => f("jerseySize", v)}
-              hideLabel={true}
-              triggerClassName="h-9 text-xs sm:text-sm"
-            />
-          </div>
-
-          {/* Lower Size */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">
-              Lower Size {fieldRequirements.lowerSize && <span className="text-destructive">*</span>}
-            </Label>
-            <LowerSizeSelect
-              value={form.lowerSize}
-              onChange={v => f("lowerSize", v)}
-              hideLabel={true}
-              triggerClassName="h-9 text-xs sm:text-sm"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Photo, Achievements & Availability */}
-      <div className="rounded-xl border border-border bg-slate-50/70 p-4 space-y-3.5">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
-          <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-          <span>Photo & Profile Details</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-          {/* Left: Photo Upload */}
-          <div className="space-y-2 p-3 rounded-lg border border-border/60 bg-muted/20">
-            <Label className="text-xs font-medium flex items-center justify-between">
-              <span>Player Photo {fieldRequirements.photo && <span className="text-destructive">*</span>}</span>
-              <span className="text-[10px] text-muted-foreground font-normal">HD LED Display</span>
-            </Label>
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-xl border border-border bg-muted/40 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-                {form.photoUrl ? (
-                  <img
-                    src={form.photoUrl}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                  />
-                ) : (
-                  <User className="w-6 h-6 text-muted-foreground/40" />
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-xs gap-1.5 cursor-pointer font-medium"
-                    onClick={() => setPhotoEditorOpen(true)}
-                  >
-                    {form.photoUrl ? <><Pencil className="w-3 h-3" /> Change</> : <><Upload className="w-3 h-3" /> Upload Photo</>}
-                  </Button>
-                  {form.photoUrl && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
-                      onClick={() => { f("photoUrl", ""); f("photoPublicId", ""); }}
-                    >
-                      Remove
-                    </Button>
-                  )}
-                </div>
-                <p className="text-[11px] text-muted-foreground">Clear square portrait recommended.</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Bio & Profile Links */}
-          <div className="space-y-2.5">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">
-                Achievements {fieldRequirements.achievements ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
-              </Label>
-              <Input
-                value={form.achievements}
-                onChange={e => f("achievements", e.target.value)}
-                placeholder="e.g. Man of the Match, 5-wicket haul"
-                className="h-9 text-xs sm:text-sm"
-              />
-            </div>
-            {sportCaps.hasLegacyCricketSpecs && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 items-start">
+            {/* Jersey Number */}
+            {showJerseyNumber && (
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">
-                  Crichero URL {fieldRequirements.cricheroUrl ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
+                  Jersey Number {fieldRequirements.jerseyNumber ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
                 </Label>
                 <Input
-                  value={form.cricheroUrl}
-                  onChange={e => f("cricheroUrl", e.target.value)}
-                  placeholder="https://cricheroes.in/player-profile/..."
+                  value={form.jerseyNumber}
+                  onChange={e => f("jerseyNumber", e.target.value)}
+                  placeholder="e.g. 7 or 18"
                   className="h-9 text-xs sm:text-sm"
+                />
+              </div>
+            )}
+
+            {/* Jersey Size */}
+            {showJerseySize && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">
+                  Jersey Size {fieldRequirements.jerseySize ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
+                </Label>
+                <JerseySizeSelect
+                  value={form.jerseySize}
+                  onChange={v => f("jerseySize", v)}
+                  hideLabel={true}
+                  triggerClassName="h-9 text-xs sm:text-sm"
+                />
+              </div>
+            )}
+
+            {/* Lower Size */}
+            {showLowerSize && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">
+                  Lower Size {fieldRequirements.lowerSize ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
+                </Label>
+                <LowerSizeSelect
+                  value={form.lowerSize}
+                  onChange={v => f("lowerSize", v)}
+                  hideLabel={true}
+                  triggerClassName="h-9 text-xs sm:text-sm"
                 />
               </div>
             )}
           </div>
         </div>
+      )}
 
-        {/* Match Availability row */}
-        {(() => {
-          const matchDates: string[] = (tournament?.matchDates || "").split(",").filter(Boolean) as string[];
-          if (matchDates.length === 0) {
+      {/* 4. Photo, Achievements & Availability */}
+      {showPhotoProfileSection && (
+        <div className="rounded-xl border border-border bg-slate-50/70 p-4 space-y-3.5">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+            <span>Photo & Profile Details</span>
+          </div>
+
+          {(showPhoto || showAchievements || showCrichero) && (
+            <div className={`grid grid-cols-1 ${showPhoto && (showAchievements || showCrichero) ? "md:grid-cols-2" : ""} gap-4 items-start`}>
+              {/* Left: Photo Upload */}
+              {showPhoto && (
+                <div className="space-y-2 p-3 rounded-lg border border-border/60 bg-muted/20">
+                  <Label className="text-xs font-medium flex items-center justify-between">
+                    <span>Player Photo {fieldRequirements.photo ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">HD LED Display</span>
+                  </Label>
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-xl border border-border bg-muted/40 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                      {form.photoUrl ? (
+                        <img
+                          src={form.photoUrl}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : (
+                        <User className="w-6 h-6 text-muted-foreground/40" />
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs gap-1.5 cursor-pointer font-medium"
+                          onClick={() => setPhotoEditorOpen(true)}
+                        >
+                          {form.photoUrl ? <><Pencil className="w-3 h-3" /> Change</> : <><Upload className="w-3 h-3" /> Upload Photo</>}
+                        </Button>
+                        {form.photoUrl && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                            onClick={() => { f("photoUrl", ""); f("photoPublicId", ""); }}
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Clear square portrait recommended.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Right: Bio & Profile Links */}
+              {(showAchievements || showCrichero) && (
+                <div className="space-y-2.5">
+                  {showAchievements && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">
+                        Achievements {fieldRequirements.achievements ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
+                      </Label>
+                      <Input
+                        value={form.achievements}
+                        onChange={e => f("achievements", e.target.value)}
+                        placeholder="e.g. Man of the Match, 5-wicket haul"
+                        className="h-9 text-xs sm:text-sm"
+                      />
+                    </div>
+                  )}
+                  {showCrichero && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">
+                        Crichero URL {fieldRequirements.cricheroUrl ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
+                      </Label>
+                      <Input
+                        value={form.cricheroUrl}
+                        onChange={e => f("cricheroUrl", e.target.value)}
+                        placeholder="https://cricheroes.in/player-profile/..."
+                        className="h-9 text-xs sm:text-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Match Availability row */}
+          {showMatchAvailability && (() => {
+            const matchDates: string[] = (tournament?.matchDates || "").split(",").filter(Boolean) as string[];
+            if (matchDates.length === 0) {
+              return (
+                <div className="flex items-center gap-2 pt-2 border-t border-border/40 text-xs text-muted-foreground">
+                  <CalendarDays className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Available for all tournament match days.</span>
+                </div>
+              );
+            }
+            const selectedDates: string[] = (form.availabilityDates || "").split(",").filter(Boolean) as string[];
+            const selectedSet = new Set<string>(selectedDates);
+            function toggleAvailDate(iso: string) {
+              const next = new Set<string>(selectedSet);
+              if (next.has(iso)) next.delete(iso); else next.add(iso);
+              const kept: string[] = [];
+              next.forEach((v: string) => { if (matchDates.includes(v)) kept.push(v); });
+              f("availabilityDates", kept.join(","));
+            }
             return (
-              <div className="flex items-center gap-2 pt-2 border-t border-border/40 text-xs text-muted-foreground">
-                <CalendarDays className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>Available for all tournament match days.</span>
+              <div className="pt-2 border-t border-border/40 space-y-1.5">
+                <Label className="text-xs font-medium flex items-center gap-1.5">
+                  <CalendarDays className="w-3.5 h-3.5 text-amber-400" />
+                  Match Availability {fieldRequirements.matchAvailability ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
+                </Label>
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {matchDates.map((iso: string) => {
+                    const label = new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+                    const checked = selectedSet.has(iso);
+                    return (
+                      <label
+                        key={iso}
+                        className={`flex items-center gap-1.5 cursor-pointer text-xs px-2.5 py-1 rounded-md border transition-colors ${checked ? "border-amber-500/60 bg-amber-500/15 text-amber-300 font-medium" : "border-border hover:bg-muted/50 text-muted-foreground"}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleAvailDate(iso)}
+                          className="accent-amber-400 w-3.5 h-3.5"
+                        />
+                        {label}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             );
-          }
-          const selectedDates: string[] = (form.availabilityDates || "").split(",").filter(Boolean) as string[];
-          const selectedSet = new Set<string>(selectedDates);
-          function toggleAvailDate(iso: string) {
-            const next = new Set<string>(selectedSet);
-            if (next.has(iso)) next.delete(iso); else next.add(iso);
-            const kept: string[] = [];
-            next.forEach((v: string) => { if (matchDates.includes(v)) kept.push(v); });
-            f("availabilityDates", kept.join(","));
-          }
-          return (
-            <div className="pt-2 border-t border-border/40 space-y-1.5">
-              <Label className="text-xs font-medium flex items-center gap-1.5">
-                <CalendarDays className="w-3.5 h-3.5 text-amber-400" />
-                Match Availability {fieldRequirements.matchAvailability && <span className="text-destructive">*</span>}
-              </Label>
-              <div className="flex flex-wrap gap-1.5 pt-0.5">
-                {matchDates.map((iso: string) => {
-                  const label = new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-                  const checked = selectedSet.has(iso);
-                  return (
-                    <label
-                      key={iso}
-                      className={`flex items-center gap-1.5 cursor-pointer text-xs px-2.5 py-1 rounded-md border transition-colors ${checked ? "border-amber-500/60 bg-amber-500/15 text-amber-300 font-medium" : "border-border hover:bg-muted/50 text-muted-foreground"}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleAvailDate(iso)}
-                        className="accent-amber-400 w-3.5 h-3.5"
-                      />
-                      {label}
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
-      </div>
+          })()}
+        </div>
+      )}
 
-      <ImageEditorDialog
-        open={photoEditorOpen}
-        onClose={() => setPhotoEditorOpen(false)}
-        initialUrl={form.photoUrl || undefined}
-        aspect={PLAYER_PHOTO_ASPECT}
-        title="Player Photo"
-        exportMaxWidthOrHeight={PLAYER_PHOTO_WIDTH}
-        exportMaxSizeMB={PLAYER_PHOTO_EXPORT_MAX_MB}
-        exportHint="Higher resolution for sharp LED display — use a clear, well-lit photo."
-        onSave={upload => { f("photoUrl", upload.url); f("photoPublicId", upload.publicId); }}
-      />
+      {showPhoto && (
+        <ImageEditorDialog
+          open={photoEditorOpen}
+          onClose={() => setPhotoEditorOpen(false)}
+          initialUrl={form.photoUrl || undefined}
+          aspect={PLAYER_PHOTO_ASPECT}
+          title="Player Photo"
+          exportMaxWidthOrHeight={PLAYER_PHOTO_WIDTH}
+          exportMaxSizeMB={PLAYER_PHOTO_EXPORT_MAX_MB}
+          exportHint="Higher resolution for sharp LED display — use a clear, well-lit photo."
+          onSave={upload => { f("photoUrl", upload.url); f("photoPublicId", upload.publicId); }}
+        />
+      )}
 
       {/* 5. Auction Status & Assignment */}
       <div className="rounded-xl border border-border bg-slate-50/70 p-4 space-y-3.5">
